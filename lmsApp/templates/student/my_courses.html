@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Courses{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-xl shadow-md">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">All My Courses</h1>
+    
+    {% if enrolled_courses %}
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {% for enrollment in enrolled_courses %}
+            <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-shadow duration-300 flex flex-col">
+                <h3 class="text-xl font-bold text-gray-800 mb-2">{{ enrollment.course.title }}</h3>
+                <p class="text-gray-600 text-sm mb-4 flex-grow">{{ enrollment.course.description|truncatechars:150 }}</p>
+                
+                <div class="mb-4">
+                    <div class="flex justify-between text-sm font-medium mb-1">
+                        <span>Progress</span>
+                        <span>{{ enrollment.progress }}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="bg-blue-600 h-2.5 rounded-full" style="width: {{ enrollment.progress }}%"></div>
+                    </div>
+                </div>
+                
+                <a href="{% url 'course_detail' enrollment.course.id %}" class="inline-block text-center py-2 px-4 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-300">
+                    Go to Course <i class="fa-solid fa-arrow-right ml-1"></i>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center p-12 text-gray-500">
+            <i class="fa-solid fa-book-open text-6xl mb-4"></i>
+            <p class="text-lg">You have not enrolled in any courses yet.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

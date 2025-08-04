@@ -1,0 +1,130 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LMS - Login</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
+    <div class="flex flex-col md:flex-row w-full max-w-6xl bg-white shadow-xl overflow-hidden border border-gray-300">
+        
+        <!-- Left Column: Overview -->
+        <div class="hidden md:flex md:w-1/2 p-10 bg-blue-600 text-white flex-col justify-center items-center text-center space-y-6">
+            <h1 class="text-4xl font-bold">Welcome to the LMS</h1>
+            <p class="text-lg leading-relaxed">
+                Your platform for seamless learning and teaching. Dive into a world of knowledge with interactive courses, lessons, and smart analytics.
+            </p>
+            
+            <div class="space-y-4 text-left">
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-graduation-cap text-2xl"></i>
+                    <p class="text-base">Access a wide range of courses and track your progress.</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-chalkboard-user text-2xl"></i>
+                    <p class="text-base">Instructors can manage courses, grade assignments, and monitor performance.</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-chart-line text-2xl"></i>
+                    <p class="text-base">Admins get full insight into activities and user management.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Login Form -->
+        <div class="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
+            
+            <!-- Heading -->
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-800">Sign in to your Account</h2>
+                <p class="text-gray-500 mt-2">Welcome back! Please enter your details.</p>
+            </div>
+
+            <!-- Messages -->
+            {% if messages %}
+                <ul class="mb-4 space-y-2">
+                    {% for message in messages %}
+                        <li class="p-3 border text-sm font-medium
+                            {% if message.tags == 'error' %}
+                                border-red-300 bg-red-50 text-red-700
+                            {% elif message.tags == 'success' %}
+                                border-green-300 bg-green-50 text-green-700
+                            {% else %}
+                                border-blue-300 bg-blue-50 text-blue-700
+                            {% endif %}
+                        ">
+                            {{ message }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            <!-- Form -->
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+                
+                <!-- Username -->
+                <div>
+                    <label for="id_username" class="block text-sm font-medium text-gray-700">
+                        <i class="fa-solid fa-user-circle mr-2"></i>Username
+                    </label>
+                    <div class="mt-1">
+                        {{ form.username }}
+                        {% if form.username.errors %}
+                            <p class="text-red-500 text-xs italic mt-1">{{ form.username.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div>
+                    <label for="id_password" class="block text-sm font-medium text-gray-700">
+                        <i class="fa-solid fa-lock mr-2"></i>Password
+                    </label>
+                    <div class="mt-1">
+                        {{ form.password }}
+                        {% if form.password.errors %}
+                            <p class="text-red-500 text-xs italic mt-1">{{ form.password.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" 
+                    class="w-full flex justify-center py-3 px-4 border border-transparent shadow-sm text-sm font-medium 
+                           text-white bg-blue-600 hover:bg-blue-700 focus:outline-none 
+                           focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
+                    <i class="fa-solid fa-right-to-bracket mr-2"></i>Sign In
+                </button>
+            </form>
+
+            <!-- Footer -->
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-600">
+                    Don't have an account? 
+                    <a href="{% url 'register' %}" class="font-medium text-blue-600 hover:text-blue-500">Register here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Attempt Quiz: {{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-xl shadow-md max-w-3xl mx-auto">
+    <div class="text-center mb-6">
+        <i class="fa-solid fa-clipboard-question text-5xl text-green-500 mb-4"></i>
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ quiz.title }}</h1>
+        <p class="text-gray-600">Passing Score: {{ quiz.passing_score }}%</p>
+    </div>
+
+    <form method="post" class="space-y-8">
+        {% csrf_token %}
+        {% for question in quiz.questions.all %}
+            <div class="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                    {{ forloop.counter }}. {{ question.text }}
+                </h3>
+                <div class="space-y-3">
+                    {% for choice in question.choices.all %}
+                        <div class="flex items-center">
+                            <input type="checkbox" id="choice-{{ choice.id }}" name="choices" value="{{ choice.id }}" class="form-checkbox text-blue-600 rounded-md h-5 w-5">
+                            <label for="choice-{{ choice.id }}" class="ml-3 text-gray-700 cursor-pointer">{{ choice.text }}</label>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+
+        <div class="mt-8">
+            <button type="submit" class="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-300">
+                <i class="fa-solid fa-paper-plane mr-2"></i>Submit Quiz
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

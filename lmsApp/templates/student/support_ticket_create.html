@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Support Ticket{% endblock %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-xl shadow-md max-w-2xl mx-auto">
+    <div class="text-center mb-6">
+        <i class="fa-solid fa-headset text-5xl text-blue-500 mb-4"></i>
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Create a Support Ticket</h1>
+        <p class="text-gray-600">Please describe your issue below. We will get back to you as soon as possible.</p>
+    </div>
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+        <div>
+            <label for="{{ form.subject.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                <i class="fa-solid fa-envelope-open-text mr-2"></i>Subject
+            </label>
+            {{ form.subject }}
+            {% if form.subject.errors %}
+                <p class="text-red-500 text-xs italic mt-1">{{ form.subject.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                <i class="fa-solid fa-comment-dots mr-2"></i>Description
+            </label>
+            {{ form.description }}
+            {% if form.description.errors %}
+                <p class="text-red-500 text-xs italic mt-1">{{ form.description.errors.0 }}</p>
+            {% endif %}
+        </div>
+        
+        <div>
+            <button type="submit" class="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300">
+                <i class="fa-solid fa-paper-plane mr-2"></i>Submit Ticket
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

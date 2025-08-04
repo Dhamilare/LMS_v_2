@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage: {{ course.title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Course Header -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-3xl font-bold text-gray-800">{{ course.title }}</h1>
+            <a href="{% url 'instructor_course_edit' course.id %}" class="py-2 px-4 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors duration-200">
+                <i class="fa-solid fa-pencil mr-2"></i>Edit Course
+            </a>
+        </div>
+        <p class="text-gray-600 mb-2">{{ course.description }}</p>
+        <p class="text-sm text-gray-500">{{ course.enrollment_set.count }} students enrolled</p>
+    </div>
+
+    <!-- Course Content Management Tabs -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+        <div class="flex border-b border-gray-200">
+            <button class="tab-button active py-3 px-6 text-gray-600 hover:text-blue-600 font-medium border-b-2 border-transparent hover:border-blue-500 transition-colors duration-300" data-tab="lessons">Lessons</button>
+            <button class="tab-button py-3 px-6 text-gray-600 hover:text-blue-600 font-medium border-b-2 border-transparent hover:border-blue-500 transition-colors duration-300" data-tab="assignments">Assignments</button>
+            <button class="tab-button py-3 px-6 text-gray-600 hover:text-blue-600 font-medium border-b-2 border-transparent hover:border-blue-500 transition-colors duration-300" data-tab="quizzes">Quizzes</button>
+            <button class="tab-button py-3 px-6 text-gray-600 hover:text-blue-600 font-medium border-b-2 border-transparent hover:border-blue-500 transition-colors duration-300" data-tab="students">Students</button>
+        </div>
+
+        <!-- Lessons Tab Content -->
+        <div id="lessons" class="tab-content mt-6 space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-semibold text-gray-800">Lessons</h2>
+                <a href="{% url 'instructor_lesson_create' course.id %}" class="py-2 px-4 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200">
+                    <i class="fa-solid fa-plus mr-2"></i>Add Lesson
+                </a>
+            </div>
+            {% if lessons %}
+                <ul class="space-y-3">
+                    {% for lesson in lessons %}
+                    <li class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex items-center justify-between">
+                        <span class="font-medium text-gray-700">{{ lesson.title }}</span>
+                        <div class="space-x-2">
+                            <a href="{% url 'instructor_lesson_edit' lesson.id %}" class="py-1 px-3 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors duration-200">
+                                <i class="fa-solid fa-pencil"></i>
+                            </a>
+                            <a href="{% url 'instructor_lesson_delete' lesson.id %}" class="py-1 px-3 text-sm bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors duration-200">
+                                <i class="fa-solid fa-trash"></i>
+                            </a>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="text-center p-6 text-gray-500">
+                    <i class="fa-solid fa-chalkboard text-4xl mb-3"></i>
+                    <p class="text-lg">No lessons have been added yet.</p>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Assignments Tab Content -->
+        <div id="assignments" class="tab-content hidden mt-6 space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-semibold text-gray-800">Assignments</h2>
+                <a href="{% url 'instructor_assignment_create' course.id %}" class="py-2 px-4 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200">
+                    <i class="fa-solid fa-plus mr-2"></i>Add Assignment
+                </a>
+            </div>
+            {% if assignments %}
+                <ul class="space-y-3">
+                    {% for assignment in assignments %}
+                    <li class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex items-center justify-between">
+                        <span class="font-medium text-gray-700">{{ assignment.title }}</span>
+                        <div class="space-x-2">
+                            <a href="{% url 'instructor_assignment_submissions' assignment.id %}" class="py-1 px-3 text-sm bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 transition-colors duration-200">
+                                <i class="fa-solid fa-list-check"></i> Submissions
+                            </a>
+                            <a href="{% url 'instructor_assignment_edit' assignment.id %}" class="py-1 px-3 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors duration-200">
+                                <i class="fa-solid fa-pencil"></i>
+                            </a>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="text-center p-6 text-gray-500">
+                    <i class="fa-solid fa-list-check text-4xl mb-3"></i>
+                    <p class="text-lg">No assignments have been added yet.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Quizzes Tab Content -->
+        <div id="quizzes" class="tab-content hidden mt-6 space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-semibold text-gray-800">Quizzes</h2>
+                <a href="{% url 'instructor_quiz_create' course.id %}" class="py-2 px-4 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200">
+                    <i class="fa-solid fa-plus mr-2"></i>Add Quiz
+                </a>
+            </div>
+            {% if quizzes %}
+                <ul class="space-y-3">
+                    {% for quiz in quizzes %}
+                    <li class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex items-center justify-between">
+                        <span class="font-medium text-gray-700">{{ quiz.title }}</span>
+                        <div class="space-x-2">
+                            <a href="{% url 'instructor_quiz_edit' quiz.id %}" class="py-1 px-3 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors duration-200">
+                                <i class="fa-solid fa-pencil"></i>
+                            </a>
+                            <a href="{% url 'instructor_quiz_delete' quiz.id %}" class="py-1 px-3 text-sm bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors duration-200">
+                                <i class="fa-solid fa-trash"></i>
+                            </a>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="text-center p-6 text-gray-500">
+                    <i class="fa-solid fa-clipboard-question text-4xl mb-3"></i>
+                    <p class="text-lg">No quizzes have been added yet.</p>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Students Tab Content -->
+        <div id="students" class="tab-content hidden mt-6 space-y-4">
+            <h2 class="text-2xl font-semibold text-gray-800">Enrolled Students</h2>
+            {% if enrollments %}
+                <ul class="space-y-3">
+                    {% for enrollment in enrollments %}
+                    <li class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex items-center justify-between">
+                        <span class="font-medium text-gray-700">{{ enrollment.student.username }}</span>
+                        <p class="text-sm text-gray-500">Progress: {{ enrollment.progress }}%</p>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="text-center p-6 text-gray-500">
+                    <i class="fa-solid fa-user-graduate text-4xl mb-3"></i>
+                    <p class="text-lg">No students are currently enrolled in this course.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for Tab functionality -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const targetTab = button.getAttribute('data-tab');
+
+                // Deactivate all buttons and hide all contents
+                tabButtons.forEach(btn => {
+                    btn.classList.remove('active', 'text-blue-600', 'border-blue-500');
+                    btn.classList.add('text-gray-600', 'border-transparent');
+                });
+                tabContents.forEach(content => {
+                    content.classList.add('hidden');
+                });
+
+                // Activate the clicked button and show its content
+                button.classList.add('active', 'text-blue-600', 'border-blue-500');
+                document.getElementById(targetTab).classList.remove('hidden');
+            });
+        });
+        
+        // Initially activate the first tab
+        if (tabButtons.length > 0) {
+            tabButtons[0].click();
+        }
+    });
+</script>
+{% endblock %}

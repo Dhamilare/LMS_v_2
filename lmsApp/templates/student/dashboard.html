@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Student Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="bg-white p-6 rounded-xl shadow-md">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Welcome back, {{ user.username }}!</h1>
+        <p class="text-gray-600">Here's a quick overview of your learning journey.</p>
+    </div>
+
+    <!-- Enrolled Courses Section -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-semibold text-gray-800">My Enrolled Courses</h2>
+            <a href="{% url 'my_courses' %}" class="text-blue-600 hover:text-blue-800 transition-colors duration-200">
+                View All <i class="fa-solid fa-arrow-right ml-1"></i>
+            </a>
+        </div>
+        
+        {% if enrolled_courses %}
+            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {% for enrollment in enrolled_courses %}
+                <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-shadow duration-300">
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">{{ enrollment.course.title }}</h3>
+                    <p class="text-gray-600 text-sm mb-4">{{ enrollment.course.description|truncatechars:100 }}</p>
+                    
+                    <div class="mb-4">
+                        <div class="flex justify-between text-sm font-medium mb-1">
+                            <span>Progress</span>
+                            <span>{{ enrollment.progress }}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-blue-600 h-2.5 rounded-full" style="width: {{ enrollment.progress }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <a href="{% url 'course_detail' enrollment.course.id %}" class="w-full inline-block text-center py-2 px-4 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-300">
+                        Continue Learning <i class="fa-solid fa-arrow-right ml-1"></i>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center p-6 text-gray-500">
+                <i class="fa-solid fa-book text-4xl mb-3"></i>
+                <p class="text-lg">You are not enrolled in any courses yet.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Notifications Section -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Notifications</h2>
+        {% if notifications %}
+            <ul class="space-y-4">
+                {% for notification in notifications %}
+                <li class="p-4 bg-yellow-50 rounded-xl border border-yellow-200 flex items-start space-x-3">
+                    <i class="fa-solid fa-bell text-yellow-600 mt-1"></i>
+                    <p class="text-gray-700">{{ notification.message }}</p>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="text-center p-6 text-gray-500">
+                <i class="fa-solid fa-bell-slash text-4xl mb-3"></i>
+                <p class="text-lg">No new notifications.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

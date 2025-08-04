@@ -1,0 +1,88 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}{{ lesson.title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Breadcrumbs -->
+    <nav class="text-sm font-medium text-gray-500" aria-label="Breadcrumb">
+        <ol class="list-none p-0 inline-flex">
+            <li class="flex items-center">
+                <a href="{% url 'my_courses' %}" class="text-blue-600 hover:text-blue-800">My Courses</a>
+                <i class="fa-solid fa-chevron-right mx-2 text-gray-400"></i>
+            </li>
+            <li class="flex items-center">
+                <a href="{% url 'course_detail' lesson.course.id %}" class="text-blue-600 hover:text-blue-800">{{ lesson.course.title }}</a>
+                <i class="fa-solid fa-chevron-right mx-2 text-gray-400"></i>
+            </li>
+            <li>
+                <span class="text-gray-700">{{ lesson.title }}</span>
+            </li>
+        </ol>
+    </nav>
+    
+    <div class="bg-white p-6 rounded-xl shadow-md">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ lesson.title }}</h1>
+        <p class="text-sm text-gray-500">Course: {{ lesson.course.title }}</p>
+    </div>
+
+    <!-- Lesson Video -->
+    {% if lesson.video_url %}
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Video Content</h2>
+            <div class="relative aspect-w-16 aspect-h-9">
+                <!-- Embed YouTube or Vimeo video here -->
+                <iframe 
+                    class="w-full h-full rounded-lg" 
+                    src="{{ lesson.video_url }}" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen
+                ></iframe>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Lesson Content -->
+    <div class="bg-white p-6 rounded-xl shadow-md prose max-w-none">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Lesson Content</h2>
+        <div>
+            {{ lesson.content|markdown_to_html|safe }}
+        </div>
+    </div>
+    
+    <!-- Lesson Resources -->
+    {% if lesson.resource_file %}
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Resources</h2>
+            <a href="{{ lesson.resource_file.url }}" download class="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors duration-200">
+                <i class="fa-solid fa-download text-xl"></i>
+                <span class="text-lg font-medium">{{ lesson.resource_file.name }}</span>
+            </a>
+        </div>
+    {% endif %}
+
+    <!-- Navigation Buttons & Mark as Complete -->
+    <div class="flex justify-between items-center mt-6">
+        <a href="{% url 'course_detail' lesson.course.id %}" class="py-2 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200">
+            <i class="fa-solid fa-arrow-left mr-2"></i>Back to Course
+        </a>
+        
+        <!-- Mark as Complete Button -->
+        <form method="post" action="{% url 'mark_lesson_complete' lesson.id %}">
+            {% csrf_token %}
+            {% if is_complete %}
+                <button type="button" class="py-2 px-6 bg-green-500 text-white rounded-lg cursor-not-allowed">
+                    <i class="fa-solid fa-check mr-2"></i>Completed
+                </button>
+            {% else %}
+                <button type="submit" class="py-2 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-300">
+                    <i class="fa-solid fa-check mr-2"></i>Mark as Complete
+                </button>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}

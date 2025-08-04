@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Courses{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-xl shadow-md">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800">All My Courses</h1>
+        <a href="{% url 'course_create' %}" class="py-2 px-4 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors duration-300">
+            <i class="fa-solid fa-plus mr-2"></i>Create New Course
+        </a>
+    </div>
+    
+    {% if courses %}
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {% for course in courses %}
+            <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-shadow duration-300 flex flex-col">
+                <h3 class="text-xl font-bold text-gray-800 mb-2">{{ course.title }}</h3>
+                <p class="text-gray-600 text-sm mb-4 flex-grow">{{ course.description|truncatechars:150 }}</p>
+                <p class="text-sm text-gray-500 mb-4">{{ course.enrollment_set.count }} students enrolled</p>
+                
+                <a href="{% url 'instructor_course_detail' course.id %}" class="inline-block text-center py-2 px-4 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-300">
+                    Manage Course <i class="fa-solid fa-arrow-right ml-1"></i>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center p-12 text-gray-500">
+            <i class="fa-solid fa-chalkboard-teacher text-6xl mb-4"></i>
+            <p class="text-lg">You are not teaching any courses yet.</p>
+            <a href="{% url 'course_create' %}" class="mt-4 inline-block py-2 px-6 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors duration-300">
+                <i class="fa-solid fa-plus mr-2"></i>Start Your First Course
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
