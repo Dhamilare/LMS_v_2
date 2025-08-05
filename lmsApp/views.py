@@ -244,10 +244,37 @@ def instructor_delete(request, pk):
 @user_passes_test(is_instructor)
 def course_list(request):
     """
-    Lists courses managed by the logged-in instructor.
+    Lists courses managed by the logged-in instructor, with comprehensive search and pagination.
     """
-    courses = Course.objects.filter(instructor=request.user).order_by('-created_at')
-    return render(request, 'instructor/course_list.html', {'courses': courses})
+    # Start with courses created by the logged-in instructor
+    courses_list = Course.objects.filter(instructor=request.user).order_by('-created_at')
+    
+    search_query = request.GET.get('q', '')
+
+    if search_query:
+        # Filter courses by title or description (case-insensitive)
+        courses_list = courses_list.filter(
+            Q(title__icontains=search_query) | Q(description__icontains=search_query)
+        ).distinct() # Use distinct to avoid duplicate results if a course matches both title and description
+
+    # Set up pagination with 6 courses per page
+    paginator = Paginator(courses_list, 6) # 6 courses per page
+    page_number = request.GET.get('page')
+
+    try:
+        page_obj = paginator.get_page(page_number)
+    except PageNotAnInteger:
+        # If page is not an integer, deliver first page.
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        # If page is out of range (e.g. 9999), deliver last page of results.
+        page_obj = paginator.page(paginator.num_pages)
+
+    context = {
+        'page_obj': page_obj,  # Pass the page object to the template
+        'search_query': search_query, # Pass the search query back for the input field
+    }
+    return render(request, 'instructor/course_list.html', context)
 
 
 @login_required
@@ -272,7 +299,7 @@ def all_courses(request):
         ).distinct()
 
     # Set up pagination with 9 courses per page
-    paginator = Paginator(courses_list, 9)
+    paginator = Paginator(courses_list, 6)
     page_number = request.GET.get('page')
 
     try:
@@ -296,7 +323,7 @@ def course_create(request):
     """
     Allows an instructor to create a new course.
     """
-    template_name = 'instructor/_course_form.html' if is_ajax(request) else 'instructor/_course_form.html'
+    template_name = 'instructor/course_form.html' if is_ajax(request) else 'instructor/course_form.html'
 
     if request.method == 'POST':
         form = CourseForm(request.POST, request.FILES)
