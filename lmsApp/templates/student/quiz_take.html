@@ -1,0 +1,78 @@
+<!-- core/templates/core/quiz_take.html -->
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Take Quiz: {{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-lg shadow-lg">
+    <h1 class="text-4xl font-bold text-gray-800 mb-4 flex items-center">
+        <i class="fas fa-question-circle mr-3 text-green-600"></i> Take Quiz: {{ quiz.title }}
+    </h1>
+    <p class="text-gray-600 text-lg mb-6">
+        <span class="font-medium">Lesson:</span> {{ lesson.title }} |
+        <span class="font-medium">Module:</span> {{ module.title }} |
+        <span class="font-medium">Course:</span> {{ course.title }}
+    </p>
+
+    {% if quiz.description %}
+        <div class="bg-blue-50 p-4 rounded-md border border-blue-200 text-blue-800 mb-6">
+            <p class="font-semibold text-lg mb-2 flex items-center"><i class="fas fa-info-circle mr-2"></i> Quiz Instructions:</p>
+            <p>{{ quiz.description }}</p>
+        </div>
+    {% endif %}
+
+    {% if quiz.duration_minutes > 0 %}
+        <div class="bg-yellow-50 p-4 rounded-md border border-yellow-200 text-yellow-800 mb-6 flex items-center">
+            <i class="fas fa-hourglass-half mr-3 text-xl"></i>
+            <p class="font-semibold">Time Limit: <span id="quiz-timer">{{ quiz.duration_minutes }}</span> minutes</p>
+        </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'quiz_submit' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}" class="space-y-6">
+        {% csrf_token %}
+        {{ form|crispy }}
+        <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center justify-center text-lg shadow-md hover:shadow-lg">
+            <i class="fas fa-paper-plane mr-2"></i> Submit Quiz
+        </button>
+    </form>
+
+    <div class="mt-8 text-center">
+        <a href="{% url 'content_detail' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Content
+        </a>
+    </div>
+</div>
+
+<script>
+    // Client-side timer for quizzes
+    document.addEventListener('DOMContentLoaded', function() {
+        const timerElement = document.getElementById('quiz-timer');
+        const quizForm = document.querySelector('form');
+        const submitButton = quizForm ? quizForm.querySelector('button[type="submit"]') : null;
+
+        if (timerElement && quizForm && submitButton) {
+            let durationMinutes = parseInt(timerElement.textContent);
+            if (durationMinutes > 0) {
+                let timeLeft = durationMinutes * 60; // seconds
+
+                const timerInterval = setInterval(function() {
+                    let minutes = Math.floor(timeLeft / 60);
+                    let seconds = timeLeft % 60;
+
+                    timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        timerElement.textContent = "Time's up!";
+                        submitButton.disabled = true; // Disable submission
+                        quizForm.submit(); // Automatically submit the form
+                        displayMessage('error', 'Time is up! Your quiz has been automatically submitted.');
+                    }
+                    timeLeft--;
+                }, 1000);
+            }
+        }
+    });
+</script>
+{% endblock %}

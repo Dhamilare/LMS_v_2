@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 sm:p-8 rounded-lg shadow-lg"> {# Adjusted padding for smaller screens #}
+    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
+        <i class="fas fa-tachometer-alt mr-2 sm:mr-3 text-indigo-600"></i> Welcome to your Dashboard, {{ user.first_name|default:user.username }}!
+    </h2>
+
+    {% if is_admin %}
+        <div class="bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 rounded-md mb-8 flex flex-col sm:flex-row items-start shadow-md">
+            <i class="fas fa-user-shield text-xl sm:text-2xl mr-2 sm:mr-3 mt-1"></i>
+            <div class="flex-grow">
+                <p class="font-bold text-lg sm:text-xl mb-2">Admin Dashboard</p>
+                <p class="text-gray-700 text-sm sm:text-base mb-4">You have full control over the system. Here you can manage users, courses, and view overall statistics.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    <a href="{% url 'create_instructor' %}" class="bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition duration-300 flex items-center justify-center text-sm shadow-sm hover:shadow-md">
+                        <i class="fas fa-user-plus mr-2"></i> Create Instructor
+                    </a>
+                    <a href="{% url 'instructor_list' %}" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 flex items-center justify-center text-sm shadow-sm hover:shadow-md">
+                        <i class="fas fa-users mr-2"></i> Manage Instructors
+                    </a>
+                    <span class="bg-gray-200 text-gray-800 py-2 px-4 rounded-md flex items-center justify-center text-sm shadow-sm">
+                        <i class="fas fa-chart-line mr-2"></i> View System Reports (coming soon)
+                    </span>
+                </div>
+            </div>
+        </div>
+    {% elif is_instructor %}
+        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-md mb-8 flex flex-col sm:flex-row items-start shadow-md">
+            <i class="fas fa-chalkboard-teacher text-xl sm:text-2xl mr-2 sm:mr-3 mt-1"></i>
+            <div class="flex-grow">
+                <p class="font-bold text-lg sm:text-xl mb-2">Instructor Dashboard</p>
+                <p class="text-gray-700 text-sm sm:text-base mb-4">As an instructor, you can create and manage your courses, grade assignments, and track student progress.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    <a href="{% url 'course_create' %}" class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300 flex items-center justify-center text-sm shadow-sm hover:shadow-md">
+                        <i class="fas fa-plus-circle mr-2"></i> Create New Course
+                    </a>
+                    <a href="{% url 'course_list' %}" class="bg-teal-600 text-white py-2 px-4 rounded-md hover:bg-teal-700 transition duration-300 flex items-center justify-center text-sm shadow-sm hover:shadow-md">
+                        <i class="fas fa-book-open mr-2"></i> Manage My Courses
+                    </a>
+                    <!-- <span class="bg-gray-200 text-gray-800 py-2 px-4 rounded-md flex items-center justify-center shadow-sm">
+                        <i class="fas fa-tasks mr-2"></i> View Student Submissions (coming soon)
+                    </span> -->
+                </div>
+            </div>
+        </div>
+        {% if courses %}
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-4 flex items-center mt-8">
+                <i class="fas fa-laptop-code mr-2 sm:mr-3 text-indigo-600"></i> Your Courses
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {% for course in courses %}
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
+                        <img src="{{ course.thumbnail|default:'https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail' }}" alt="{{ course.title }} Thumbnail" class="w-full h-40 sm:h-48 object-cover"> {# Adjusted height #}
+                        <div class="p-4 sm:p-5">
+                            <h3 class="text-lg sm:text-xl font-semibold text-gray-800 mb-2">{{ course.title }}</h3>
+                            <p class="text-gray-600 text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-3">{{ course.description }}</p> {# Adjusted font size #}
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4 space-y-1 sm:space-y-0"> {# Adjusted font size and flex direction #}
+                                <span class="flex items-center"><i class="fas fa-user mr-1 sm:mr-2"></i> Instructor: {{ course.instructor.get_full_name|default:course.instructor.username }}</span>
+                                <span class="flex items-center"><i class="fas fa-dollar-sign mr-1 sm:mr-2"></i> Price: {% if course.price %}{{ course.price }}{% else %}Free{% endif %}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="px-2 py-0.5 sm:px-3 sm:py-1 text-xs font-semibold rounded-full flex items-center
+                                    {% if course.is_published %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                    {% if course.is_published %}<i class="fas fa-check-circle mr-1"></i> Published{% else %}<i class="fas fa-hourglass-half mr-1"></i> Draft{% endif %}
+                                </span>
+                                <a href="{% url 'course_detail' slug=course.slug %}" class="text-indigo-600 hover:text-indigo-800 font-medium flex items-center text-sm">
+                                    View Course <i class="fas fa-arrow-right ml-1 sm:ml-2"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-8 sm:py-10 bg-gray-50 rounded-lg shadow-sm border border-gray-200 mt-8">
+                <p class="text-gray-600 text-base sm:text-lg mb-4 flex items-center justify-center">
+                    <i class="fas fa-info-circle mr-2"></i> You haven't created any courses yet.
+                </p>
+                <a href="{% url 'course_create' %}" class="bg-indigo-600 text-white py-2 px-5 sm:px-6 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center mx-auto w-fit shadow-md hover:shadow-lg text-sm sm:text-base">
+                    <i class="fas fa-plus-circle mr-2"></i> Start Your First Course
+                </a>
+            </div>
+        {% endif %}
+
+    {% elif is_student %}
+        <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md mb-8 flex flex-col sm:flex-row items-start shadow-md">
+            <i class="fas fa-user-graduate text-xl sm:text-2xl mr-2 sm:mr-3 mt-1"></i>
+            <div class="flex-grow">
+                <p class="font-bold text-lg sm:text-xl mb-2">Student Dashboard</p>
+                <p class="text-gray-700 text-sm sm:text-base mb-4">Welcome, student! Here you can view your enrolled courses, track your progress, and take quizzes.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    <form action="{% url 'dashboard' %}" method="get" class="col-span-full mb-4">
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2"> {# Changed to flex-col on mobile, flex-row on sm+ #}
+                            <input type="text" name="q" placeholder="Search courses by title or description..."
+                                   value="{{ search_query|default:'' }}"
+                                   class="flex-grow w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"> {# Added w-full #}
+                            <div class="flex space-x-2 w-full sm:w-auto"> {# Ensured buttons take full width on mobile #}
+                                <button type="submit" class="flex-grow sm:flex-grow-0 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-sm text-sm">
+                                    <i class="fas fa-search mr-2"></i> Search
+                                </button>
+                                {% if search_query %}
+                                    <a href="{% url 'dashboard' %}" class="flex-grow sm:flex-grow-0 bg-gray-300 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-400 transition duration-300 flex items-center justify-center shadow-sm text-sm">
+                                        <i class="fas fa-times mr-2"></i> Clear
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-4 flex items-center mt-8">
+            <i class="fas fa-bookmark mr-2 sm:mr-3 text-purple-600"></i> My Enrolled Courses
+        </h3>
+        {% if enrolled_courses %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {% for enrollment in enrolled_courses %}
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
+                        <img src="{{ enrollment.course.thumbnail|default:'https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail' }}" alt="{{ enrollment.course.title }} Thumbnail" class="w-full h-40 sm:h-48 object-cover">
+                        <div class="p-4 sm:p-5">
+                            <h3 class="text-lg sm:text-xl font-semibold text-gray-800 mb-2">{{ enrollment.course.title }}</h3>
+                            <p class="text-gray-600 text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-3">{{ enrollment.course.description }}</p>
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4 space-y-1 sm:space-y-0">
+                                <span class="flex items-center"><i class="fas fa-user mr-1 sm:mr-2"></i> Instructor: {{ enrollment.course.instructor.get_full_name|default:enrollment.course.instructor.username }}</span>
+                                <span class="flex items-center"><i class="fas fa-calendar-alt mr-1 sm:mr-2"></i> Enrolled: {{ enrollment.enrolled_at|date:"M d, Y" }}</span>
+                            </div>
+                            <div class="flex items-center justify-between mt-2">
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div class="bg-indigo-600 h-2.5 rounded-full" style="width: {{ enrollment.progress_percentage }}%;"></div>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700 ml-2 sm:ml-3">{{ enrollment.progress_percentage }}%</span>
+                            </div>
+                            <div class="flex justify-between items-center mt-4">
+                                <span class="px-2 py-0.5 sm:px-3 sm:py-1 text-xs font-semibold rounded-full flex items-center
+                                    {% if enrollment.completed %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                                    {% if enrollment.completed %}<i class="fas fa-check-double mr-1"></i> Completed{% else %}<i class="fas fa-spinner fa-spin mr-1"></i> In Progress{% endif %}
+                                </span>
+                               
+                                {% if enrollment.completed %}
+                                    {% if enrollment.has_certificate %}
+                                        <a href="{% url 'view_certificate' certificate_id=enrollment.certificate_obj.certificate_id %}" target="_blank" class="text-green-600 hover:text-green-800 font-medium flex items-center text-sm">
+                                            View Certificate <i class="fas fa-award ml-1 sm:ml-2"></i>
+                                        </a>
+                                    {% elif enrollment.can_claim_certificate %}
+                                        <form method="post" action="{% url 'issue_certificate' course_slug=enrollment.course.slug %}" class="inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="bg-yellow-500 text-white py-1.5 px-3 rounded-md hover:bg-yellow-600 transition duration-300 flex items-center text-xs sm:text-sm">
+                                                <i class="fas fa-certificate mr-1 sm:mr-2"></i> Claim Certificate
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <a href="{% url 'course_detail' slug=enrollment.course.slug %}" class="text-indigo-600 hover:text-indigo-800 font-medium flex items-center text-sm">
+                                            Go to Course <i class="fas fa-arrow-right ml-1 sm:ml-2"></i>
+                                        </a>
+                                    {% endif %}
+                                {% else %}
+                                    <a href="{% url 'course_detail' slug=enrollment.course.slug %}" class="text-indigo-600 hover:text-indigo-800 font-medium flex items-center text-sm">
+                                        Go to Course <i class="fas fa-arrow-right ml-1 sm:ml-2"></i>
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-8 sm:py-10 bg-gray-50 rounded-lg shadow-sm border border-gray-200 mt-8">
+                <p class="text-gray-600 text-base sm:text-lg mb-4 flex items-center justify-center">
+                    <i class="fas fa-info-circle mr-2"></i> You are not enrolled in any courses yet.
+                </p>
+                <p class="text-gray-600 text-sm sm:text-md mb-4 flex items-center justify-center">
+                    <i class="fas fa-lightbulb mr-2"></i> Explore available courses to get started!
+                </p>
+            </div>
+        {% endif %}
+
+        {% if available_courses %}
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-4 flex items-center mt-8">
+                <i class="fas fa-compass mr-2 sm:mr-3 text-indigo-600"></i>
+                {% if search_query %}Search Results for "{{ search_query }}"{% else %}Explore More Courses{% endif %}
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {% for course in available_courses %}
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
+                        <img src="{{ course.thumbnail|default:'https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail' }}" alt="{{ course.title }} Thumbnail" class="w-full h-40 sm:h-48 object-cover">
+                        <div class="p-4 sm:p-5">
+                            <h3 class="text-lg sm:text-xl font-semibold text-gray-800 mb-2">{{ course.title }}</h3>
+                            <p class="text-gray-600 text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-3">{{ course.description }}</p>
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4 space-y-1 sm:space-y-0">
+                                <span class="flex items-center"><i class="fas fa-user mr-1 sm:mr-2"></i> Instructor: {{ course.instructor.get_full_name|default:course.instructor.username }}</span>
+                                <span class="flex items-center"><i class="fas fa-dollar-sign mr-1 sm:mr-2"></i> Price: {% if course.price %}{{ course.price }}{% else %}Free{% endif %}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="px-2 py-0.5 sm:px-3 sm:py-1 text-xs font-semibold rounded-full flex items-center bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i> Published
+                                </span>
+                                <a href="{% url 'course_detail' slug=course.slug %}" class="text-indigo-600 hover:text-indigo-800 font-medium flex items-center text-sm">
+                                    View Course <i class="fas fa-arrow-right ml-1 sm:ml-2"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% elif search_query %}
+            <div class="text-center py-8 sm:py-10 bg-gray-50 rounded-lg shadow-sm border border-gray-200 mt-8">
+                <p class="text-gray-600 text-base sm:text-lg mb-4 flex items-center justify-center">
+                    <i class="fas fa-info-circle mr-2"></i> No courses found matching "{{ search_query }}".
+                </p>
+            </div>
+        {% endif %}
+
+    {% else %}
+        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md mb-8 flex flex-col sm:flex-row items-start shadow-md">
+            <i class="fas fa-exclamation-triangle text-xl sm:text-2xl mr-2 sm:mr-3 mt-1"></i>
+            <div class="flex-grow">
+                <p class="font-bold text-lg sm:text-xl mb-2">User Dashboard</p>
+                <p class="text-gray-700 text-sm sm:text-base">Your role is not clearly defined. Please contact support.</p>
+            </div>
+        </div>
+    {% endif %}    
+</div>
+{% endblock %}

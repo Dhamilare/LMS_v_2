@@ -1,0 +1,165 @@
+<!-- core/templates/core/content_detail.html (Fixed YouTube URL) -->
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %} 
+
+{% block title %}{{ content.title }}{% endblock %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-lg shadow-lg">
+    <h1 class="text-4xl font-bold text-gray-800 mb-4 flex items-center">
+        {% if content.content_type == 'video' %}<i class="fas fa-video mr-3 text-indigo-600"></i>
+        {% elif content.content_type == 'pdf' %}<i class="fas fa-file-pdf mr-3 text-red-600"></i>
+        {% elif content.content_type == 'text' %}<i class="fas fa-file-alt mr-3 text-blue-600"></i>
+        {% elif content.content_type == 'slide' %}<i class="fas fa-file-powerpoint mr-3 text-orange-600"></i>
+        {% elif content.content_type == 'quiz' %}<i class="fas fa-question-circle mr-3 text-green-600"></i>
+        {% elif content.content_type == 'assignment' %}<i class="fas fa-tasks mr-3 text-purple-600"></i>
+        {% endif %}
+        {{ content.title }}
+    </h1>
+    <p class="text-gray-600 text-lg mb-6">
+        <span class="font-medium">Lesson:</span> {{ lesson.title }} |
+        <span class="font-medium">Module:</span> {{ module.title }} |
+        <span class="font-medium">Course:</span> {{ course.title }}
+    </p>
+
+    <div class="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+        {% if content.content_type == 'video' %}
+            {% if content.video_url %}
+                <div class="relative" style="padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%;">
+                    {# Use the new custom filter here #}
+                    <iframe class="absolute top-0 left-0 w-full h-full rounded-lg shadow-md"
+                            src="{{ content.video_url|youtube_embed_url }}"
+                            frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowfullscreen></iframe>
+                </div>
+                <p class="text-gray-600 mt-4">Video URL: <a href="{{ content.video_url }}" target="_blank" class="text-indigo-600 hover:underline">{{ content.video_url }}</a></p>
+            {% elif content.file %}
+                <video controls class="w-full rounded-lg shadow-md">
+                    <source src="{{ content.file.url }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <p class="text-gray-600 mt-4">Download Video: <a href="{{ content.file.url }}" download class="text-indigo-600 hover:underline flex items-center"><i class="fas fa-download mr-2"></i> {{ content.file.name|split:'/'|last }}</a></p>
+            {% else %}
+                <p class="text-red-600">No video content available.</p>
+            {% endif %}
+        {% elif content.content_type == 'pdf' or content.content_type == 'slide' %}
+            {% if content.file %}
+                <div class="mb-4">
+                    <iframe src="{{ content.file.url }}" class="w-full h-[600px] border-none rounded-lg shadow-md"></iframe>
+                </div>
+                <p class="text-gray-600">Download {{ content.get_content_type_display }}: <a href="{{ content.file.url }}" download class="text-indigo-600 hover:underline flex items-center"><i class="fas fa-download mr-2"></i> {{ content.file.name|split:'/'|last }}</a></p>
+            {% else %}
+                <p class="text-red-600">No {{ content.get_content_type_display }} file available.</p>
+            {% endif %}
+        {% elif content.content_type == 'text' %}
+            <div class="prose max-w-none text-gray-800">
+                {{ content.text_content|linebreaksbr }}
+            </div>
+        {% elif content.content_type == 'quiz' %}
+            <p class="text-gray-700 text-lg mb-4 flex items-center"><i class="fas fa-question-circle mr-2 text-green-600"></i> This is a Quiz!</p>
+            {% if quiz_obj %}
+                <p class="text-gray-600 mb-4">Quiz Title: <span class="font-semibold">{{ quiz_obj.title }}</span></p>
+                {% if quiz_obj.description %}
+                    <p class="text-gray-600 mb-4">{{ quiz_obj.description }}</p>
+                {% endif %}
+                <a href="{% url 'quiz_take' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}"
+                   class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    <i class="fas fa-play-circle mr-2"></i> Take Quiz
+                </a>
+            {% else %}
+                <p class="text-red-600 flex items-center"><i class="fas fa-exclamation-triangle mr-2"></i> No quiz found linked to this content. Please link a quiz in the admin panel.</p>
+            {% endif %}
+        {% elif content.content_type == 'assignment' %}
+            <p class="text-gray-700 text-lg"><i class="fas fa-tasks mr-2 text-purple-600"></i> This is an Assignment! Assignment submission functionality will be implemented here.</p>
+            <!-- Placeholder for assignment interface -->
+        {% else %}
+            <p class="text-gray-700">Content type not supported for direct display yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="flex justify-between items-center mt-8">
+        <a href="{% url 'course_detail' slug=course.slug %}" class="text-indigo-600 hover:underline flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Course Details
+        </a>
+        {% if request.user.is_instructor and course.instructor == request.user %}
+            <div class="flex space-x-2">
+                <button onclick="loadModalForm('{% url 'content_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+                    <i class="fas fa-edit mr-2"></i> Edit Content
+                </button>
+                <button onclick="loadModalForm('{% url 'content_delete' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')" class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+                    <i class="fas fa-trash-alt mr-2"></i> Delete Content
+                </button>
+            </div>
+        {% elif request.user.is_student and student_progress and content.content_type != 'quiz' %} {# Only show for students who have a progress record and if not a quiz #}
+            <button id="markCompleteBtn"
+                    onclick="markContentCompleted('{% url 'mark_content_completed' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')"
+                    class="py-2 px-4 rounded-md transition duration-300 flex items-center shadow-md hover:shadow-lg
+                           {% if student_progress.completed %}bg-green-600 hover:bg-green-700 text-white{% else %}bg-gray-200 hover:bg-gray-300 text-gray-800{% endif %}">
+                {% if student_progress.completed %}
+                    <i class="fas fa-check-circle mr-2"></i> Mark as Incomplete
+                {% else %}
+                    <i class="fas fa-circle-notch mr-2"></i> Mark as Complete
+                {% endif %}
+            </button>
+        {% endif %}
+    </div>
+    <div class="mt-6 text-center">
+        <a href="{% url 'dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<script>
+    // This function is already in base.html, but keeping it here for context if needed for testing
+    // async function getCookie(name) { ... }
+
+    async function markContentCompleted(url) {
+        // No confirm dialog for toggling, as it's a quick action
+        const markCompleteBtn = document.getElementById('markCompleteBtn');
+        const originalHtml = markCompleteBtn.innerHTML;
+        markCompleteBtn.disabled = true; // Disable button during request
+        markCompleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Updating...'; // Show loading state
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({})
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                displayMessage('success', result.message || 'Progress updated!');
+                // Update button text and style based on new status
+                if (result.completed) {
+                    markCompleteBtn.classList.remove('bg-gray-200', 'hover:bg-gray-300', 'text-gray-800');
+                    markCompleteBtn.classList.add('bg-green-600', 'hover:bg-green-700', 'text-white');
+                    markCompleteBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Mark as Incomplete';
+                } else {
+                    markCompleteBtn.classList.remove('bg-green-600', 'hover:bg-green-700', 'text-white');
+                    markCompleteBtn.classList.add('bg-gray-200', 'hover:bg-gray-300', 'text-gray-800');
+                    markCompleteBtn.innerHTML = '<i class="fas fa-circle-notch mr-2"></i> Mark as Complete';
+                }
+                // Optionally, reload the dashboard to update overall progress
+                // window.location.reload(); // Might be too aggressive, let's update dashboard separately
+            } else {
+                displayMessage('error', result.error || 'Failed to update progress.');
+                markCompleteBtn.innerHTML = originalHtml; // Restore original HTML on error
+            }
+        } catch (error) {
+            console.error('Error marking content completed:', error);
+            displayMessage('error', 'An error occurred while updating progress.');
+            markCompleteBtn.innerHTML = originalHtml; // Restore original HTML on error
+        } finally {
+            markCompleteBtn.disabled = false; // Re-enable button
+        }
+    }
+</script>
+{% endblock content %}

@@ -1,0 +1,27 @@
+<!-- core/templates/core/course_form.html (Updated with Back Button) -->
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[calc(100vh-160px)]">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl">
+        <h2 class="text-3xl font-bold text-center text-gray-800 mb-6 flex items-center justify-center">
+            <i class="fas fa-edit mr-3 text-indigo-600"></i> {{ page_title }}
+        </h2>
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center justify-center">
+                <i class="fas fa-save mr-2"></i> Save Course
+            </button>
+        </form>
+        <div class="mt-6 text-center">
+            <a href="{% url 'dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

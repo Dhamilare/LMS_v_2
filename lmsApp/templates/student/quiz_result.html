@@ -1,0 +1,91 @@
+<!-- core/templates/core/quiz_result.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Quiz Result: {{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-lg shadow-lg">
+    <h1 class="text-4xl font-bold text-gray-800 mb-4 flex items-center">
+        <i class="fas fa-poll-h mr-3 text-indigo-600"></i> Quiz Result: {{ quiz.title }}
+    </h1>
+    <p class="text-gray-600 text-lg mb-6">
+        <span class="font-medium">Lesson:</span> {{ lesson.title }} |
+        <span class="font-medium">Module:</span> {{ module.title }} |
+        <span class="font-medium">Course:</span> {{ course.title }}
+    </p>
+
+    <div class="mb-8 p-6 rounded-lg shadow-md
+        {% if attempt.passed %}bg-green-100 border-green-400 text-green-800{% else %}bg-red-100 border-red-400 text-red-800{% endif %}">
+        <h2 class="text-3xl font-bold mb-2 flex items-center">
+            {% if attempt.passed %}<i class="fas fa-check-circle mr-3"></i> Passed!
+            {% else %}<i class="fas fa-times-circle mr-3"></i> Failed!
+            {% endif %}
+        </h2>
+        <p class="text-xl">Your Score: <span class="font-bold">{{ attempt.score|floatformat:2 }}%</span></p>
+        <p class="text-lg">Required to Pass: {{ quiz.pass_percentage }}%</p>
+        <p class="text-sm text-gray-700 mt-2">Attempt Date: {{ attempt.attempt_date|date:"M d, Y H:i" }}</p>
+    </div>
+
+    <h3 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+        <i class="fas fa-clipboard-list mr-3 text-purple-600"></i> Answer Breakdown
+    </h3>
+
+    <div class="space-y-6">
+        {% for qa in questions_with_answers %}
+            <div class="bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-sm">
+                <p class="text-lg font-semibold text-gray-800 mb-3 flex items-start">
+                    Q{{ forloop.counter }}. {{ qa.question.text }}
+                </p>
+                <ul class="space-y-2">
+                    {% for option in qa.options %}
+                        <li class="p-3 rounded-md border
+                            {% if option.id == qa.chosen_option_id %}
+                                {% if option.is_correct %}
+                                    bg-green-100 border-green-400 text-green-800 font-medium
+                                {% else %}
+                                    bg-red-100 border-red-400 text-red-800 font-medium
+                                {% endif %}
+                            {% elif option.is_correct %}
+                                bg-blue-100 border-blue-400 text-blue-800 font-medium {# Correct answer not chosen #}
+                            {% else %}
+                                bg-white border-gray-200 text-gray-700
+                            {% endif %}
+                            flex items-center">
+                            {% if option.id == qa.chosen_option_id %}
+                                {% if option.is_correct %}
+                                    <i class="fas fa-check-circle mr-3 text-green-600"></i>
+                                {% else %}
+                                    <i class="fas fa-times-circle mr-3 text-red-600"></i>
+                                {% endif %}
+                            {% elif option.is_correct %}
+                                <i class="fas fa-check mr-3 text-blue-600"></i>
+                            {% else %}
+                                <i class="far fa-circle mr-3 text-gray-500"></i>
+                            {% endif %}
+                            {{ option.text }}
+                        </li>
+                    {% endfor %}
+                </ul>
+                {% if not qa.is_correct %}
+                    <p class="text-sm text-red-600 mt-3 flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-2"></i> Your answer was incorrect.
+                        {% if qa.correct_option %}
+                            The correct answer was: <span class="font-medium text-blue-800 ml-1">{{ qa.correct_option.text }}</span>
+                        {% endif %}
+                    </p>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="flex justify-between items-center mt-8">
+        <a href="{% url 'content_detail' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Content
+        </a>
+        <a href="{% url 'quiz_take' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <i class="fas fa-redo mr-2"></i> Retake Quiz
+        </a>
+    </div>
+</div>
+{% endblock %}

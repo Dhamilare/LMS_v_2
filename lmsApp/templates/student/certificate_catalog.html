@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Certificate Catalog{% endblock %}
+
+{% block content %}
+<div class="bg-gray-50 min-h-screen font-inter">
+    <div class="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <div class="max-w-4xl mx-auto text-center mb-10">
+            <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight">
+                My Certificate Catalog
+            </h1>
+            <p class="mt-4 text-lg text-gray-600">
+                A collection of your achievements and hard-earned certifications.
+            </p>
+        </div>
+
+        {% if student_certificates %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for certificate in student_certificates %}
+                    <div class="relative bg-white rounded-2xl shadow-lg border-2 border-transparent hover:border-indigo-500 transition-all duration-300 overflow-hidden">
+                        <!-- Award Icon Overlay -->
+                        <div class="absolute top-4 right-4 text-yellow-400 opacity-80 z-10">
+                            <i class="fas fa-award fa-3x"></i>
+                        </div>
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold text-gray-900 mb-2 truncate">
+                                Certificate of Completion
+                            </h3>
+                            <h4 class="text-md text-gray-700 mb-4 font-semibold">{{ certificate.course.title }}</h4>
+                            
+                            <div class="flex items-center text-sm text-gray-500 mb-3">
+                                <i class="fas fa-user-tie text-indigo-500 mr-2"></i>
+                                <span>Instructor: {{ certificate.course.instructor.get_full_name|default:certificate.course.instructor.username }}</span>
+                            </div>
+
+                            <div class="flex items-center text-sm text-gray-500 mb-4">
+                                <i class="fas fa-calendar-check text-green-500 mr-2"></i>
+                                <span>Issued On: {{ certificate.issue_date|date:"M d, Y" }}</span>
+                            </div>
+
+                            <div class="mt-6">
+                                <a href="{% url 'view_certificate' certificate_id=certificate.certificate_id %}" 
+                                   class="inline-flex items-center justify-center w-full px-4 py-3 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition duration-300 shadow-sm">
+                                    View Certificate <i class="fas fa-arrow-right ml-2"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- No Certificates Message -->
+            <div class="max-w-2xl mx-auto text-center py-12 bg-white rounded-xl shadow-lg border border-gray-200">
+                <i class="fas fa-trophy-alt text-5xl text-gray-400 mb-4"></i>
+                <p class="text-gray-600 text-lg mb-2">
+                    You haven't earned any certificates yet.
+                </p>
+                <p class="text-gray-500 text-md">
+                    Complete a course to get your first one!
+                </p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

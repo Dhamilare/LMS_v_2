@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'lmsApp',
+    'crispy_forms',
+    'crispy_tailwind',
 ]
 
 MIDDLEWARE = [
@@ -126,9 +128,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'lmsApp.User'
 
-LOGIN_REDIRECT_URL = 'dashboard'
-LOGIN_URL = 'login'
-LOGOUT_URL = 'login'
+# Crispy Forms settings
+CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
+CRISPY_TEMPLATE_PACK = "tailwind"
+
+# LOGIN_REDIRECT_URL = 'dashboard'
+# LOGOUT_URL = 'login'
 
 EMAIL_BACKEND = config("EMAIL_BACKEND")
 EMAIL_USE_TLS = True

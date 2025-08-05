@@ -1,0 +1,52 @@
+<!-- core/templates/core/_content_form.html (Snippet for Modal) -->
+{% load crispy_forms_tags %}
+
+<div class="p-4">
+    <h2 class="text-3xl font-bold text-center text-gray-800 mb-6 flex items-center justify-center">
+        <i class="fas fa-plus-square mr-3 text-indigo-600"></i> {{ page_title }}
+    </h2>
+    <p class="text-center text-gray-600 mb-6">For Lesson: <span class="font-semibold">{{ lesson.title }}</span> (Module: <span class="font-semibold">{{ module.title }}</span>)</p>
+    <form method="post" enctype="multipart/form-data" class="space-y-4" action="{% if content %}{% url 'content_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}{% else %}{% url 'content_create' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}{% endif %}">
+        {% csrf_token %}
+        {{ form|crispy }}
+        <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center justify-center">
+            <i class="fas fa-save mr-2"></i> Save Content
+        </button>
+    </form>
+</div>
+
+<script>
+    // JavaScript to conditionally show/hide content fields based on content_type
+    document.addEventListener('DOMContentLoaded', function() {
+        const contentTypeSelect = document.getElementById('id_content_type');
+        const fileField = document.getElementById('div_id_file');
+        const textField = document.getElementById('div_id_text_content');
+        const videoUrlField = document.getElementById('div_id_video_url');
+
+        function toggleContentFields() {
+            const selectedType = contentTypeSelect.value;
+
+            // Hide all by default
+            fileField.style.display = 'none';
+            textField.style.display = 'none';
+            videoUrlField.style.display = 'none';
+
+            if (selectedType === 'video') {
+                videoUrlField.style.display = 'block';
+                fileField.style.display = 'block'; // Allow file upload for video too
+            } else if (selectedType === 'pdf' || selectedType === 'slide') {
+                fileField.style.display = 'block';
+            } else if (selectedType === 'text') {
+                textField.style.display = 'block';
+            }
+            // For 'quiz' and 'assignment', no specific content fields are shown here
+        }
+
+        // Add event listener only if elements exist (important for snippets)
+        if (contentTypeSelect) {
+            contentTypeSelect.addEventListener('change', toggleContentFields);
+            // Initial call to set visibility based on current value (e.g., on edit page)
+            toggleContentFields();
+        }
+    });
+</script>

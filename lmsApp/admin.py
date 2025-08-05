@@ -1,168 +1,124 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-
+from django.contrib.auth.admin import UserAdmin
 from .models import *
 
-# Inlines allow you to edit related objects on the same page as their parent.
+class CustomUserAdmin(UserAdmin):
+    fieldsets = UserAdmin.fieldsets + (
+        (None, {'fields': ('is_instructor', 'is_student')}),
+    )
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active', 'is_instructor', 'is_student')
+    list_filter = ('is_staff', 'is_active', 'is_instructor', 'is_student')
+
+admin.site.register(User, CustomUserAdmin)
+
+
+# Inline for Modules within Course Admin
+class ModuleInline(admin.TabularInline):
+    model = Module
+    extra = 1 # Number of empty forms to display
+    show_change_link = True # Allow direct link to module edit page
+
+# Inline for Lessons within Module Admin
 class LessonInline(admin.TabularInline):
-    """Inline to manage lessons directly from the Course admin page."""
     model = Lesson
     extra = 1
-    fields = ('title', 'order', 'video_url', 'content', 'resource_file')
-    prepopulated_fields = {'title': ('title',)}
+    show_change_link = True
 
-class AssignmentInline(admin.TabularInline):
-    """Inline to manage assignments directly from the Course admin page."""
-    model = Assignment
+# Inline for Content within Lesson Admin
+class ContentInline(admin.TabularInline):
+    model = Content
     extra = 1
-    fields = ('title', 'due_date', 'description')
-
-class QuestionInline(admin.StackedInline):
-    """Inline to manage questions directly from the Quiz admin page."""
-    model = Question
-    extra = 1
-
-class ChoiceInline(admin.TabularInline):
-    """Inline to manage choices directly from the Question admin page."""
-    model = Choice
-    extra = 4  # Provides 4 choices by default for each question
-    fields = ('text', 'is_correct')
-
-
-@admin.register(User)
-class CustomUserAdmin(BaseUserAdmin):
-    """Custom admin for the User model to manage roles and user details."""
-    list_display = ('username', 'email', 'role', 'is_staff', 'is_active', 'date_joined')
-    list_filter = ('is_staff', 'is_superuser', 'is_active', 'role')
-    search_fields = ('username', 'first_name', 'last_name', 'email')
-    ordering = ('-date_joined',)
-    fieldsets = (
-        (None, {'fields': ('username', 'password')}),
-        ('Personal info', {'fields': ('first_name', 'last_name', 'email', 'role')}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-        ('Important dates', {'fields': ('last_login', 'date_joined')}),
-    )
-    readonly_fields = ('date_joined', 'last_login')
-
+    show_change_link = True
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    """Admin for the Course model with inlines for lessons and assignments."""
-    list_display = ('title', 'instructor', 'created_at')
-    list_filter = ('instructor',)
-    search_fields = ('title', 'description')
-    inlines = [LessonInline, AssignmentInline]
-    date_hierarchy = 'created_at'
+    list_display = ('title', 'instructor', 'price', 'is_published', 'created_at', 'updated_at', 'slug')
+    list_filter = ('is_published', 'instructor')
+    search_fields = ('title', 'description', 'instructor__username')
+    prepopulated_fields = {'slug': ('title',)} # Auto-populate slug from title
+    inlines = [ModuleInline]
 
+@admin.register(Module)
+class ModuleAdmin(admin.ModelAdmin):
+    list_display = ('title', 'course', 'order')
+    list_filter = ('course',)
+    search_fields = ('title', 'description', 'course__title')
+    inlines = [LessonInline]
 
 @admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
-    """Admin for the Lesson model."""
-    list_display = ('title', 'course', 'order')
-    list_filter = ('course',)
-    search_fields = ('title', 'content')
-    list_editable = ('order',)
-    raw_id_fields = ('course',)
+    list_display = ('title', 'module', 'order')
+    list_filter = ('module__course', 'module')
+    search_fields = ('title', 'description', 'module__title')
+    inlines = [ContentInline]
 
+@admin.register(Content)
+class ContentAdmin(admin.ModelAdmin):
+    list_display = ('title', 'lesson', 'content_type', 'order', 'created_at')
+    list_filter = ('content_type', 'lesson__module__course', 'lesson__module', 'lesson')
+    search_fields = ('title', 'text_content', 'video_url', 'lesson__title')
 
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
-    """Admin for the Enrollment model."""
-    list_display = ('student', 'course', 'enrollment_date', 'progress')
-    list_filter = ('course', 'enrollment_date')
+    list_display = ('student', 'course', 'enrolled_at', 'completed')
+    list_filter = ('completed', 'course', 'student')
     search_fields = ('student__username', 'course__title')
-    list_editable = ('progress',)
-    raw_id_fields = ('student', 'course')
+    raw_id_fields = ('student', 'course') # Use raw_id_fields for FKs to improve performance with many users/courses
+
+@admin.register(StudentContentProgress)
+class StudentContentProgressAdmin(admin.ModelAdmin):
+    list_display = ('student', 'content', 'completed', 'completed_at')
+    list_filter = ('completed', 'content__lesson__module__course', 'student')
+    search_fields = ('student__username', 'content__title')
+    raw_id_fields = ('student', 'content')
+    readonly_fields = ('completed_at',) # completed_at is set automatically by save method
 
 
-@admin.register(Assignment)
-class AssignmentAdmin(admin.ModelAdmin):
-    """Admin for the Assignment model."""
-    list_display = ('title', 'course', 'due_date')
-    list_filter = ('course', 'due_date')
-    search_fields = ('title', 'description')
-    date_hierarchy = 'due_date'
-
-
-@admin.register(Submission)
-class SubmissionAdmin(admin.ModelAdmin):
-    """Admin for the Submission model."""
-    list_display = ('assignment', 'student', 'submission_date', 'grade', 'feedback')
-    list_filter = ('assignment__course', 'student', 'grade')
-    search_fields = ('assignment__title', 'student__username')
-    list_editable = ('grade', 'feedback')
-    readonly_fields = ('submission_date', 'file')
-
-
-@admin.register(Certificate)
-class CertificateAdmin(admin.ModelAdmin):
-    """Admin for the Certificate model."""
-    list_display = ('student', 'course', 'issue_date')
-    list_filter = ('course', 'issue_date')
-    search_fields = ('student__username', 'course__title')
-    raw_id_fields = ('student', 'course')
-
-
-@admin.register(Notification)
-class NotificationAdmin(admin.ModelAdmin):
-    """Admin for the Notification model."""
-    list_display = ('user', 'message', 'is_read', 'created_at')
-    list_filter = ('is_read',)
-    search_fields = ('user__username', 'message')
-    date_hierarchy = 'created_at'
-    list_editable = ('is_read',)
-
-
-@admin.register(Quiz)
-class QuizAdmin(admin.ModelAdmin):
-    """Admin for the Quiz model with an inline for questions."""
-    list_display = ('title', 'course', 'passing_score')
-    list_filter = ('course',)
-    search_fields = ('title',)
-    inlines = [QuestionInline]
-
+class OptionInline(admin.TabularInline):
+    model = Option
+    extra = 0   # No extra blank forms
+    min_num = 4 # Require exactly 4 options
+    max_num = 4 # Allow exactly 4 options
 
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
-    """Admin for the Question model with an inline for choices."""
-    list_display = ('text', 'quiz')
+    list_display = ('text', 'quiz', 'order')
     list_filter = ('quiz',)
-    inlines = [ChoiceInline]
+    search_fields = ('text', 'quiz__title')
+    inlines = [OptionInline]
+    raw_id_fields = ('quiz',) # Use raw_id_fields for FKs
 
+class QuestionInline(admin.TabularInline):
+    model = Question
+    extra = 1
+    show_change_link = True # Allow direct link to question edit page
 
-@admin.register(QuizSubmission)
-class QuizSubmissionAdmin(admin.ModelAdmin):
-    """Admin for the QuizSubmission model."""
-    list_display = ('quiz', 'student', 'score', 'submitted_at')
-    list_filter = ('quiz', 'student')
-    search_fields = ('quiz__title', 'student__username')
-    readonly_fields = ('submitted_at',)
-    raw_id_fields = ('quiz', 'student', 'choices')
+@admin.register(Quiz)
+class QuizAdmin(admin.ModelAdmin):
+    list_display = ('title', 'lesson', 'duration_minutes', 'pass_percentage', 'created_at')
+    list_filter = ('lesson__module__course', 'lesson')
+    search_fields = ('title', 'description', 'lesson__title')
+    inlines = [QuestionInline]
+    raw_id_fields = ('lesson',) # Use raw_id_fields for OneToOneField
 
+@admin.register(StudentQuizAttempt)
+class StudentQuizAttemptAdmin(admin.ModelAdmin):
+    list_display = ('student', 'quiz', 'score', 'passed', 'attempt_date')
+    list_filter = ('passed', 'quiz', 'student')
+    search_fields = ('student__username', 'quiz__title')
+    raw_id_fields = ('student', 'quiz')
 
-@admin.register(Subscription)
-class SubscriptionAdmin(admin.ModelAdmin):
-    """Admin for the Subscription model."""
-    list_display = ('student', 'start_date', 'end_date', 'is_active', 'amount_paid')
-    list_filter = ('is_active', 'start_date')
-    search_fields = ('student__username',)
+@admin.register(StudentAnswer)
+class StudentAnswerAdmin(admin.ModelAdmin):
+    list_display = ('attempt', 'question', 'chosen_option')
+    list_filter = ('attempt__quiz', 'question__quiz')
+    search_fields = ('attempt__student__username', 'question__text', 'chosen_option__text')
+    raw_id_fields = ('attempt', 'question', 'chosen_option')
 
-
-@admin.register(SupportTicket)
-class SupportTicketAdmin(admin.ModelAdmin):
-    """Admin for the SupportTicket model."""
-    list_display = ('subject', 'submitted_by', 'status', 'created_at')
-    list_filter = ('status',)
-    search_fields = ('subject', 'submitted_by__username')
-    date_hierarchy = 'created_at'
-    list_editable = ('status',)
-
-
-@admin.register(StudentProgress)
-class StudentProgressAdmin(admin.ModelAdmin):
-    """
-    Customizes the admin for the StudentProgress model.
-    """
-    list_display = ('student', 'lesson', 'is_completed', 'completion_date')
-    list_filter = ('lesson__course', 'is_completed')
-    search_fields = ('student__username', 'lesson__title')
+@admin.register(Certificate)
+class CertificateAdmin(admin.ModelAdmin):
+    list_display = ('student', 'course', 'issue_date', 'certificate_id', 'pdf_file')
+    list_filter = ('issue_date', 'course', 'student')
+    search_fields = ('student__username', 'course__title', 'certificate_id')
+    readonly_fields = ('issue_date', 'certificate_id')
+    raw_id_fields = ('student', 'course')

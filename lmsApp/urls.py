@@ -2,43 +2,51 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # --- Authentication URLs ---
-    path('accounts/register/', views.register_view, name='register'),
-    path('accounts/login/', views.login_view, name='login'),
-    path('logout/', views.logout_view, name='logout'),
-    path('', views.dashboard_view, name='dashboard'),
+    path('accounts/register/', views.student_register, name='register'),
+    path('accounts/login/', views.user_login, name='login'),
+    path('logout/', views.user_logout, name='logout'),
+    path('', views.dashboard, name='dashboard'),
 
-    # --- Student URLs ---
-    path('student/dashboard/', views.student_dashboard, name='student_dashboard'),
-    path('student/my-courses/', views.my_courses, name='my_courses'),
-    path('student/course/<int:course_id>/', views.course_detail, name='course_detail'),
-    path('student/lesson/<int:lesson_id>/', views.lesson_detail, name='lesson_detail'),
-    path('student/assignment/<int:assignment_id>/submit/', views.assignment_submit, name='assignment_submit'),
-    path('student/quiz/<int:quiz_id>/attempt/', views.quiz_attempt, name='quiz_attempt'),
-    path('student/my-certificates/', views.my_certificates, name='my_certificates'),
-    path('student/support/create/', views.support_ticket_create, name='support_ticket_create'),
-    
-    path('lessons/<int:lesson_id>/mark_complete/', views.mark_lesson_complete, name='mark_lesson_complete'),
+    # Admin Functionality
+    path('create-instructor/', views.create_instructor, name='create_instructor'),
+    path('instructors/', views.instructor_list, name='instructor_list'), 
+    path('instructors/<int:pk>/edit/', views.instructor_update, name='instructor_update'),
+    path('instructors/<int:pk>/delete/', views.instructor_delete, name='instructor_delete'), 
 
-    # --- Instructor URLs ---
-    path('instructor/dashboard/', views.instructor_dashboard, name='instructor_dashboard'),
-    path('instructor/courses/', views.instructor_courses, name='instructor_courses'),
-    path('instructor/courses/create/', views.course_create, name='course_create'),
-    path('instructor/courses/<int:course_id>/edit/', views.course_edit, name='course_edit'),
-    path('instructor/courses/<int:course_id>/lessons/create/', views.lesson_create, name='lesson_create'),
-    path('instructor/courses/<int:course_id>/assignments/create/', views.assignment_create, name='assignment_create'),
-    path('instructor/courses/<int:course_id>/quizzes/create/', views.quiz_create, name='quiz_create'),
-    path('instructor/submissions/grade/<int:submission_id>/', views.submission_grade, name='submission_grade'),
-    path('instructor/analytics/', views.instructor_analytics, name='instructor_analytics'),
+    # Instructor Course Management
+    path('courses/', views.course_list, name='course_list'),
+    path('courses/create/', views.course_create, name='course_create'),
+    path('courses/<slug:slug>/edit/', views.course_update, name='course_update'),
+    path('courses/<slug:slug>/delete/', views.course_delete, name='course_delete'), 
 
-    # --- Moderator URLs ---
-    path('moderator/dashboard/', views.moderator_dashboard, name='moderator_dashboard'),
-    path('moderator/users/', views.user_management, name='user_management'),
-    path('moderator/users/create/', views.user_create, name='user_create'),
-    path('moderator/users/<int:user_id>/edit/', views.user_edit, name='user_edit'),
-    path('moderator/users/<int:user_id>/delete/', views.user_delete, name='user_delete'),
-    path('moderator/subscriptions/', views.subscription_management, name='subscription_management'),
-    path('moderator/tickets/', views.ticket_management, name='ticket_management'),
-    path('moderator/tickets/<int:ticket_id>/detail/', views.ticket_detail, name='ticket_detail'),
-    path('moderator/tickets/<int:ticket_id>/resolve/', views.ticket_resolve, name='ticket_resolve'),
+    # Course Detail and Content Management
+    path('student_courses/', views.all_courses, name='all_courses'),
+    path('courses/<slug:slug>/', views.course_detail, name='course_detail'),
+    path('courses/<slug:slug>/enroll/', views.enroll_course, name='enroll_course'),
+
+    # Progress Tracking
+    path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/mark-completed/', views.mark_content_completed, name='mark_content_completed'),
+
+    # Certificate Functionality (NEW)
+    path('courses/<slug:course_slug>/issue-certificate/', views.issue_certificate, name='issue_certificate'),
+    path('certificates/<uuid:certificate_id>/view/', views.view_certificate, name='view_certificate'),
+    path('certificates/', views.certificate_catalog, name='certificate_catalog'),
+
+    # Module Management (Nested under course)
+    path('courses/<slug:course_slug>/modules/create/', views.module_create, name='module_create'),
+    path('courses/<slug:course_slug>/modules/<int:module_id>/edit/', views.module_update, name='module_update'),
+    path('courses/<slug:course_slug>/modules/<int:module_id>/delete/', views.module_delete, name='module_delete'),
+
+    # Lesson Management (Nested under module)
+    path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/create/', views.lesson_create, name='lesson_create'),
+    path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/edit/', views.lesson_update, name='lesson_update'),
+    path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/delete/', views.lesson_delete, name='lesson_delete'),
+
+    # Content Management (Nested under lesson)
+    path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/create/', views.content_create, name='content_create'),
+    path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/edit/', views.content_update, name='content_update'),
+    path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/delete/', views.content_delete, name='content_delete'),
+    path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/', views.content_detail, name='content_detail'),
 ]
+
+

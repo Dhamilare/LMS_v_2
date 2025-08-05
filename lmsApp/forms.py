@@ -1,165 +1,370 @@
+# core/forms.py (Instructor is_staff=False Corrected)
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, UserChangeForm
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Layout, Submit, Field, Div, HTML
 from .models import *
+from django.core.exceptions import ValidationError
+from django.contrib.auth.password_validation import validate_password
+from django.forms import inlineformset_factory
 
+class StudentRegistrationForm(forms.ModelForm):
+    """
+    Custom form for student registration.
+    """
 
-# --- Custom Authentication Forms ---
+    password = forms.CharField(
+        label="Password",
+        widget=forms.PasswordInput(attrs={"placeholder": "Enter your password"}),
+        help_text=""
+    )
+    password2 = forms.CharField(
+        label="Confirm Password",
+        widget=forms.PasswordInput(attrs={"placeholder": "Confirm your password"}),
+        help_text=""
+    )
 
-class CustomAuthenticationForm(AuthenticationForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-        self.fields['username'].widget.attrs.update({
-            'class': 'block w-full p-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition',
-            'placeholder': 'Username'
-        })
-        self.fields['password'].widget.attrs.update({
-            'class': 'block w-full p-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition',
-            'placeholder': 'Password'
-        })
-
-
-class CustomUserCreationForm(UserCreationForm):
     class Meta:
         model = User
-        fields = ('username', 'email', 'password1', 'password2')
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-        for field_name, field in self.fields.items():
-            field.widget.attrs.update({
-                'class': 'block w-full p-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition',
-                'placeholder': field.label
-            })
-
-class UserForm(forms.ModelForm):
-    """
-    A form for editing existing user details.
-    """
-    class Meta:
-        model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'role']
+        fields = ("username", "email", "first_name", "last_name")
         widgets = {
-            'username': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500'}),
-            'first_name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500'}),
-            'last_name': forms.TextInput(attrs={'class': 'w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500'}),
-            'email': forms.EmailInput(attrs={'class': 'w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500'}),
-            'role': forms.Select(attrs={'class': 'w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500'}),
+            "username": forms.TextInput(attrs={"placeholder": "Choose a username"}),
+            "email": forms.EmailInput(attrs={"placeholder": "Enter your email address"}),
+            "first_name": forms.TextInput(attrs={"placeholder": "Your first name"}),
+            "last_name": forms.TextInput(attrs={"placeholder": "Your last name"}),
         }
+        help_texts = {field: "" for field in fields}
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-class AdminUserCreationForm(UserCreationForm):
+        # Base Tailwind block style (no shadows)
+        base_classes = (
+            "w-full block bg-white border border-gray-300 rounded-md "
+            "px-4 py-3 text-gray-800 placeholder-gray-500 "
+            "focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+        )
+        error_classes = (
+            "w-full block bg-white border border-red-500 rounded-md "
+            "px-4 py-3 text-gray-800 placeholder-gray-500 "
+            "focus:border-red-500 focus:ring focus:ring-red-200 focus:ring-opacity-50"
+        )
+
+        # Apply dynamic styles
+        for field_name, field in self.fields.items():
+            css_classes = error_classes if self.errors.get(field_name) else base_classes
+            field.widget.attrs.update({"class": css_classes})
+
+    def clean_password2(self):
+        password = self.cleaned_data.get("password")
+        password2 = self.cleaned_data.get("password2")
+
+        if password and password2 and password != password2:
+            raise ValidationError("Passwords do not match.")
+
+        try:
+            validate_password(password, self.instance)
+        except ValidationError as e:
+            self.add_error("password", e)
+            raise
+
+        return password2
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password"])
+        user.is_student = True
+        user.is_instructor = False
+        user.is_staff = False
+        if commit:
+            user.save()
+        return user
+
+class LoginForm(AuthenticationForm):
     """
-    A custom form for administrators to create a new user.
-    It includes fields for username, email, password, and the user's role.
+    Custom form for user login with Tailwind block style (no shadow, spacious).
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Base Tailwind block style
+        base_classes = (
+            "w-full block bg-white border border-gray-300 rounded-md "
+            "px-4 py-3 text-gray-800 placeholder-gray-500 "
+            "focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+        )
+        error_classes = (
+            "w-full block bg-white border border-red-500 rounded-md "
+            "px-4 py-3 text-gray-800 placeholder-gray-500 "
+            "focus:border-red-500 focus:ring focus:ring-red-200 focus:ring-opacity-50"
+        )
+
+        # Apply block style dynamically
+        for field_name, field in self.fields.items():
+            css_classes = error_classes if self.errors.get(field_name) else base_classes
+            placeholder = f"Enter your {field.label.lower()}"
+            field.widget.attrs.update({"class": css_classes, "placeholder": placeholder})
+
+class InstructorCreationForm(UserCreationForm):
+    """
+    Form for Admin to create Instructor accounts.
     """
     class Meta(UserCreationForm.Meta):
         model = User
-        fields = ('username', 'email', 'role',)
+        fields = ('username', 'email', 'first_name', 'last_name')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field_name, field in self.fields.items():
-            field.help_text = ''
-            field.widget.attrs.update({
-                'class': 'block w-full p-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition',
-                'placeholder': field.label
-            })
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field('username', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('email', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('first_name', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('last_name', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('password', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('password2', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Submit('submit', 'Create Instructor', css_class='w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-4')
+        )
 
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.is_instructor = True # Set new user as instructor
+        user.is_student = False # Ensure they are not students
+        user.is_staff = False # Corrected: Instructors are NOT staff/admin
+        if commit:
+            user.save()
+        return user
+    
+class InstructorUpdateForm(UserChangeForm):
+    """
+    Form for Admin to update Instructor accounts.
+    Excludes password fields for security, as password changes should be separate.
+    """
+    password = None # Exclude password field from this form
 
-# --- Instructor-specific Forms ---
+    class Meta(UserChangeForm.Meta):
+        model = User
+        fields = ('username', 'email', 'first_name', 'last_name')
+        # Remove help_texts for all fields if desired, similar to StudentRegistrationForm
+        help_texts = {f: '' for f in fields} # Set all help_texts to empty string
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field('username', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('email', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('first_name', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('last_name', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Submit('submit', 'Update Instructor', css_class='w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-4')
+        )
 
 class CourseForm(forms.ModelForm):
-    """Form to create or edit a course."""
+    """
+    Form for creating and updating Course objects.
+    """
     class Meta:
         model = Course
-        fields = ['title', 'description']
+        fields = ['title', 'description', 'price', 'is_published', 'thumbnail']
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Course Title'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Course Description'}),
+            'description': forms.Textarea(attrs={'rows': 4}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field('title', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('description', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('price', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('is_published', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('thumbnail', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Submit('submit', 'Save Course', css_class='w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-4')
+        )
+
+class ModuleForm(forms.ModelForm):
+    """
+    Form for creating and updating Module objects.
+    """
+    class Meta:
+        model = Module
+        fields = ['title', 'description', 'order']
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field('title', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('description', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('order', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Submit('submit', 'Save Module', css_class='w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-4')
+        )
 
 class LessonForm(forms.ModelForm):
-    """Form to create a new lesson."""
+    """
+    Form for creating and updating Lesson objects.
+    """
     class Meta:
         model = Lesson
-        fields = ['title', 'content', 'video_url', 'resource_file', 'order']
+        fields = ['title', 'description', 'order']
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Lesson Title'}),
-            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 6, 'placeholder': 'Lesson content (supports Markdown)'}),
-            'video_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'YouTube or Vimeo URL'}),
-            'order': forms.NumberInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'rows': 3}),
         }
 
-class AssignmentForm(forms.ModelForm):
-    """Form to create a new assignment."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field('title', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('description', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('order', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Submit('submit', 'Save Lesson', css_class='w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-4')
+        )
+
+class ContentForm(forms.ModelForm):
+    """
+    Form for creating and updating Content objects.
+    Handles conditional display of fields based on content_type.
+    """
     class Meta:
-        model = Assignment
-        fields = ['title', 'description', 'due_date']
+        model = Content
+        fields = ['title', 'content_type', 'file', 'text_content', 'video_url', 'order']
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Assignment Title'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Assignment Description'}),
-            # We'll use a datepicker widget in the template for a rich UX
-            'due_date': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'text_content': forms.Textarea(attrs={'rows': 5}),
         }
 
-class QuizForm(forms.ModelForm):
-    """Form to create a new quiz."""
-    class Meta:
-        model = Quiz
-        fields = ['title', 'passing_score']
-        widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Quiz Title'}),
-            'passing_score': forms.NumberInput(attrs={'class': 'form-control'}),
-        }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field('title', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('content_type', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            # These fields will be conditionally shown/hidden via JavaScript in the template
+            Field('file', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('text_content', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('video_url', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('order', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Submit('submit', 'Save Content', css_class='w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-4')
+        )
 
-class QuestionForm(forms.ModelForm):
-    """Form to create a new question for a quiz."""
-    class Meta:
-        model = Question
-        fields = ['text']
-        widgets = {
-            'text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Question text'}),
-        }
+    def clean(self):
+        """
+        Custom cleaning to ensure only relevant content fields are populated
+        based on the selected content_type.
+        """
+        cleaned_data = super().clean()
+        content_type = cleaned_data.get('content_type')
+        file = cleaned_data.get('file')
+        text_content = cleaned_data.get('text_content')
+        video_url = cleaned_data.get('video_url')
 
-class ChoiceForm(forms.ModelForm):
-    """Form to create choices for a question."""
+        if content_type == 'video':
+            if not video_url and not file:
+                raise ValidationError("For video content, either a video URL or a file upload is required.")
+            # Clear other fields
+            cleaned_data['text_content'] = None
+        elif content_type == 'pdf' or content_type == 'slide':
+            if not file:
+                raise ValidationError(f"For {content_type} content, a file upload is required.")
+            # Clear other fields
+            cleaned_data['text_content'] = None
+            cleaned_data['video_url'] = None
+        elif content_type == 'text':
+            if not text_content:
+                raise ValidationError("For text content, the text field cannot be empty.")
+            # Clear other fields
+            cleaned_data['file'] = None
+            cleaned_data['video_url'] = None
+        elif content_type == 'quiz' or content_type == 'assignment':
+            cleaned_data['file'] = None
+            cleaned_data['text_content'] = None
+            cleaned_data['video_url'] = None
+        
+        return cleaned_data
+    
+
+# --- Quiz Forms ---
+
+class OptionForm(forms.ModelForm):
+    """
+    Form for individual answer options within a question.
+    """
     class Meta:
-        model = Choice
+        model = Option
         fields = ['text', 'is_correct']
         widgets = {
-            'text': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Choice text'}),
-            'is_correct': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'text': forms.TextInput(attrs={'class': 'form-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'}),
+            'is_correct': forms.CheckboxInput(attrs={'class': 'form-checkbox h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500'}),
         }
 
+# Inline formset for Options within a Question
+OptionFormSet = inlineformset_factory(
+    Question,
+    Option,
+    form=OptionForm,
+    extra=4,  # Number of empty forms to display
+    min_num=2, # Minimum number of options required
+    max_num=4, # Maximum number of options allowed
+    validate_min=True,
+    can_delete=False, # Options should not be deleted independently in quiz creation
+    labels={
+        'text': 'Option Text',
+        'is_correct': 'Is Correct?'
+    }
+)
 
-# --- Student-specific Forms ---
-
-class SubmissionForm(forms.ModelForm):
-    """Form for students to submit an assignment file."""
-    class Meta:
-        model = Submission
-        fields = ['file']
-        widgets = {
-            'file': forms.FileInput(attrs={'class': 'form-control'}),
-        }
-
-class SupportTicketForm(forms.ModelForm):
-    """Form for users to create a support ticket."""
-    class Meta:
-        model = SupportTicket
-        fields = ['subject', 'description']
-        widgets = {
-            'subject': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Subject of your issue'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 6, 'placeholder': 'Describe your issue in detail'}),
-        }
-
-class StudentProgressForm(forms.ModelForm):
+class QuestionForm(forms.ModelForm):
     """
-    A form for creating or updating StudentProgress entries.
+    Form for individual quiz questions.
     """
     class Meta:
-        model = StudentProgress
-        fields = ['student', 'lesson', 'is_completed']
+        model = Question
+        fields = ['text', 'order']
+        widgets = {
+            'text': forms.Textarea(attrs={'class': 'form-textarea mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50', 'rows': 3}),
+            'order': forms.NumberInput(attrs={'class': 'form-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'}),
+        }
+
+# Inline formset for Questions within a Quiz
+QuestionFormSet = inlineformset_factory(
+    Quiz,
+    Question,
+    form=QuestionForm,
+    extra=1, # Number of empty forms to display
+    min_num=1, # Minimum number of questions required
+    validate_min=True,
+    can_delete=True,
+    labels={
+        'text': 'Question Text',
+        'order': 'Order'
+    }
+)
+
+class QuizForm(forms.Form):
+    """
+    A dynamic form for taking a quiz.
+    It generates fields based on the questions associated with a given Quiz instance.
+    """
+    def __init__(self, *args, **kwargs):
+        self.quiz = kwargs.pop('quiz', None)
+        super().__init__(*args, **kwargs)
+
+        if not self.quiz:
+            raise ValueError("Quiz instance must be provided to QuizForm.")
+
+        for question in self.quiz.questions.all().order_by('order'):
+            # Create a list of (value, label) tuples for choices
+            choices = [(option.id, option.text) for option in question.options.all()]
+            
+            # Add a RadioSelect field for each question
+            self.fields[f'question_{question.id}'] = forms.ChoiceField(
+                label=f"{question.order}. {question.text}",
+                choices=choices,
+                widget=forms.RadioSelect(attrs={'class': 'form-radio h-4 w-4 text-indigo-600'}),
+                required=True, # All questions are required to be answered
+            )
+            self.fields[f'question_{question.id}'].widget.attrs['data-question-id'] = question.id

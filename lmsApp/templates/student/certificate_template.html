@@ -1,0 +1,238 @@
+<!-- core/templates/core/certificate_template.html (Refined for PDF Generation) -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate of Completion - {{ course_title }}</title>
+    <!-- Tailwind CSS CDN - Keep for browser view, xhtml2pdf may parse it -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN for icons - Keep for browser view, xhtml2pdf may parse it -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" xintegrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0V4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Embed all necessary fonts directly or use web-safe fonts for best PDF compatibility */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&family=Great+Vibes&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f0f0; /* Light gray background for screen view */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0; /* Ensure no default body margin */
+        }
+
+        .certificate-container {
+            background-color: #ffffff;
+            border: 10px solid #a78bfa; /* Purple border */
+            padding: 40px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            text-align: center;
+            max-width: 900px; /* A4-ish width for landscape */
+            width: 100%;
+            aspect-ratio: 297 / 210; /* A4 landscape aspect ratio approx */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden; /* Ensure nothing spills out */
+            box-sizing: border-box; /* Include padding and border in the element's total width and height */
+        }
+
+        /* Optional: Add a subtle background pattern or watermark */
+        .certificate-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            /* Use a data URI for SVG background for best PDF compatibility */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="%23e0e7ff" opacity="0.3"/></svg>');
+            background-repeat: repeat;
+            opacity: 0.2;
+            z-index: 0;
+        }
+
+        .certificate-header, .certificate-body, .certificate-footer {
+            position: relative; /* Ensure content is above pseudo-element */
+            z-index: 1;
+        }
+
+        .certificate-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 3.5rem; /* Large title */
+            color: #4338ca; /* Indigo 700 */
+            margin-bottom: 20px;
+            line-height: 1;
+        }
+
+        .certificate-subtitle {
+            font-size: 1.5rem;
+            color: #6b7280; /* Gray 500 */
+            margin-bottom: 30px;
+        }
+
+        .certificate-recipient {
+            font-family: 'Great Vibes', cursive; /* Script font for name */
+            font-size: 3rem; /* Very large for name */
+            color: #1a202c; /* Dark text */
+            margin-bottom: 20px;
+            line-height: 1;
+        }
+
+        .certificate-text {
+            font-size: 1.25rem;
+            color: #374151; /* Gray 700 */
+            margin-bottom: 30px;
+        }
+
+        .certificate-details {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end; /* Align to bottom for signature lines */
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb; /* Light gray separator */
+        }
+
+        .certificate-signature {
+            flex: 1;
+            padding: 0 20px;
+        }
+
+        .signature-line {
+            border-bottom: 1px solid #4b5563; /* Darker line for signature */
+            margin-bottom: 5px;
+            width: 80%; /* Shorter line */
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .signature-name {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 1.1rem;
+        }
+
+        .signature-role {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+
+        .certificate-id-text { /* Renamed to avoid conflict with actual ID */
+            font-size: 0.8rem;
+            color: #9ca3af;
+            margin-top: 20px;
+        }
+        
+        .certificate-verification-link {
+            font-size: 0.8rem;
+            color: #9ca3af;
+            margin-top: 5px;
+        }
+
+        /* Print Specific Styles - These apply when printing from browser, not necessarily for xhtml2pdf */
+        @media print {
+            body {
+                background-color: #ffffff; /* White background for print */
+                margin: 0;
+                padding: 0;
+                display: block; /* Remove flex for print layout */
+            }
+            .certificate-container {
+                border: none; /* Remove thick border for print */
+                box-shadow: none; /* Remove shadow for print */
+                width: 297mm; /* A4 width in landscape */
+                height: 210mm; /* A4 height in landscape */
+                padding: 20mm; /* Standard print margins */
+                margin: 0;
+                page-break-after: always; /* Ensure each certificate is on its own page if multiple */
+            }
+            .certificate-container::before {
+                opacity: 0.05; /* Make watermark very subtle for print */
+            }
+            /* Hide print/download buttons */
+            .print-controls {
+                display: none !important;
+            }
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            .certificate-container {
+                padding: 20px;
+                aspect-ratio: auto; /* Allow height to adjust naturally on mobile */
+            }
+            .certificate-title {
+                font-size: 2.5rem;
+            }
+            .certificate-subtitle {
+                font-size: 1.2rem;
+            }
+            .certificate-recipient {
+                font-size: 2.2rem;
+            }
+            .certificate-text {
+                font-size: 1rem;
+            }
+            .certificate-details {
+                flex-direction: column;
+                align-items: center;
+                margin-top: 20px;
+                padding-top: 10px;
+            }
+            .certificate-signature {
+                margin-bottom: 20px;
+                width: 100%;
+            }
+            .signature-line {
+                width: 60%; /* Adjust line width for mobile */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="certificate-container">
+        <div class="certificate-header">
+            <h1 class="certificate-title">Certificate of Completion</h1>
+            <p class="certificate-subtitle">This certifies that</p>
+        </div>
+
+        <div class="certificate-body">
+            <p class="certificate-recipient">{{ student_name }}</p>
+            <p class="certificate-text">
+                has successfully completed the online course
+                <span class="font-bold text-indigo-700">"{{ course_title }}"</span>
+                on <span class="font-semibold">{{ issue_date|date:"F j, Y" }}</span>.
+            </p>
+        </div>
+
+        <div class="certificate-footer">
+            <div class="certificate-details">
+                <div class="certificate-signature">
+                    <div class="signature-line"></div>
+                    <p class="signature-name">{{ instructor_name }}</p>
+                    <p class="signature-role">Instructor</p>
+                </div>
+                <div class="certificate-signature">
+                    <div class="signature-line"></div>
+                    <p class="signature-name">LMS Admin</p> {# Placeholder for an admin signature #}
+                    <p class="signature-role">Director of Education</p>
+                </div>
+            </div>
+            <p class="certificate-id-text">Certificate ID: {{ certificate_id }}</p>
+            {# Using request.build_absolute_uri to get the full URL for verification #}
+            <p class="certificate-verification-link">Verify this certificate at: {{ request.build_absolute_uri }}</p>
+        </div>
+    </div>
+    <div class="print-controls fixed bottom-4 right-4 flex space-x-3 z-50">
+        <a href="{% url 'view_certificate' certificate_id=certificate_id %}" target="_blank" class="bg-indigo-600 text-white py-2 px-4 rounded-full shadow-lg hover:bg-indigo-700 transition duration-300 flex items-center">
+            <i class="fas fa-download mr-2"></i> Download PDF
+        </a>
+    </div>
+</body>
+</html>
