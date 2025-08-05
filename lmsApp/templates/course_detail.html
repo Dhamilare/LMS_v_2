@@ -1,12 +1,11 @@
-<!-- core/templates/core/course_detail.html (TemplateSyntaxError Fix) -->
 {% extends 'base.html' %}
 {% load static %}
-{% load custom_filters %} {# Assuming custom_filters are defined if you use them elsewhere #}
+{% load custom_filters %}
 
 {% block title %}{{ course.title }}{% endblock %}
 
 {% block content %}
-<div class="bg-white p-8 rounded-lg shadow-lg">
+<div class="bg-white p-8 rounded-lg shadow-lg max-w-7xl mx-auto my-8">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div class="mb-4 md:mb-0">
             <h1 class="text-4xl font-bold text-gray-800 mb-2 flex items-center">
@@ -16,7 +15,6 @@
             <div class="flex flex-wrap items-center text-gray-500 text-sm space-x-4">
                 <span class="flex items-center"><i class="fas fa-user-tie mr-2"></i> Instructor: <span class="font-medium text-indigo-600 ml-1">{{ course.instructor.get_full_name|default:course.instructor.username }}</span></span>
                 <span class="flex items-center"><i class="fas fa-dollar-sign mr-2"></i> Price: <span class="font-medium text-green-600 ml-1">{% if course.price %}{{ course.price }}{% else %}Free{% endif %}</span></span>
-                {# FIX: Corrected the class attribute for is_published status #}
                 <span class="px-3 py-1 text-xs font-semibold rounded-full flex items-center {% if course.is_published %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
                     {% if course.is_published %}<i class="fas fa-check-circle mr-1"></i> Published{% else %}<i class="fas fa-hourglass-half mr-1"></i> Draft{% endif %}
                 </span>
@@ -27,7 +25,7 @@
                 <button onclick="loadModalForm('{% url 'course_update' slug=course.slug %}')" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
                     <i class="fas fa-edit mr-2"></i> Edit Course
                 </button>
-                <button onclick="loadModalForm('{% url 'course_delete' slug=course.slug %}')" class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+                <button onclick="showConfirmationModal('{% url 'course_delete' slug=course.slug %}', 'Delete Course', 'Are you sure you want to delete this course? This action cannot be undone.')" class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
                     <i class="fas fa-trash-alt mr-2"></i> Delete Course
                 </button>
             </div>
@@ -38,7 +36,7 @@
                         <i class="fas fa-check-circle mr-2"></i> Enrolled
                     </span>
                 {% else %}
-                    <button onclick="enrollCourse('{% url 'enroll_course' slug=course.slug %}')" class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+                    <button onclick="showConfirmationModal('{% url 'enroll_course' slug=course.slug %}', 'Enroll in Course', 'Are you sure you want to enroll in this course?')" class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
                         <i class="fas fa-hand-point-right mr-2"></i> Enroll in Course
                     </button>
                 {% endif %}
@@ -58,9 +56,9 @@
             </button>
         {% endif %}
     </h3>
-    {% if modules %} {# Changed from course.modules.all to modules #}
+    {% if modules %}
         <div class="space-y-6">
-            {% for module in modules %} {# Changed from course.modules.all to modules #}
+            {% for module in modules %}
                 <div class="bg-gray-50 p-6 rounded-lg shadow-md border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-3">
                         <h4 class="text-xl font-semibold text-gray-700 flex items-center mb-2 md:mb-0">
@@ -74,7 +72,7 @@
                                 <button onclick="loadModalForm('{% url 'module_update' course_slug=course.slug module_id=module.id %}')" class="bg-blue-500 text-white text-sm py-1 px-3 rounded-md hover:bg-blue-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
                                     <i class="fas fa-edit mr-1"></i> Edit
                                 </button>
-                                <button onclick="loadModalForm('{% url 'module_delete' course_slug=course.slug module_id=module.id %}')" class="bg-red-500 text-white text-sm py-1 px-3 rounded-md hover:bg-red-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
+                                <button onclick="showConfirmationModal('{% url 'module_delete' course_slug=course.slug module_id=module.id %}', 'Delete Module', 'Are you sure you want to delete this module and all its contents? This action is permanent.')" class="bg-red-500 text-white text-sm py-1 px-3 rounded-md hover:bg-red-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
                                     <i class="fas fa-trash-alt mr-1"></i> Delete
                                 </button>
                             </div>
@@ -87,10 +85,8 @@
                         <ul class="space-y-3">
                             {% for lesson in module.lessons.all %}
                                 <li class="bg-white p-4 rounded-md shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center transform hover:scale-[1.02] transition duration-200 ease-in-out">
-                                    {# Only allow access to content if can_access_content is True #}
                                     {% if can_access_content %}
                                         <a href="{% if lesson.contents.first %}{% url 'content_detail' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=lesson.contents.first.id %}{% else %}#{% endif %}" class="flex items-center text-gray-700 font-medium hover:text-indigo-600 mb-2 md:mb-0">
-                                            {# Green checkmark for completed lessons (NEW) #}
                                             {% if lesson.is_completed %}
                                                 <i class="fas fa-check-circle text-green-500 mr-3 text-lg"></i>
                                             {% else %}
@@ -113,7 +109,7 @@
                                             <button onclick="loadModalForm('{% url 'lesson_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}')" class="bg-blue-500 text-white text-xs py-1 px-2 rounded-md hover:bg-blue-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
                                                 <i class="fas fa-edit mr-1"></i> Edit
                                             </button>
-                                            <button onclick="loadModalForm('{% url 'lesson_delete' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}')" class="bg-red-500 text-white text-xs py-1 px-2 rounded-md hover:bg-red-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
+                                            <button onclick="showConfirmationModal('{% url 'lesson_delete' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}', 'Delete Lesson', 'Are you sure you want to delete this lesson and all its content? This action is permanent.')" class="bg-red-500 text-white text-xs py-1 px-2 rounded-md hover:bg-red-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
                                                 <i class="fas fa-trash-alt mr-1"></i> Delete
                                             </button>
                                         </div>
@@ -124,11 +120,9 @@
                                         {% for content_item in lesson.contents.all %}
                                             <li class="flex justify-between items-center text-sm text-gray-600 bg-gray-100 p-2 rounded-md hover:bg-gray-200 transition duration-150 ease-in-out">
                                                 <a href="{% url 'content_detail' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content_item.id %}" class="flex items-center hover:text-indigo-600">
-                                                    {# Checkmark for individual content items #}
                                                     {% if content_item.is_completed %}
                                                         <i class="fas fa-check-square mr-2 text-green-500"></i>
                                                     {% else %}
-                                                        {# Original icons based on content type #}
                                                         {% if content_item.content_type == 'video' %}<i class="fas fa-video mr-2 text-indigo-400"></i>
                                                         {% elif content_item.content_type == 'pdf' %}<i class="fas fa-file-pdf mr-2 text-red-400"></i>
                                                         {% elif content_item.content_type == 'text' %}<i class="fas fa-file-alt mr-2 text-blue-400"></i>
@@ -137,14 +131,14 @@
                                                         {% elif content_item.content_type == 'assignment' %}<i class="fas fa-tasks mr-2 text-purple-400"></i>
                                                         {% endif %}
                                                     {% endif %}
-                                                    {{ content_item.title }} ({{ content_item.get_content_type_display }})
+                                                    {{ content_item.title|default:"Untitled Content" }} ({{ content_item.get_content_type_display }})
                                                 </a>
                                                 {% if request.user.is_instructor and course.instructor == request.user %}
                                                     <div class="flex space-x-1">
                                                         <button onclick="loadModalForm('{% url 'content_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content_item.id %}')" class="bg-blue-400 text-white text-xs py-0.5 px-1.5 rounded-md hover:bg-blue-500 flex items-center shadow-sm hover:shadow-md">
                                                             <i class="fas fa-edit"></i>
                                                         </button>
-                                                        <button onclick="loadModalForm('{% url 'content_delete' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content_item.id %}')" class="bg-red-400 text-white text-xs py-0.5 px-1.5 rounded-md hover:bg-red-500 flex items-center shadow-sm hover:shadow-md">
+                                                        <button onclick="showConfirmationModal('{% url 'content_delete' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content_item.id %}', 'Delete Content', 'Are you sure you want to delete this content item? This action is permanent.')" class="bg-red-400 text-white text-xs py-0.5 px-1.5 rounded-md hover:bg-red-500 flex items-center shadow-sm hover:shadow-md">
                                                             <i class="fas fa-trash-alt"></i>
                                                         </button>
                                                     </div>
@@ -198,36 +192,244 @@
     </div>
 </div>
 
+
+<!-- The Modal HTML Structure -->
+<div id="modal-backdrop" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden transition-opacity duration-300 ease-in-out">
+    <div id="modal-container" class="bg-white rounded-lg shadow-xl w-11/12 md:w-3/4 max-w-2xl transform transition-transform duration-300 ease-in-out scale-95 opacity-0">
+        <div class="flex justify-between items-center p-4 border-b border-gray-200">
+            <h5 id="modal-title" class="text-lg font-bold text-gray-800"></h5>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                <i class="fas fa-times fa-lg"></i>
+            </button>
+        </div>
+        <div id="modal-body" class="p-6 overflow-y-auto max-h-[80vh]">
+            <!-- Form content will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal (for deletes, enrollments, etc.) -->
+<div id="confirmation-modal-backdrop" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden transition-opacity duration-300 ease-in-out">
+    <div class="bg-white rounded-lg shadow-xl w-11/12 md:w-1/2 max-w-md transform transition-transform duration-300 ease-in-out scale-95 opacity-0">
+        <div class="p-6">
+            <div class="flex items-center mb-4">
+                <div class="bg-red-100 rounded-full p-2 flex items-center justify-center text-red-600">
+                    <i class="fas fa-exclamation-triangle fa-2x"></i>
+                </div>
+                <div class="ml-4">
+                    <h5 id="confirm-modal-title" class="text-xl font-bold text-gray-800"></h5>
+                </div>
+            </div>
+            <p id="confirm-modal-body" class="text-gray-600 mb-6"></p>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeConfirmationModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">Cancel</button>
+                <button id="confirm-modal-action-button" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    async function enrollCourse(url) {
-        const confirmed = confirm("Are you sure you want to enroll in this course?");
-        if (!confirmed) {
-            return;
+    // Utility function to get the CSRF token from the cookie
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Function to display a toast-like message
+    function displayMessage(type, message) {
+        // You would need to implement a toast/message display system here
+        // For now, we'll just log it to the console
+        console.log(`[${type.toUpperCase()}] ${message}`);
+        // A simple alert for demonstration, but a better UI is recommended.
+        alert(message);
+    }
+
+    // --- Modal Functions ---
+
+    const modalBackdrop = document.getElementById('modal-backdrop');
+    const modalContainer = document.getElementById('modal-container');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+
+    /**
+     * Loads a form into the modal via AJAX.
+     * @param {string} url - The URL to fetch the form from.
+     * @param {string} title - The title for the modal header.
+     */
+    async function loadModalForm(url, title = 'Form') {
+        modalTitle.textContent = title;
+        modalBody.innerHTML = '<div class="flex justify-center items-center h-48"><i class="fas fa-spinner fa-spin fa-3x text-indigo-500"></i></div>';
+        
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error('Network response was not ok.');
+            }
+            const formHtml = await response.text();
+            modalBody.innerHTML = formHtml;
+            openModal();
+            // Attach a submit listener to the form to handle AJAX submission
+            const form = modalBody.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', handleModalFormSubmit);
+            }
+
+        } catch (error) {
+            console.error('Error loading modal content:', error);
+            modalBody.innerHTML = `<p class="text-red-500">Failed to load content. Please try again.</p>`;
+        }
+    }
+
+    /**
+     * Handles the AJAX submission of a form loaded in the modal.
+     */
+    async function handleModalFormSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const url = form.action;
+        const method = form.method;
+        const formData = new FormData(form);
+
+        // Add loading state
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton ? submitButton.innerHTML : '';
+        if (submitButton) {
+            submitButton.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> Saving...`;
+            submitButton.disabled = true;
         }
 
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: formData
+            });
+
+            if (response.ok) {
+                // If successful, close modal and reload page or display success message
+                closeModal();
+                const result = await response.json();
+                displayMessage('success', result.message || 'Operation successful!');
+                window.location.reload();
+            } else {
+                // If there are validation errors, display the form with errors
+                const formHtml = await response.text();
+                modalBody.innerHTML = formHtml;
+                // Re-attach the submit listener to the new form
+                const newForm = modalBody.querySelector('form');
+                if (newForm) {
+                    newForm.addEventListener('submit', handleModalFormSubmit);
+                }
+                const errorResult = JSON.parse(formHtml)
+                displayMessage('error', errorResult.error || 'Please correct the errors in the form.');
+            }
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            displayMessage('error', 'An error occurred. Please try again.');
+        } finally {
+            if (submitButton) {
+                submitButton.innerHTML = originalButtonText;
+                submitButton.disabled = false;
+            }
+        }
+    }
+
+    function openModal() {
+        modalBackdrop.classList.remove('hidden');
+        setTimeout(() => {
+            modalBackdrop.classList.add('opacity-100');
+            modalContainer.classList.remove('scale-95', 'opacity-0');
+            modalContainer.classList.add('scale-100', 'opacity-100');
+        }, 10); // Small delay for the transition to work
+    }
+
+    function closeModal() {
+        modalContainer.classList.remove('scale-100', 'opacity-100');
+        modalContainer.classList.add('scale-95', 'opacity-0');
+        modalBackdrop.classList.remove('opacity-100');
+        setTimeout(() => {
+            modalBackdrop.classList.add('hidden');
+            modalBody.innerHTML = '';
+        }, 300); // Wait for transition to finish
+    }
+
+    // --- Confirmation Modal Functions (Replaces confirm()) ---
+    const confirmBackdrop = document.getElementById('confirmation-modal-backdrop');
+    const confirmTitle = document.getElementById('confirm-modal-title');
+    const confirmBody = document.getElementById('confirm-modal-body');
+    const confirmButton = document.getElementById('confirm-modal-action-button');
+
+    function showConfirmationModal(actionUrl, title, body) {
+        confirmTitle.textContent = title;
+        confirmBody.textContent = body;
+        confirmButton.onclick = () => performConfirmedAction(actionUrl);
+        
+        confirmBackdrop.classList.remove('hidden');
+        setTimeout(() => {
+            confirmBackdrop.classList.add('opacity-100');
+            confirmBackdrop.querySelector('div').classList.remove('scale-95', 'opacity-0');
+            confirmBackdrop.querySelector('div').classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    function closeConfirmationModal() {
+        const modalContainer = confirmBackdrop.querySelector('div');
+        modalContainer.classList.remove('scale-100', 'opacity-100');
+        modalContainer.classList.add('scale-95', 'opacity-0');
+        confirmBackdrop.classList.remove('opacity-100');
+        setTimeout(() => {
+            confirmBackdrop.classList.add('hidden');
+        }, 300);
+    }
+
+    async function performConfirmedAction(url) {
+        closeConfirmationModal(); // Close the confirmation modal first
         try {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken') // Ensure CSRF token is sent
+                    'X-CSRFToken': getCookie('csrftoken')
                 },
-                body: JSON.stringify({}) // Send an empty JSON body
+                body: JSON.stringify({})
             });
 
             const result = await response.json();
 
             if (response.ok) {
-                displayMessage('success', result.message || 'Enrollment successful!');
-                window.location.reload(); // Reload to update UI (e.g., button changes to "Enrolled")
+                displayMessage('success', result.message || 'Operation successful!');
+                window.location.reload();
             } else {
-                displayMessage('error', result.error || 'Enrollment failed.');
+                displayMessage('error', result.error || 'Operation failed.');
             }
         } catch (error) {
-            console.error('Error during enrollment:', error);
-            displayMessage('error', 'An error occurred during enrollment.');
+            console.error('Error during action:', error);
+            displayMessage('error', 'An error occurred.');
         }
     }
+
+
+    // --- Enrollment Function (UPDATED) ---
+    // The enrollment function now uses the new confirmation modal
+    async function enrollCourse(url) {
+        // Now using the custom confirmation modal instead of browser's confirm()
+        showConfirmationModal(url, 'Enroll in Course', 'Are you sure you want to enroll in this course?');
+    }
 </script>
-{% endblock content %}
+{% endblock %}
+

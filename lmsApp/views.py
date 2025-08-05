@@ -296,7 +296,7 @@ def course_create(request):
     """
     Allows an instructor to create a new course.
     """
-    template_name = 'instructor/_course_form.html' if is_ajax(request) else 'instructor/course_form.html'
+    template_name = 'instructor/_course_form.html' if is_ajax(request) else 'instructor/_course_form.html'
 
     if request.method == 'POST':
         form = CourseForm(request.POST, request.FILES)
@@ -326,7 +326,7 @@ def course_update(request, slug):
     Ensures the instructor owns the course.
     """
     course = get_object_or_404(Course, slug=slug, instructor=request.user)
-    template_name = 'instructor/_course_form.html' if is_ajax(request) else 'instructor/course_form.html'
+    template_name = 'instructor/_course_form.html' if is_ajax(request) else 'instructor/_course_form.html'
 
     if request.method == 'POST':
         form = CourseForm(request.POST, request.FILES, instance=course)
@@ -352,7 +352,7 @@ def course_delete(request, slug):
     Allows an instructor to delete a course.
     """
     course = get_object_or_404(Course, slug=slug, instructor=request.user)
-    template_name = 'instructor/_confirm_delete.html' if is_ajax(request) else 'instructor/confirm_delete.html'
+    template_name = 'instructor/_confirm_delete.html' if is_ajax(request) else 'instructor/_confirm_delete.html'
 
     if request.method == 'POST':
         course.delete()
@@ -494,7 +494,7 @@ def module_delete(request, course_slug, module_id):
     """
     course = get_object_or_404(Course, slug=course_slug, instructor=request.user)
     module = get_object_or_404(Module, id=module_id, course=course)
-    template_name = 'instructor/_confirm_delete.html' if is_ajax(request) else 'instructor/confirm_delete.html'
+    template_name = 'instructor/_confirm_delete.html' if is_ajax(request) else 'instructor/_confirm_delete.html'
 
     if request.method == 'POST':
         module.delete()
@@ -546,7 +546,7 @@ def lesson_update(request, course_slug, module_id, lesson_id):
     course = get_object_or_404(Course, slug=course_slug, instructor=request.user)
     module = get_object_or_404(Module, id=module_id, course=course)
     lesson = get_object_or_404(Lesson, id=lesson_id, module=module)
-    template_name = 'instructor/_lesson_form.html' if is_ajax(request) else 'instructor/lesson_form.html'
+    template_name = 'instructor/_lesson_form.html' if is_ajax(request) else 'instructor/_lesson_form.html'
 
     if request.method == 'POST':
         form = LessonForm(request.POST, instance=lesson)
@@ -574,7 +574,7 @@ def lesson_delete(request, course_slug, module_id, lesson_id):
     course = get_object_or_404(Course, slug=course_slug, instructor=request.user)
     module = get_object_or_404(Module, id=module_id, course=course)
     lesson = get_object_or_404(Lesson, id=lesson_id, module=module)
-    template_name = 'instructor/_confirm_delete.html' if is_ajax(request) else 'instructor/confirm_delete.html'
+    template_name = 'instructor/_confirm_delete.html' if is_ajax(request) else 'instructor/_confirm_delete.html'
 
     if request.method == 'POST':
         lesson.delete()
@@ -636,7 +636,7 @@ def content_update(request, course_slug, module_id, lesson_id, content_id):
     module = get_object_or_404(Module, id=module_id, course=course)
     lesson = get_object_or_404(Lesson, id=lesson_id, module=module)
     content = get_object_or_404(Content, id=content_id, lesson=lesson)
-    template_name = 'instructor/_content_form.html' if is_ajax(request) else 'instructor/content_form.html'
+    template_name = 'instructor/_content_form.html' if is_ajax(request) else 'instructor/_content_form.html'
 
     if request.method == 'POST':
         form = ContentForm(request.POST, request.FILES, instance=content)
@@ -665,7 +665,7 @@ def content_delete(request, course_slug, module_id, lesson_id, content_id):
     module = get_object_or_404(Module, id=module_id, course=course)
     lesson = get_object_or_404(Lesson, id=lesson_id, module=module)
     content = get_object_or_404(Content, id=content_id, lesson=lesson)
-    template_name = 'instructor/_confirm_delete.html' if is_ajax(request) else 'instructor/confirm_delete.html'
+    template_name = 'instructor/_confirm_delete.html' if is_ajax(request) else 'instructor/_confirm_delete.html'
 
     if request.method == 'POST':
         content.delete()
