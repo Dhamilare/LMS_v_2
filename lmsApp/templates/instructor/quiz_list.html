@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage Quizzes{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 sm:p-8 rounded-lg shadow-lg max-w-7xl mx-auto my-8">
+    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
+        <i class="fas fa-clipboard-question mr-2 sm:mr-3 text-indigo-600"></i> Manage Your Quizzes
+    </h2>
+
+    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-3 sm:space-y-0">
+        <p class="text-gray-600 text-base sm:text-lg">Here you can create, edit, and assign quizzes to your courses.</p>
+        <button onclick="loadModalForm('{% url 'quiz_create' %}', 'Create New Quiz')"
+                class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+            <i class="fas fa-plus-circle mr-2"></i> Create New Quiz
+        </button>
+    </div>
+
+    {% if quizzes %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {% for quiz in quizzes %}
+                <div class="bg-gray-50 rounded-lg shadow-md border border-gray-200 p-5 transform hover:scale-105 transition duration-300 ease-in-out">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">{{ quiz.title }}</h3>
+                    <p class="text-gray-600 text-sm mb-3 line-clamp-2">{{ quiz.description|default:"No description provided." }}</p>
+                    <div class="text-gray-500 text-xs mb-3">
+                        <p><i class="fas fa-percent mr-1"></i> Pass Percentage: {{ quiz.pass_percentage }}%</p>
+                        <p><i class="fas fa-redo-alt mr-1"></i> Max Attempts: {{ quiz.max_attempts }}</p>
+                        <p><i class="fas fa-clock mr-1"></i> Duration: {{ quiz.duration_minutes }} mins (Informational)</p>
+                    </div>
+                    
+                    {% if quiz.course %}
+                        <p class="text-sm text-green-700 flex items-center mb-3">
+                            <i class="fas fa-link mr-2"></i> Assigned to Course: {{ quiz.course.title }}
+                        </p>
+                    {% else %}
+                        <p class="text-sm text-yellow-700 flex items-center mb-3">
+                            <i class="fas fa-unlink mr-2"></i> Not yet assigned to a course.
+                        </p>
+                    {% endif %}
+
+                    <div class="flex flex-wrap gap-2 mt-4">
+                        <a href="{% url 'quiz_detail_manage' quiz_id=quiz.id %}"
+                           class="bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 transition duration-300 flex items-center text-sm shadow-sm">
+                            <i class="fas fa-cogs mr-2"></i> Manage Questions
+                        </a>
+                        <button onclick="loadModalForm('{% url 'quiz_assign_to_course' quiz_id=quiz.id %}', 'Assign Quiz: {{ quiz.title }}')"
+                                class="bg-purple-600 text-white py-2 px-3 rounded-md hover:bg-purple-700 transition duration-300 flex items-center text-sm shadow-sm">
+                            <i class="fas fa-link mr-2"></i> Assign Quiz
+                        </button>
+                        <button onclick="loadModalForm('{% url 'quiz_create' %}?quiz_id={{ quiz.id }}', 'Edit Quiz: {{ quiz.title }}')" {# This button should ideally link to a quiz_update view #}
+                                class="bg-gray-600 text-white py-2 px-3 rounded-md hover:bg-gray-700 transition duration-300 flex items-center text-sm shadow-sm">
+                            <i class="fas fa-edit mr-2"></i> Edit Quiz Details
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-8 sm:py-10 bg-gray-50 rounded-lg shadow-sm border border-gray-200 mt-8">
+            <p class="text-gray-600 text-base sm:text-lg mb-4 flex items-center justify-center">
+                <i class="fas fa-info-circle mr-2"></i> You haven't created any quizzes yet.
+            </p>
+            <button onclick="loadModalForm('{% url 'quiz_create' %}', 'Create New Quiz')"
+                    class="bg-indigo-600 text-white py-2 px-5 sm:px-6 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center mx-auto w-fit shadow-md hover:shadow-lg text-sm sm:text-base">
+                <i class="fas fa-plus-circle mr-2"></i> Create Your First Quiz
+            </button>
+        </div>
+    {% endif %}
+
+    <div class="mt-8 text-center">
+        <a href="{% url 'dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+{% include 'partials/modal_base.html' %}
+{% include 'partials/confirmation_modal.html' %}
+
+{% endblock %}

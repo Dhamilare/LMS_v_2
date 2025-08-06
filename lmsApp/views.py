@@ -420,44 +420,35 @@ def course_detail(request, slug):
             return redirect('dashboard')
 
     # Prefetch related data for efficiency
-    # Order modules and lessons by 'order' field
     modules_queryset = Module.objects.filter(course=course).order_by('order').prefetch_related(
         Prefetch('lessons', queryset=Lesson.objects.order_by('order').prefetch_related(
             Prefetch('contents', queryset=Content.objects.order_by('order')),
-            'quiz' # Prefetch related quiz for the lesson
         ))
     )
 
     modules_data = []
-    # For students, the first module is accessible. Subsequent modules depend on prior completion.
-    # For instructors/admins, all modules are always accessible.
     previous_module_completed = True 
 
     for module in modules_queryset:
         module_accessible = False
         if request.user.is_instructor and course.instructor == request.user:
-            module_accessible = True # Instructor can always access their own course's modules
-        elif request.user.is_staff: # Admin can always access
+            module_accessible = True
+        elif request.user.is_staff:
             module_accessible = True
         elif request.user.is_student and is_enrolled:
-            # For students, a module is accessible if the previous one was completed
-            # or if it's the very first module.
             if module.order == 1 or previous_module_completed:
                 module_accessible = True
             
-        # Determine current module's completion status for the student
         current_module_is_completed = False
         if request.user.is_student and is_enrolled:
             current_module_is_completed = module.is_completed_by_student(request.user)
         
-        # Prepare lessons data for the current module
         lessons_data = []
         for lesson in module.lessons.all():
             contents_data = []
             for content_item in lesson.contents.all():
                 content_is_completed = False
                 if request.user.is_student and is_enrolled:
-                    # Use the is_completed_by_student property from the Content model
                     content_is_completed = content_item.is_completed_by_student(request.user)
                 
                 contents_data.append({
@@ -469,12 +460,11 @@ def course_detail(request, slug):
                     'text_content': content_item.text_content,
                     'video_url': content_item.video_url,
                     'order': content_item.order,
-                    'get_content_type_display': content_item.get_content_type_display, # Pass method for template
+                    'get_content_type_display': content_item.get_content_type_display,
                 })
             
             lesson_is_completed = False
             if request.user.is_student and is_enrolled:
-                # Use the is_completed_by_student property from the Lesson model
                 lesson_is_completed = lesson.is_completed_by_student(request.user)
 
             lessons_data.append({
@@ -483,7 +473,7 @@ def course_detail(request, slug):
                 'description': lesson.description,
                 'order': lesson.order,
                 'contents': contents_data,
-                'is_completed': lesson_is_completed, # Pass lesson completion status
+                'is_completed': lesson_is_completed,
             })
         
         modules_data.append({
@@ -492,25 +482,27 @@ def course_detail(request, slug):
             'description': module.description,
             'order': module.order,
             'lessons': lessons_data,
-            'is_accessible': module_accessible, # Pass accessibility status
-            'is_completed': current_module_is_completed, # Pass module completion status
+            'is_accessible': module_accessible,
+            'is_completed': current_module_is_completed,
         })
 
-        # Update previous_module_completed for the next iteration for students
         if request.user.is_student and is_enrolled:
             previous_module_completed = current_module_is_completed
-        # For instructors/admins, previous_module_completed remains True implicitly
-        # as module_accessible is always true for them.
+        
+    # Get the course-level quiz if it exists
+    course_quiz = None
+    if hasattr(course, 'quiz'):
+        course_quiz = course.quiz
 
     context = {
         'course': course,
-        'modules': modules_data, # Pass the processed modules data to the template
+        'modules': modules_data,
         'is_enrolled': is_enrolled,
-        'enrollment': enrollment, # Pass enrollment object for progress/certificate checks
-        # 'can_access_content' is now implicitly handled by module.is_accessible
-        # for students, and always true for instructors/admins.
+        'enrollment': enrollment,
+        'course_quiz': course_quiz, # Pass the course-level quiz
     }
-    return render(request, 'course_detail.html', context)
+    return render(request, 'lmsApp/course_detail.html', context)
+
 
 @login_required
 @user_passes_test(is_instructor)
@@ -910,28 +902,29 @@ def mark_content_completed(request, course_slug, module_id, lesson_id, content_i
 
 @login_required
 @user_passes_test(is_student)
-def quiz_take(request, course_slug, module_id, lesson_id, content_id):
+def quiz_take(request, course_slug):
     """
-    Allows a student to take a quiz, enforcing max attempts.
+    Allows a student to take a course-level quiz, enforcing max attempts.
     """
     course = get_object_or_404(Course, slug=course_slug)
-    module = get_object_or_404(Module, id=module_id, course=course)
-    lesson = get_object_or_404(Lesson, id=lesson_id, module=module)
-    content = get_object_or_404(Content, id=content_id, lesson=lesson, content_type='quiz')
-    quiz = get_object_or_404(Quiz, lesson=lesson) # Assuming one quiz per lesson for now
+    quiz = get_object_or_404(Quiz, course=course) # Get quiz directly from course
 
-    # Get the student's enrollment for this course
     enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
 
     # Access control: Student must be enrolled and course published
-    if not course.is_published: # Enrollment check is handled by get_object_or_404 above
+    if not course.is_published:
         messages.error(request, "You are not authorized to take this quiz.")
+        return redirect('course_detail', slug=course.slug)
+    
+    # --- IMPORTANT: Quiz can only be taken if all content is completed ---
+    if not enrollment.is_content_completed:
+        messages.error(request, "You must complete all course content before taking this assessment.")
         return redirect('course_detail', slug=course.slug)
 
     # Check if quiz has questions
     if not quiz.questions.exists():
         messages.info(request, "This quiz has no questions yet.")
-        return redirect('content_detail', course_slug=course.slug, module_id=module.id, lesson_id=lesson.id, content_id=content.id)
+        return redirect('course_detail', slug=course.slug)
 
     # --- Assessment Logic: Check Retake Limits ---
     current_attempts_count = StudentQuizAttempt.objects.filter(
@@ -940,7 +933,6 @@ def quiz_take(request, course_slug, module_id, lesson_id, content_id):
     ).count()
 
     if current_attempts_count >= quiz.max_attempts:
-        # Check if the student has passed any of the previous attempts
         has_passed_quiz = StudentQuizAttempt.objects.filter(
             student=request.user,
             quiz=quiz,
@@ -952,42 +944,43 @@ def quiz_take(request, course_slug, module_id, lesson_id, content_id):
         else:
             messages.error(request, f"You have reached the maximum number of attempts ({quiz.max_attempts}) for this quiz and have not passed.")
         
-        return redirect('quiz_result', course_slug=course.slug, module_id=module.id, lesson_id=lesson.id, content_id=content.id, attempt_id=StudentQuizAttempt.objects.filter(student=request.user, quiz=quiz).order_by('-attempt_date').first().id) # Redirect to last attempt result
+        # Redirect to the result of the last attempt if attempts are exhausted
+        last_attempt = StudentQuizAttempt.objects.filter(student=request.user, quiz=quiz).order_by('-attempt_date').first()
+        if last_attempt:
+            return redirect('quiz_result', course_slug=course.slug, attempt_id=last_attempt.id)
+        else: # Fallback if no attempts exist (shouldn't happen if count > 0)
+            return redirect('course_detail', slug=course.slug)
 
-    form = QuizForm(quiz=quiz) # Initialize form with the quiz instance
+    form = TakeQuizForm(quiz=quiz) # Use TakeQuizForm
 
     context = {
         'course': course,
-        'module': module,
-        'lesson': lesson,
-        'content': content,
         'quiz': quiz,
         'form': form,
         'current_attempts_count': current_attempts_count,
         'max_attempts': quiz.max_attempts,
         'attempts_remaining': quiz.max_attempts - current_attempts_count,
-        'enrollment_id': enrollment.id, # Pass enrollment ID to the template for the form
+        'enrollment_id': enrollment.id,
     }
     return render(request, 'student/quiz_take.html', context)
 
 @login_required
 @user_passes_test(is_student)
-def quiz_submit(request, course_slug, module_id, lesson_id, content_id):
+def quiz_submit(request, course_slug):
     """
-    Handles the submission and grading of a quiz.
+    Handles the submission and grading of a course-level quiz.
     """
     course = get_object_or_404(Course, slug=course_slug)
-    module = get_object_or_404(Module, id=module_id, course=course)
-    lesson = get_object_or_404(Lesson, id=lesson_id, module=module)
-    content = get_object_or_404(Content, id=content_id, lesson=lesson, content_type='quiz')
-    quiz = get_object_or_404(Quiz, lesson=lesson)
+    quiz = get_object_or_404(Quiz, course=course) 
 
-    # Get the student's enrollment for this course
     enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
 
-    # Access control: Student must be enrolled and course published
-    if not course.is_published: # Enrollment check is handled by get_object_or_404 above
+    if not course.is_published:
         messages.error(request, "You are not authorized to submit this quiz.")
+        return redirect('course_detail', slug=course.slug)
+
+    if not enrollment.is_content_completed:
+        messages.error(request, "You must complete all course content before submitting this assessment.")
         return redirect('course_detail', slug=course.slug)
 
     # --- Assessment Logic: Re-check Retake Limits on submission ---
@@ -998,23 +991,28 @@ def quiz_submit(request, course_slug, module_id, lesson_id, content_id):
 
     if current_attempts_count >= quiz.max_attempts:
         messages.error(request, f"You have already reached the maximum number of attempts ({quiz.max_attempts}) for this quiz.")
-        return redirect('quiz_result', course_slug=course.slug, module_id=module.id, lesson_id=lesson.id, content_id=content.id, attempt_id=StudentQuizAttempt.objects.filter(student=request.user, quiz=quiz).order_by('-attempt_date').first().id)
-
+        last_attempt = StudentQuizAttempt.objects.filter(student=request.user, quiz=quiz).order_by('-attempt_date').first()
+        if last_attempt:
+            return redirect('quiz_result', course_slug=course.slug, attempt_id=last_attempt.id)
+        else:
+            return redirect('course_detail', slug=course.slug)
 
     if request.method == 'POST':
-        form = QuizForm(request.POST, quiz=quiz)
+        form = TakeQuizForm(request.POST, quiz=quiz) # Use TakeQuizForm
         if form.is_valid():
             total_questions = quiz.questions.count()
             correct_answers_count = 0
             student_answers_to_save = []
 
             with transaction.atomic():
-                # Create a new quiz attempt record
-                # IMPORTANT: Pass the enrollment object here!
+                # Get enrollment_id from the hidden input
+                enrollment_id = request.POST.get('enrollment_id')
+                enrollment_obj = get_object_or_404(Enrollment, id=enrollment_id, student=request.user, course=course)
+
                 attempt = StudentQuizAttempt.objects.create(
                     student=request.user,
                     quiz=quiz,
-                    enrollment=enrollment, # Pass the enrollment object
+                    enrollment=enrollment_obj, # Pass the enrollment object
                     score=0, # Will update later
                     passed=False
                 )
@@ -1027,7 +1025,6 @@ def quiz_submit(request, course_slug, module_id, lesson_id, content_id):
                     if chosen_option_id:
                         chosen_option = get_object_or_404(Option, id=chosen_option_id, question=question)
 
-                    # Save student's answer
                     student_answers_to_save.append(
                         StudentAnswer(
                             attempt=attempt,
@@ -1036,36 +1033,28 @@ def quiz_submit(request, course_slug, module_id, lesson_id, content_id):
                         )
                     )
 
-                    # Check if the chosen option is correct
                     if chosen_option and chosen_option.is_correct:
                         correct_answers_count += 1
                 
-                # Bulk create student answers
                 StudentAnswer.objects.bulk_create(student_answers_to_save)
 
-                # Calculate score
                 score_percentage = 0
                 if total_questions > 0:
                     score_percentage = (correct_answers_count / total_questions) * 100
                 
-                # Update the attempt with score and pass/fail status
                 attempt.score = round(score_percentage, 2)
                 attempt.passed = (score_percentage >= quiz.pass_percentage)
                 attempt.save() # This save will trigger the enrollment._sync_completion_status()
 
                 messages.success(request, f'Quiz "{quiz.title}" submitted! Your score: {attempt.score:.2f}%')
-                return redirect('quiz_result', course_slug=course.slug, module_id=module.id, lesson_id=lesson.id, content_id=content.id, attempt_id=attempt.id)
+                return redirect('quiz_result', course_slug=course.slug, attempt_id=attempt.id)
         else:
-            # If form is not valid, re-render the quiz_take page with errors
             messages.error(request, "Please correct the errors below.")
             context = {
                 'course': course,
-                'module': module,
-                'lesson': lesson,
-                'content': content,
                 'quiz': quiz,
                 'form': form,
-                'current_attempts_count': current_attempts_count, # Pass these for re-rendering
+                'current_attempts_count': current_attempts_count,
                 'max_attempts': quiz.max_attempts,
                 'attempts_remaining': quiz.max_attempts - current_attempts_count,
                 'enrollment_id': enrollment.id,
@@ -1073,30 +1062,25 @@ def quiz_submit(request, course_slug, module_id, lesson_id, content_id):
             return render(request, 'student/quiz_take.html', context)
     else:
         messages.error(request, "Invalid request method for quiz submission.")
-        return redirect('quiz_take', course_slug=course.slug, module_id=module.id, lesson_id=lesson.id, content_id=content.id)
+        return redirect('quiz_take', course_slug=course.slug)
+
 
 @login_required
 @user_passes_test(is_student)
-def quiz_result(request, course_slug, module_id, lesson_id, content_id, attempt_id):
+def quiz_result(request, course_slug, attempt_id):
     """
     Displays the result of a student's quiz attempt.
     """
     course = get_object_or_404(Course, slug=course_slug)
-    module = get_object_or_404(Module, id=module_id, course=course)
-    lesson = get_object_or_404(Lesson, id=lesson_id, module=module)
-    content = get_object_or_404(Content, id=content_id, lesson=lesson, content_type='quiz')
-    quiz = get_object_or_404(Quiz, lesson=lesson)
+    quiz = get_object_or_404(Quiz, course=course) 
     attempt = get_object_or_404(StudentQuizAttempt, id=attempt_id, student=request.user, quiz=quiz)
 
-    # Get the student's enrollment for this course to check overall completion/certificate status
     enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
 
-    # Access control: Student must be enrolled and course published
-    if not course.is_published: # Enrollment check is handled by get_object_or_404 above
+    if not course.is_published:
         messages.error(request, "You are not authorized to view this quiz result.")
         return redirect('course_detail', slug=course.slug)
 
-    # Fetch all questions and their options for the quiz
     questions_with_answers = []
     for question in quiz.questions.all().order_by('order'):
         options = list(question.options.all())
@@ -1112,32 +1096,26 @@ def quiz_result(request, course_slug, module_id, lesson_id, content_id, attempt_
             'correct_option': next((opt for opt in options if opt.is_correct), None)
         })
 
-    # Determine if retake button should be shown
     can_retake = False
     current_attempts_count = StudentQuizAttempt.objects.filter(
         student=request.user,
         quiz=quiz
     ).count()
 
-    # Only allow retake if not passed and attempts remaining
     if not attempt.passed and current_attempts_count < quiz.max_attempts:
         can_retake = True
 
     context = {
         'course': course,
-        'module': module,
-        'lesson': lesson,
-        'content': content,
         'quiz': quiz,
         'attempt': attempt,
         'questions_with_answers': questions_with_answers,
         'can_retake': can_retake,
         'current_attempts_count': current_attempts_count,
         'max_attempts': quiz.max_attempts,
-        'enrollment': enrollment, # Pass enrollment for certificate checks
+        'enrollment': enrollment,
     }
     return render(request, 'student/quiz_result.html', context)
-
 
 
 @login_required
@@ -1313,7 +1291,6 @@ def certificate_catalog(request):
     return render(request, 'student/certificate_catalog.html', context)
 
 
-
 @login_required
 @user_passes_test(is_admin)
 def audit_logs(request):
@@ -1396,3 +1373,340 @@ def audit_logs(request):
         'detailed_logs': detailed_logs,
     }
     return render(request, 'admin/reporting.html', context)
+
+
+
+@login_required
+@user_passes_test(is_instructor)
+def quiz_download_csv_template(request):
+    """
+    Provides a sample CSV template for quiz question uploads.
+    """
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="quiz_questions_template.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'question_text',
+        'option1', 'is_correct1',
+        'option2', 'is_correct2',
+        'option3', 'is_correct3',
+        'option4', 'is_correct4'
+    ])
+    return response
+
+
+@login_required
+@user_passes_test(is_instructor)
+def quiz_list_instructor(request):
+    """
+    Displays a list of all quizzes created by the instructor.
+    """
+    quizzes = Quiz.objects.filter(course__instructor=request.user).order_by('-created_at')
+    context = {
+        'quizzes': quizzes
+    }
+    return render(request, 'instructor/quiz_list.html', context)
+
+
+@login_required
+@user_passes_test(is_instructor)
+def quiz_create(request):
+    """
+    Handles creation of a new quiz via AJAX modal.
+    """
+    if request.method == 'POST':
+        form = QuizDetailsForm(request.POST)
+        if form.is_valid():
+            quiz = form.save()
+            return JsonResponse({'success': True, 'message': f'Quiz "{quiz.title}" created successfully!', 'quiz_id': quiz.id})
+        else:
+            html_form = render_to_string('instructor/quiz_create.html', {'form': form}, request=request)
+            return JsonResponse({'success': False, 'error': 'Validation failed.', 'form_html': html_form}, status=400)
+    else:
+        form = QuizDetailsForm() #
+    
+    context = {'form': form}
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return render(request, 'instructor/quiz_create.html', context)
+    return render(request, 'instructor/quiz_create.html', context)
+
+@login_required
+@user_passes_test(is_instructor)
+def quiz_detail_manage(request, quiz_id):
+    """
+    Displays details of a quiz and allows management of its questions and options.
+    """
+    # Quiz must belong to a course taught by the instructor
+    quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user)
+    questions = quiz.questions.all().order_by('order')
+
+    context = {
+        'quiz': quiz,
+        'questions': questions,
+    }
+    return render(request, 'instructor/quiz_detail_manage.html', context)
+
+
+@login_required
+@user_passes_test(is_instructor)
+def question_create(request, quiz_id):
+    """
+    Handles creation of a new question with options for a quiz via AJAX modal.
+    """
+    quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user) # Updated lookup
+    
+    if request.method == 'POST':
+        form = QuestionForm(request.POST)
+        option_formset = OptionFormSet(request.POST, prefix='options')
+        
+        if form.is_valid():
+            question = form.save(commit=False)
+            question.quiz = quiz
+            
+            option_formset.instance = question # Link formset to the unsaved question for validation
+            
+            if option_formset.is_valid():
+                with transaction.atomic():
+                    question.save() # Save the question after formset validation
+                    option_formset.save() # Save the options
+
+                return JsonResponse({'success': True, 'message': f'Question "{question.text[:30]}..." added successfully!'})
+            else:
+                form.option_formset = option_formset # Attach the validated formset back to the form
+                html_form = render_to_string('instructor/question_form.html', {'form': form, 'quiz': quiz}, request=request)
+                return JsonResponse({'success': False, 'error': 'Please correct the errors in the options.', 'form_html': html_form}, status=400)
+        else:
+            html_form = render_to_string('instructor/question_form.html', {'form': form, 'quiz': quiz}, request=request)
+            return JsonResponse({'success': False, 'error': 'Please correct the errors in the question.', 'form_html': html_form}, status=400)
+    else:
+        form = QuestionForm()
+        form.option_formset = OptionFormSet(prefix='options') # Initialize the formset for GET requests
+
+    context = {'form': form, 'quiz': quiz}
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return render(request, 'instructor/question_form.html', context)
+    return render(request, 'instructor/question_form.html', context)
+
+
+@login_required
+@user_passes_test(is_instructor)
+def question_update(request, quiz_id, question_id):
+    """
+    Handles updating an existing question with options for a quiz via AJAX modal.
+    """
+    quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user) # Updated lookup
+    question = get_object_or_404(Question, id=question_id, quiz=quiz)
+
+    if request.method == 'POST':
+        form = QuestionForm(request.POST, instance=question)
+        option_formset = OptionFormSet(request.POST, instance=question, prefix='options')
+
+        if form.is_valid():
+            option_formset.instance = question # Set formset instance to the question before validation
+            
+            if option_formset.is_valid():
+                with transaction.atomic():
+                    form.save() # Save the question
+                    option_formset.save() # Save the options
+
+                return JsonResponse({'success': True, 'message': f'Question "{question.text[:30]}..." updated successfully!'})
+            else:
+                form.option_formset = option_formset # Attach the validated formset back
+                html_form = render_to_string('instructor/question_form.html', {'form': form, 'quiz': quiz, 'question': question}, request=request)
+                return JsonResponse({'success': False, 'error': 'Please correct the errors in the options.', 'form_html': html_form}, status=400)
+        else:
+            html_form = render_to_string('instructor/question_form.html', {'form': form, 'quiz': quiz, 'question': question}, request=request)
+            return JsonResponse({'success': False, 'error': 'Please correct the errors in the question.', 'form_html': html_form}, status=400)
+    else:
+        form = QuestionForm(instance=question)
+        form.option_formset = OptionFormSet(instance=question, prefix='options')
+
+    context = {'form': form, 'quiz': quiz, 'question': question}
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return render(request, 'instructor/question_form.html', context)
+    return render(request, 'instructor/question_form.html', context)
+
+
+@login_required
+@user_passes_test(is_instructor)
+def question_delete(request, quiz_id, question_id):
+    """
+    Handles deletion of a question via AJAX.
+    """
+    quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user) # Updated lookup
+    question = get_object_or_404(Question, id=question_id, quiz=quiz)
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                question.delete()
+            return JsonResponse({'success': True, 'message': 'Question deleted successfully!'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Failed to delete question: {e}'}, status=400)
+    return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
+
+
+@login_required
+@user_passes_test(is_instructor)
+def quiz_assign_to_course(request, quiz_id): # Renamed view
+    """
+    Assigns an existing quiz to a course taught by the instructor.
+    """
+    # Ensure the quiz exists and belongs to a course taught by the instructor OR is unassigned
+    # If quiz.course is None, it means it's an unassigned quiz.
+    quiz = get_object_or_404(Quiz, id=quiz_id)
+    
+    # Verify instructor ownership if the quiz is already assigned
+    if quiz.course and quiz.course.instructor != request.user:
+        messages.error(request, "You do not have permission to assign this quiz.")
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+
+    if request.method == 'POST':
+        # Pass the instructor_user to the form to filter courses
+        form = QuizAssignmentForm(request.POST, instructor_user=request.user)
+        if form.is_valid():
+            course = form.cleaned_data['course']
+            
+            # Check if the chosen course already has a quiz
+            if hasattr(course, 'quiz') and course.quiz:
+                return JsonResponse({'success': False, 'error': f'Course "{course.title}" already has a quiz assigned.'}, status=400)
+
+            # If the quiz was previously assigned to a different course, unassign it first
+            if quiz.course:
+                # This scenario is less likely with OneToOneField and careful filtering,
+                # but good to have a safeguard if logic changes.
+                pass # The OneToOneField will handle re-assignment directly
+
+            # Assign the quiz to the selected course
+            quiz.course = course
+            quiz.save()
+
+            return JsonResponse({'success': True, 'message': f'Quiz "{quiz.title}" assigned to course "{course.title}" successfully!'})
+        else:
+            html_form = render_to_string('instructor/quiz_assign_form.html', {'form': form, 'quiz': quiz}, request=request)
+            return JsonResponse({'success': False, 'error': 'Validation failed.', 'form_html': html_form}, status=400)
+    else:
+        # For GET request, initialize form with current assignment if any
+        initial_data = {}
+        if quiz.course:
+            initial_data['course'] = quiz.course.id
+        
+        # Pass the instructor_user to the form to filter courses
+        form = QuizAssignmentForm(initial=initial_data, instructor_user=request.user)
+    
+    context = {'form': form, 'quiz': quiz}
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return render(request, 'instructor/quiz_assign_form.html', context)
+    return render(request, 'instructor/quiz_assign_form.html', context) # Fallback
+
+
+@login_required
+@user_passes_test(is_instructor)
+def quiz_upload_csv(request, quiz_id):
+    """
+    Handles uploading questions for a quiz via CSV.
+    CSV format: question_text,option1,is_correct1,option2,is_correct2,option3,is_correct3,option4,is_correct4
+    is_correct values should be 'True' or 'False'.
+    """
+    quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user) # Updated lookup
+
+    if request.method == 'POST':
+        form = CSVUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            csv_file = request.FILES['csv_file']
+            if not csv_file.name.endswith('.csv'):
+                return JsonResponse({'success': False, 'error': 'File is not a CSV.'}, status=400)
+            
+            # Use io.TextIOWrapper to handle file decoding
+            file_data = io.TextIOWrapper(csv_file.file, encoding='utf-8')
+            reader = csv.reader(file_data)
+            header = next(reader, None) # Skip header row
+
+            questions_to_create = []
+            options_to_create = []
+
+            with transaction.atomic():
+                # First pass: Create questions to get their IDs
+                for i, row in enumerate(reader):
+                    if len(row) != 9:
+                        transaction.set_rollback(True)
+                        return JsonResponse({'success': False, 'error': f'Row {i+2}: Incorrect number of columns. Expected 9, got {len(row)}.'}, status=400)
+                    
+                    question_text = row[0].strip()
+                    if not question_text:
+                        transaction.set_rollback(True)
+                        return JsonResponse({'success': False, 'error': f'Row {i+2}: Question text cannot be empty.'}, status=400)
+
+                    # Get the current max order for questions in this quiz
+                    max_order = quiz.questions.aggregate(models.Max('order'))['order__max'] or 0
+                    question = Question(quiz=quiz, text=question_text, order=max_order + i + 1)
+                    questions_to_create.append(question)
+                
+                # Bulk create questions
+                # This will assign IDs to the question objects in the list
+                Question.objects.bulk_create(questions_to_create)
+
+                # Second pass: Process options using the newly created question objects
+                # Reset file pointer for the second pass
+                csv_file.file.seek(0) 
+                file_data = io.TextIOWrapper(csv_file.file, encoding='utf-8')
+                reader = csv.reader(file_data)
+                next(reader, None) # Skip header again
+
+                for i, row in enumerate(reader):
+                    question = questions_to_create[i] # Link to the corresponding created question object
+
+                    correct_options_in_row = 0
+                    for j in range(1, 9, 2): # Iterate through option text and is_correct pairs
+                        option_text = row[j].strip()
+                        is_correct_str = row[j+1].strip().lower()
+                        is_correct = is_correct_str == 'true'
+
+                        if not option_text:
+                            transaction.set_rollback(True)
+                            return JsonResponse({'success': False, 'error': f'Row {i+2}, Option {((j-1)//2)+1}: Option text cannot be empty.'}, status=400)
+
+                        if is_correct:
+                            correct_options_in_row += 1
+
+                        options_to_create.append(Option(question=question, text=option_text, is_correct=is_correct))
+                    
+                    if correct_options_in_row != 1:
+                        transaction.set_rollback(True)
+                        return JsonResponse({'success': False, 'error': f'Row {i+2}: Each question must have exactly one correct option.'}, status=400)
+                
+                Option.objects.bulk_create(options_to_create)
+
+            return JsonResponse({'success': True, 'message': f'{len(questions_to_create)} questions uploaded successfully!'})
+        else:
+            html_form = render_to_string('instructor/quiz_upload_csv.html', {'form': form, 'quiz': quiz}, request=request)
+            return JsonResponse({'success': False, 'error': 'Validation failed.', 'form_html': html_form}, status=400)
+    else:
+        form = CSVUploadForm()
+    
+    context = {'form': form, 'quiz': quiz}
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return render(request, 'instructor/quiz_upload_csv.html', context)
+    return render(request, 'instructor/quiz_upload_csv.html', context)
+
+@login_required
+@user_passes_test(is_instructor)
+def quiz_download_csv_template(request):
+    """
+    Provides a sample CSV template for quiz question uploads.
+    """
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="quiz_questions_template.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'question_text',
+        'option1', 'is_correct1',
+        'option2', 'is_correct2',
+        'option3', 'is_correct3',
+        'option4', 'is_correct4'
+    ])
+    return response
+
+

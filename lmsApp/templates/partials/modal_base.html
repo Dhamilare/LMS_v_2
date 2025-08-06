@@ -1,0 +1,13 @@
+<div id="modal-backdrop" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden transition-opacity duration-300 ease-in-out">
+    <div id="modal-container" class="bg-white rounded-lg shadow-xl w-11/12 md:w-3/4 max-w-2xl transform transition-transform duration-300 ease-in-out scale-95 opacity-0">
+        <div class="flex justify-between items-center p-4 border-b border-gray-200">
+            <h5 id="modal-title" class="text-lg font-bold text-gray-800"></h5>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                <i class="fas fa-times fa-lg"></i>
+            </button>
+        </div>
+        <div id="modal-body" class="p-6 overflow-y-auto max-h-[80vh]">
+            <!-- Form content will be loaded here via AJAX -->
+        </div>
+    </div>
+</div>

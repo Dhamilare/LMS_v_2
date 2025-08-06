@@ -1,0 +1,9 @@
+{% load crispy_forms_tags %}
+
+<form method="post" action="{% url 'quiz_create' %}" class="space-y-4">
+    {% csrf_token %}
+    {{ form|crispy }}
+    <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg">
+        <i class="fas fa-save mr-2"></i> Save Quiz
+    </button>
+</form>

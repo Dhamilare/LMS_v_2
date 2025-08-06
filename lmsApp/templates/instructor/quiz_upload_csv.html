@@ -1,0 +1,24 @@
+{% load crispy_forms_tags %}
+
+<form method="post" action="{% url 'quiz_upload_csv' quiz_id=quiz.id %}" enctype="multipart/form-data" class="space-y-4">
+    {% csrf_token %}
+    
+    {# Render the CSV upload form field #}
+    {{ form|crispy }}
+
+    <p class="text-gray-600 text-sm mt-2">
+        <i class="fas fa-info-circle mr-1"></i>
+        Please ensure your CSV file follows this exact format for each row:
+        <br>
+        <code>question_text,option1,is_correct1,option2,is_correct2,option3,is_correct3,option4,is_correct4</code>.
+        <br>
+        'is_correct' values should be **'True'** or **'False'**. Each question must have exactly one correct option.
+        <a href="{% url 'quiz_download_csv_template' %}" download="quiz_questions_template.csv" class="text-blue-600 hover:underline flex items-center mt-1">
+            <i class="fas fa-download mr-1"></i> Download Sample CSV Template
+        </a>
+    </p>
+
+    <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg">
+        <i class="fas fa-upload mr-2"></i> Upload CSV
+    </button>
+</form>

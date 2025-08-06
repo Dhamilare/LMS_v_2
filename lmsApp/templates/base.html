@@ -86,10 +86,10 @@
 
                     <!-- Role-based Navigation -->
                     {% if user.is_instructor %}
-                        <a href="#" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                        <!-- <a href="#" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
                             <i class="fa-solid fa-user-tie mr-3 text-lg"></i>
                             <span class="font-medium">Students</span>
-                        </a>
+                        </a> -->
                         <!-- Courses Dropdown -->
                         <div class="relative">
                             <button id="courses-dropdown-toggle" class="w-full flex justify-between items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200 focus:outline-none">
@@ -108,9 +108,9 @@
                                 </a>
                             </div>
                         </div>
-                        <a href="#" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                        <a href="{% url 'quiz_list_instructor' %}" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
                             <i class="fa-solid fa-clipboard-list mr-3 text-lg"></i>
-                            <span class="font-medium">Assignments</span>
+                            <span class="font-medium">Assessment</span>
                         </a>
                     {% elif user.is_student %}
                         <a href="{% url 'all_courses' %}" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
@@ -182,7 +182,7 @@
         const menuToggle = document.getElementById('menu-toggle');
         const sidebar = document.getElementById('sidebar');
         const backdrop = document.getElementById('sidebar-backdrop');
-        
+
         // Mobile sidebar toggle
         menuToggle.addEventListener('click', () => {
             sidebar.classList.toggle('-translate-x-full');
@@ -208,16 +208,17 @@
             });
         }
 
-        // --- Global Utility Functions (Added Here) ---
+        // --- Global Utility Functions ---
         // Function to get the CSRF token from the cookie
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 const cookies = document.cookie.split(';');
+                const nameEQ = name + '=';
                 for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.startsWith(name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    let cookie = cookies[i].trim();
+                    if (cookie.startsWith(nameEQ)) {
+                        cookieValue = decodeURIComponent(cookie.substring(nameEQ.length));
                         break;
                     }
                 }
@@ -232,7 +233,7 @@
             alert(message);
         }
 
-        // --- Modal Functions (Copied from previous response to ensure consistency) ---
+        // --- Modal Functions ---
         const modalBackdrop = document.getElementById('modal-backdrop');
         const modalContainer = document.getElementById('modal-container');
         const modalTitle = document.getElementById('modal-title');
@@ -241,23 +242,35 @@
         async function loadModalForm(url, title = 'Form') {
             modalTitle.textContent = title;
             modalBody.innerHTML = '<div class="flex justify-center items-center h-48"><i class="fas fa-spinner fa-spin fa-3x text-indigo-500"></i></div>';
+            openModal(); // 
             
             try {
+                console.log(`Attempting to load modal form from URL: ${url}`);
                 const response = await fetch(url);
+                console.log(`Fetch response status: ${response.status}`);
+
                 if (!response.ok) {
-                    throw new Error('Network response was not ok.');
+                    const errorText = await response.text();
+                    console.error(`Network response not OK (${response.status}):`, errorText);
+                    throw new Error(`Failed to load form. Server responded with status: ${response.status}`);
                 }
+                
                 const formHtml = await response.text();
+                console.log("Received form HTML (first 500 chars):", formHtml.substring(0, 500) + '...');
+                
                 modalBody.innerHTML = formHtml;
-                openModal();
                 const form = modalBody.querySelector('form');
                 if (form) {
                     form.addEventListener('submit', handleModalFormSubmit);
+                    console.log("Form element found and submit listener attached.");
+                } else {
+                    console.warn("No form element found in the loaded HTML. Check the rendered template.");
                 }
 
             } catch (error) {
                 console.error('Error loading modal content:', error);
-                modalBody.innerHTML = `<p class="text-red-500">Failed to load content. Please try again.</p>`;
+                modalBody.innerHTML = `<p class="text-red-500">Failed to load content. Please try again. Error: ${error.message}</p>`;
+                displayMessage('error', `Failed to load form: ${error.message}`);
             }
         }
 
@@ -276,6 +289,7 @@
             }
 
             try {
+                console.log(`Attempting to submit form to: ${url}`);
                 const response = await fetch(url, {
                     method: method,
                     headers: {
@@ -284,6 +298,7 @@
                     },
                     body: formData
                 });
+                console.log(`Form submission response status: ${response.status}`);
 
                 if (response.ok) {
                     closeModal();
@@ -291,18 +306,19 @@
                     displayMessage('success', result.message || 'Operation successful!');
                     window.location.reload();
                 } else {
-                    const formHtml = await response.text();
-                    modalBody.innerHTML = formHtml;
-                    const newForm = modalBody.querySelector('form');
-                    if (newForm) {
-                        newForm.addEventListener('submit', handleModalFormSubmit);
-                    }
+                    const errorText = await response.text();
+                    console.error(`Form submission failed (${response.status}):`, errorText);
                     try {
-                        const errorResult = JSON.parse(formHtml);
+                        const errorResult = JSON.parse(errorText);
                         displayMessage('error', errorResult.error || 'Please correct the errors in the form.');
                     } catch (e) {
-                         // If the response is not JSON, it's likely a full page render with errors
-                         displayMessage('error', 'Please correct the errors in the form.');
+                        // If the response is not JSON (e.g., HTML with errors)
+                        modalBody.innerHTML = errorText;
+                        const newForm = modalBody.querySelector('form');
+                        if (newForm) {
+                            newForm.addEventListener('submit', handleModalFormSubmit);
+                        }
+                        displayMessage('error', 'Please correct the errors in the form.');
                     }
                 }
             } catch (error) {
@@ -337,40 +353,39 @@
 
         // --- Confirmation Modal Functions ---
         const confirmBackdrop = document.getElementById('confirmation-modal-backdrop');
+        const confirmContainer = confirmBackdrop ? confirmBackdrop.querySelector('div') : null; // Get the inner div
         const confirmTitle = document.getElementById('confirm-modal-title');
         const confirmBody = document.getElementById('confirm-modal-body');
         const confirmButton = document.getElementById('confirm-modal-action-button');
 
         function showConfirmationModal(actionUrl, title, body) {
+            if (!confirmBackdrop || !confirmContainer || !confirmTitle || !confirmBody || !confirmButton) {
+                console.error("Confirmation modal elements not found.");
+                alert("Confirmation failed. Please try again."); // Fallback
+                return;
+            }
+
             confirmTitle.textContent = title;
             confirmBody.textContent = body;
             confirmButton.onclick = () => performConfirmedAction(actionUrl);
             
-            if (confirmBackdrop) { // Check if element exists before manipulating classes
-                confirmBackdrop.classList.remove('hidden');
-                setTimeout(() => {
-                    confirmBackdrop.classList.add('opacity-100');
-                    const confirmModalInner = confirmBackdrop.querySelector('div');
-                    if (confirmModalInner) {
-                        confirmModalInner.classList.remove('scale-95', 'opacity-0');
-                        confirmModalInner.classList.add('scale-100', 'opacity-100');
-                    }
-                }, 10);
-            }
+            confirmBackdrop.classList.remove('hidden');
+            setTimeout(() => {
+                confirmBackdrop.classList.add('opacity-100');
+                confirmContainer.classList.remove('scale-95', 'opacity-0');
+                confirmContainer.classList.add('scale-100', 'opacity-100');
+            }, 10);
         }
 
         function closeConfirmationModal() {
-            if (confirmBackdrop) { // Check if element exists
-                const modalContainer = confirmBackdrop.querySelector('div');
-                if (modalContainer) {
-                    modalContainer.classList.remove('scale-100', 'opacity-100');
-                    modalContainer.classList.add('scale-95', 'opacity-0');
-                }
-                confirmBackdrop.classList.remove('opacity-100');
-                setTimeout(() => {
-                    confirmBackdrop.classList.add('hidden');
-                }, 300);
-            }
+            if (!confirmBackdrop || !confirmContainer) return;
+
+            confirmContainer.classList.remove('scale-100', 'opacity-100');
+            confirmContainer.classList.add('scale-95', 'opacity-0');
+            confirmBackdrop.classList.remove('opacity-100');
+            setTimeout(() => {
+                confirmBackdrop.classList.add('hidden');
+            }, 300);
         }
 
         async function performConfirmedAction(url) {
@@ -398,6 +413,13 @@
                 console.error('Error during action:', error);
                 displayMessage('error', 'An error occurred.');
             }
+        }
+
+
+        // --- Enrollment Function (UPDATED) ---
+        // The enrollment function now uses the new confirmation modal
+        function enrollCourse(url) {
+            showConfirmationModal(url, 'Enroll in Course', 'Are you sure you want to enroll in this course?');
         }
 
     </script>

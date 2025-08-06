@@ -1,0 +1,58 @@
+{% load crispy_forms_tags %}
+
+<form method="post" action="{% if question %}{% url 'question_update' quiz_id=quiz.id question_id=question.id %}{% else %}{% url 'question_create' quiz_id=quiz.id %}{% endif %}" class="space-y-4">
+    {% csrf_token %}
+    
+    {# Render the main QuestionForm fields (e.g., text, order) #}
+    {{ form|crispy }}
+
+    <h4 class="text-lg font-semibold text-gray-700 mt-6 mb-3">Options (Select exactly one correct)</h4>
+    <div class="space-y-3">
+        {# Management form for the OptionFormSet is crucial for Django to process the inline forms #}
+        {{ form.option_formset.management_form }} 
+        
+        {# Loop through each option form in the formset #}
+        {% for option_form in form.option_formset %}
+            <div class="flex items-center space-x-3 bg-gray-100 p-3 rounded-md border border-gray-200">
+                {# Checkbox for 'is_correct' option #}
+                <label class="flex items-center cursor-pointer">
+                    {{ option_form.is_correct }}
+                    <span class="ml-2 text-gray-700 text-sm">Correct Answer</span>
+                </label>
+                
+                {# Input field for 'option text' #}
+                <div class="flex-grow">
+                    {{ option_form.text|as_crispy_field }}
+                </div>
+                
+                {# Hidden field for DELETE, though we set can_delete=False in formset, it's good practice to include #}
+                {% if option_form.instance.pk %}{{ option_form.id }}{% endif %}
+            </div>
+            
+            {# Display any field-specific errors for the option #}
+            {% if option_form.errors %}
+                <div class="text-red-600 text-sm mt-1">
+                    {% for field_name, errors in option_form.errors.items %}
+                        {% for error in errors %}
+                            <p>{{ option_form.fields[field_name].label|default:field_name }}: {{ error }}</p>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endfor %}
+        
+        {# Display any non-field errors for the entire option formset (e.g., "Each question must have exactly one correct option.") #}
+        {% if form.option_formset.non_form_errors %}
+            <div class="text-red-600 text-sm mt-1">
+                {% for error in form.option_formset.non_form_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+
+    {# Submit button for the form #}
+    <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center justify-center text-lg shadow-md hover:shadow-lg">
+        <i class="fas fa-save mr-2"></i> {% if question %}Update Question{% else %}Add Question{% endif %}
+    </button>
+</form>

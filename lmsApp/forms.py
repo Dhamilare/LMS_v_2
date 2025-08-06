@@ -6,7 +6,7 @@ from crispy_forms.layout import Layout, Submit, Field, Div, HTML
 from .models import *
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
-from django.forms import inlineformset_factory
+from django.forms import inlineformset_factory, BaseInlineFormSet
 
 class StudentRegistrationForm(forms.ModelForm):
     """
@@ -161,27 +161,22 @@ class InstructorUpdateForm(UserChangeForm):
         )
 
 class CourseForm(forms.ModelForm):
-    """
-    Form for creating and updating Course objects.
-    """
     class Meta:
         model = Course
-        fields = ['title', 'description', 'price', 'is_published', 'thumbnail']
+        fields = ['title', 'description', 'instructor', 'price', 'is_published', 'thumbnail']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
+            'thumbnail': forms.URLInput(attrs={'placeholder': 'e.g., https://example.com/course_thumb.jpg'}),
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        self.helper = FormHelper()
-        self.helper.layout = Layout(
-            Field('title', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
-            Field('description', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
-            Field('price', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
-            Field('is_published', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
-            Field('thumbnail', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
-            Submit('submit', 'Save Course', css_class='w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-4')
-        )
+
+        # Filter the instructor field's queryset to only show users marked as instructors.
+        # This will be available for all instructors to choose from.
+        self.fields['instructor'].queryset = User.objects.filter(is_instructor=True).order_by('username')
+
 
 class ModuleForm(forms.ModelForm):
     """
@@ -287,8 +282,15 @@ class ContentForm(forms.ModelForm):
         return cleaned_data
     
 
-# --- Quiz Forms ---
+class QuizDetailsForm(forms.ModelForm):
+    class Meta:
+        model = Quiz
+        fields = ['title', 'description', 'pass_percentage', 'max_attempts']
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 4}),
+        }
 
+# Form for a single Option
 class OptionForm(forms.ModelForm):
     """
     Form for individual answer options within a question.
@@ -301,22 +303,40 @@ class OptionForm(forms.ModelForm):
             'is_correct': forms.CheckboxInput(attrs={'class': 'form-checkbox h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500'}),
         }
 
-# Inline formset for Options within a Question
+# Custom BaseInlineFormSet for Options to enforce exactly one correct answer
+class BaseOptionFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+
+        correct_options_count = 0
+        for form in self.forms:
+            if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                if form.cleaned_data.get('is_correct'):
+                    correct_options_count += 1
+        
+        if correct_options_count != 1:
+            raise forms.ValidationError("Each question must have exactly one correct option.")
+
+# Inline formset for Options (exactly 4 options per question, one correct)
 OptionFormSet = inlineformset_factory(
     Question,
     Option,
     form=OptionForm,
-    extra=4,  # Number of empty forms to display
-    min_num=2, # Minimum number of options required
-    max_num=4, # Maximum number of options allowed
+    formset=BaseOptionFormSet,
+    extra=4,
+    min_num=4,
+    max_num=4,
     validate_min=True,
-    can_delete=False, # Options should not be deleted independently in quiz creation
+    can_delete=False,
     labels={
         'text': 'Option Text',
         'is_correct': 'Is Correct?'
     }
 )
 
+# Form for a single Question
 class QuestionForm(forms.ModelForm):
     """
     Form for individual quiz questions.
@@ -334,8 +354,8 @@ QuestionFormSet = inlineformset_factory(
     Quiz,
     Question,
     form=QuestionForm,
-    extra=1, # Number of empty forms to display
-    min_num=1, # Minimum number of questions required
+    extra=1,
+    min_num=1,
     validate_min=True,
     can_delete=True,
     labels={
@@ -344,7 +364,34 @@ QuestionFormSet = inlineformset_factory(
     }
 )
 
-class QuizForm(forms.Form):
+# Form for assigning a Quiz to a Course
+class QuizAssignmentForm(forms.Form):
+    course = forms.ModelChoiceField(
+        queryset=Course.objects.none(), # Queryset will be set dynamically in the view
+        empty_label="Select a course",
+        label="Assign to Course",
+        help_text="Select a course to assign this quiz as its main assessment. Only courses without an existing quiz are shown."
+    )
+
+    def __init__(self, *args, **kwargs):
+        instructor_user = kwargs.pop('instructor_user', None) # Expecting the request.user here
+        super().__init__(*args, **kwargs)
+        if instructor_user:
+            # Filter courses taught by this instructor that do not already have a quiz linked
+            self.fields['course'].queryset = Course.objects.filter(
+                instructor=instructor_user
+            ).exclude(quiz__isnull=False).order_by('title')
+
+
+# Form for CSV Upload
+class CSVUploadForm(forms.Form):
+    csv_file = forms.FileField(
+        label="Upload Questions CSV",
+        help_text="Upload a CSV file with questions and options. See sample template for format."
+    )
+
+# Student-facing Quiz Taking Form
+class TakeQuizForm(forms.Form):
     """
     A dynamic form for taking a quiz.
     It generates fields based on the questions associated with a given Quiz instance.
@@ -354,17 +401,16 @@ class QuizForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         if not self.quiz:
-            raise ValueError("Quiz instance must be provided to QuizForm.")
+            raise ValueError("Quiz instance must be provided to TakeQuizForm.")
 
         for question in self.quiz.questions.all().order_by('order'):
-            # Create a list of (value, label) tuples for choices
             choices = [(option.id, option.text) for option in question.options.all()]
             
-            # Add a RadioSelect field for each question
             self.fields[f'question_{question.id}'] = forms.ChoiceField(
                 label=f"{question.order}. {question.text}",
                 choices=choices,
                 widget=forms.RadioSelect(attrs={'class': 'form-radio h-4 w-4 text-indigo-600'}),
-                required=True, # All questions are required to be answered
+                required=True,
             )
             self.fields[f'question_{question.id}'].widget.attrs['data-question-id'] = question.id
+

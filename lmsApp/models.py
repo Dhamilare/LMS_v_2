@@ -80,10 +80,9 @@ class Module(models.Model):
         if not user.is_authenticated or not user.is_student:
             return False
         
-        # Get all lessons in this module
         lessons_in_module = self.lessons.all()
         if not lessons_in_module.exists():
-            return False # A module with no lessons is not considered completed
+            return True
 
         # Check if ALL lessons are completed by the student
         for lesson in lessons_in_module:
@@ -109,41 +108,24 @@ class Lesson(models.Model):
 
     def is_completed_by_student(self, user):
         """
-        Checks if all content items (excluding quizzes) within this lesson are completed
-        AND if there's a quiz, it's passed by the given student.
+        Checks if all content items within this lesson are completed by the given student.
+        This does NOT include course-level quizzes.
         """
         if not user.is_authenticated or not user.is_student:
             return False
 
-        # Get all content items in this lesson, excluding quizzes for content completion check
-        non_quiz_contents = self.contents.exclude(content_type='quiz')
+        # Get all content items in this lesson (quizzes are now course-level)
+        all_contents_in_lesson = self.contents.all()
         
-        # Check if all non-quiz content is completed
-        if non_quiz_contents.exists():
-            for content_item in non_quiz_contents:
-                if not content_item.is_completed_by_student(user):
-                    return False
-        # If there are no non-quiz contents, this part is considered complete.
+        if not all_contents_in_lesson.exists():
+            return True # A lesson with no content is considered completed for progression
 
-        # Check if there's a quiz in this lesson and if it's passed
-        quiz_content = self.contents.filter(content_type='quiz').first()
-        if quiz_content:
-            quiz = getattr(self, 'quiz', None) # Access the related quiz object
-            if quiz:
-                # Check if the student has a passing attempt for this quiz
-                has_passed_quiz = StudentQuizAttempt.objects.filter(
-                    student=user,
-                    quiz=quiz,
-                    passed=True
-                ).exists()
-                if not has_passed_quiz:
-                    return False
-            else:
-                # If content_type is 'quiz' but no Quiz object is linked, it's an issue.
-                # For now, we'll consider it incomplete if the quiz object is missing.
+        # Check if ALL content items are completed by the student
+        for content_item in all_contents_in_lesson:
+            if not content_item.is_completed_by_student(user):
                 return False
         
-        return True # All content (and quiz if exists) are completed/passed
+        return True # All content are completed
 
 class Content(models.Model):
     """
@@ -154,8 +136,6 @@ class Content(models.Model):
         ('pdf', 'PDF Document'),
         ('text', 'Text/Notes'),
         ('slide', 'Slide Presentation'),
-        ('quiz', 'Quiz'),
-        ('assignment', 'Assignment'),
     )
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='contents')
     title = models.CharField(max_length=200)
@@ -176,20 +156,15 @@ class Content(models.Model):
     def is_completed_by_student(self, user):
         """
         Checks if this specific content item is completed by the given student.
-        For quizzes, this property is not directly used for completion,
-        instead, Lesson.is_completed_by_student checks quiz pass status.
         """
         if not user.is_authenticated or not user.is_student:
             return False
         
-        # For non-quiz content, check StudentContentProgress
-        if self.content_type != 'quiz':
-            return StudentContentProgress.objects.filter(
-                student=user,
-                content=self,
-                completed=True
-            ).exists()
-        return False # Quizzes are handled by Lesson.is_completed_by_student's quiz check
+        return StudentContentProgress.objects.filter(
+            student=user,
+            content=self,
+            completed=True
+        ).exists()
 
 class Enrollment(models.Model):
     """
@@ -208,27 +183,28 @@ class Enrollment(models.Model):
     def __str__(self):
         return f"{self.student.username} enrolled in {self.course.title}"
     
-    # The save method on Enrollment is now simplified, as _sync_completion_status
-    # will handle setting 'completed' and 'completed_at'
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
     @property
     def progress_percentage(self):
-        """Calculates the percentage of completed content (non-quiz) for this enrollment."""
+        """Calculates the percentage of completed content (all non-quiz content) for this enrollment."""
+        # This property might become less relevant for overall course completion
+        # if completion is strictly module-by-module + final quiz.
+        # It still serves as a general indicator of content consumption.
+
         # Get all non-quiz content items for the course
         total_contents = Content.objects.filter(
             lesson__module__course=self.course
-        ).exclude(content_type='quiz').count()
+        ).count() # Now 'quiz' content_type is removed from Content model
 
         if total_contents == 0:
             return 0
 
-        # Count completed non-quiz content items for this student in this course
+        # Count completed content items for this student in this course
         completed_contents = StudentContentProgress.objects.filter(
             student=self.student,
             content__lesson__module__course=self.course,
-            content__content_type__in=['video', 'pdf', 'text', 'slide', 'assignment'], # Explicitly list non-quiz types
             completed=True
         ).count()
 
@@ -236,11 +212,10 @@ class Enrollment(models.Model):
 
     @property
     def is_content_completed(self):
-        """Returns True if all non-quiz content in the course is completed."""
-        # Check if all modules are completed based on the new module completion logic
+        """Returns True if all modules and their contained lessons/content are completed."""
         all_modules = self.course.modules.all()
         if not all_modules.exists():
-            return False # Course with no modules can't be content-completed
+            return False # A course with no modules cannot be content-completed
 
         for module in all_modules:
             if not module.is_completed_by_student(self.student):
@@ -251,12 +226,8 @@ class Enrollment(models.Model):
     def is_quiz_passed(self):
         """
         Checks if the student has a passing attempt for the course's associated quiz.
-        Assumes a course has one primary assessment quiz.
         """
-        # Find the quiz associated with this course (via its lessons/modules)
-        course_quiz = Quiz.objects.filter(
-            lesson__module__course=self.course
-        ).first()
+        course_quiz = getattr(self.course, 'quiz', None) # Access the related quiz object directly from course
 
         if not course_quiz:
             return True # No quiz for this course, so consider it passed by default for completion criteria
@@ -271,7 +242,7 @@ class Enrollment(models.Model):
     def _sync_completion_status(self):
         """
         Synchronizes the 'completed' status of the enrollment based on
-        content completion and quiz passing status.
+        content completion (all modules/lessons) and course-level quiz passing status.
         This method should be called whenever content progress or quiz attempts change.
         """
         should_be_completed = self.is_content_completed and self.is_quiz_passed
@@ -343,12 +314,12 @@ class StudentContentProgress(models.Model):
 
 class Quiz(models.Model):
     """
-    Represents a quiz. Can be linked to a Content object of type 'quiz'.
+    Represents a quiz, now linked directly to a Course.
     """
-    lesson = models.OneToOneField(Lesson, on_delete=models.CASCADE, related_name='quiz', null=True, blank=True)
+    course = models.OneToOneField(Course, on_delete=models.CASCADE, related_name='quiz', null=True, blank=True,
+                                  help_text="The course this quiz is the main assessment for.")
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
-    duration_minutes = models.PositiveIntegerField(default=0)
     pass_percentage = models.PositiveIntegerField(default=70)
     max_attempts = models.PositiveIntegerField(default=3, help_text="Maximum number of attempts allowed for this quiz.")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -411,11 +382,11 @@ class StudentQuizAttempt(models.Model):
         super().save(*args, **kwargs) # Save the attempt first
 
         # After saving the attempt, trigger the enrollment completion status sync
-        # Ensure 'enrollment' is set, if not, try to find it via quiz -> lesson -> module -> course
-        if not self.enrollment and self.quiz.lesson:
+        # Ensure 'enrollment' is set, if not, try to find it via quiz -> course
+        if not self.enrollment and self.quiz.course:
             self.enrollment = Enrollment.objects.filter(
                 student=self.student,
-                course=self.quiz.lesson.module.course
+                course=self.quiz.course
             ).first()
             if self.enrollment:
                 # If enrollment was just found and assigned, save again to persist the FK
@@ -426,7 +397,7 @@ class StudentQuizAttempt(models.Model):
 
 
     def __str__(self):
-        status = "Passed" if self.passed else "Incomplete"
+        status = "Passed" if self.passed else "Failed"
         return f"{self.student.username} - {self.quiz.title} ({self.score or 'N/A'}% - {status})"
 
 
