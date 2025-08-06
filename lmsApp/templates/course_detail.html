@@ -98,14 +98,23 @@
                             <ul class="space-y-3">
                                 {% for lesson in module.lessons %}
                                     <li class="bg-white p-4 rounded-md shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center transform hover:scale-[1.02] transition duration-200 ease-in-out">
-                                        <a href="{% if lesson.contents %}{% url 'content_detail' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=lesson.contents.first.id %}{% else %}#{% endif %}" class="flex items-center text-gray-700 font-medium hover:text-indigo-600 mb-2 md:mb-0">
-                                            {% if lesson.is_completed %}
-                                                <i class="fas fa-check-circle text-green-500 mr-3 text-lg"></i>
-                                            {% else %}
-                                                <i class="fas fa-play-circle text-indigo-500 mr-3 text-lg"></i>
-                                            {% endif %}
-                                            Lesson {{ lesson.order }}: {{ lesson.title }}
-                                        </a>
+                                        {# Check if lesson.contents is not empty before creating the link #}
+                                        {% if lesson.contents %}
+                                            <a href="{% url 'content_detail' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=lesson.contents.0.id %}" class="flex items-center text-gray-700 font-medium hover:text-indigo-600 mb-2 md:mb-0">
+                                                {% if lesson.is_completed %}
+                                                    <i class="fas fa-check-circle text-green-500 mr-3 text-lg"></i>
+                                                {% else %}
+                                                    <i class="fas fa-play-circle text-indigo-500 mr-3 text-lg"></i>
+                                                {% endif %}
+                                                Lesson {{ lesson.order }}: {{ lesson.title }}
+                                            </a>
+                                        {% else %}
+                                            {# If no content, display as text without a link #}
+                                            <span class="flex items-center text-gray-700 font-medium mb-2 md:mb-0">
+                                                <i class="fas fa-info-circle text-gray-500 mr-3 text-lg"></i>
+                                                Lesson {{ lesson.order }}: {{ lesson.title }} (No Content)
+                                            </span>
+                                        {% endif %}
 
                                         {% if request.user.is_instructor and course.instructor == request.user %}
                                             <div class="flex flex-wrap space-x-2 space-y-2 md:space-y-0">
@@ -121,7 +130,8 @@
                                             </div>
                                         {% endif %}
                                     </li>
-                                    {% if lesson.contents and request.user.is_student and is_enrolled %} {# Only show content list if student is enrolled #}
+                                    {# Only show content list if module is accessible and student is enrolled #}
+                                    {% if lesson.contents and request.user.is_student and is_enrolled %}
                                         <ul class="ml-8 mt-1 space-y-1 border-l-2 border-gray-200 pl-4">
                                             {% for content_item in lesson.contents %}
                                                 <li class="flex justify-between items-center text-sm text-gray-600 bg-gray-100 p-2 rounded-md hover:bg-gray-200 transition duration-150 ease-in-out">
