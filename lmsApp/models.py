@@ -72,6 +72,25 @@ class Module(models.Model):
         ordering = ['order']
         unique_together = ('course', 'order')
 
+    def is_completed_by_student(self, user):
+        """
+        Checks if all lessons within this module are completed by the given student.
+        A module is completed if all its lessons are completed.
+        """
+        if not user.is_authenticated or not user.is_student:
+            return False
+        
+        # Get all lessons in this module
+        lessons_in_module = self.lessons.all()
+        if not lessons_in_module.exists():
+            return False # A module with no lessons is not considered completed
+
+        # Check if ALL lessons are completed by the student
+        for lesson in lessons_in_module:
+            if not lesson.is_completed_by_student(user):
+                return False
+        return True
+
 class Lesson(models.Model):
     """
     Represents an individual lesson within a module.
@@ -87,6 +106,44 @@ class Lesson(models.Model):
     class Meta:
         ordering = ['order']
         unique_together = ('module', 'order')
+
+    def is_completed_by_student(self, user):
+        """
+        Checks if all content items (excluding quizzes) within this lesson are completed
+        AND if there's a quiz, it's passed by the given student.
+        """
+        if not user.is_authenticated or not user.is_student:
+            return False
+
+        # Get all content items in this lesson, excluding quizzes for content completion check
+        non_quiz_contents = self.contents.exclude(content_type='quiz')
+        
+        # Check if all non-quiz content is completed
+        if non_quiz_contents.exists():
+            for content_item in non_quiz_contents:
+                if not content_item.is_completed_by_student(user):
+                    return False
+        # If there are no non-quiz contents, this part is considered complete.
+
+        # Check if there's a quiz in this lesson and if it's passed
+        quiz_content = self.contents.filter(content_type='quiz').first()
+        if quiz_content:
+            quiz = getattr(self, 'quiz', None) # Access the related quiz object
+            if quiz:
+                # Check if the student has a passing attempt for this quiz
+                has_passed_quiz = StudentQuizAttempt.objects.filter(
+                    student=user,
+                    quiz=quiz,
+                    passed=True
+                ).exists()
+                if not has_passed_quiz:
+                    return False
+            else:
+                # If content_type is 'quiz' but no Quiz object is linked, it's an issue.
+                # For now, we'll consider it incomplete if the quiz object is missing.
+                return False
+        
+        return True # All content (and quiz if exists) are completed/passed
 
 class Content(models.Model):
     """
@@ -116,6 +173,24 @@ class Content(models.Model):
         ordering = ['order']
         unique_together = ('lesson', 'order')
 
+    def is_completed_by_student(self, user):
+        """
+        Checks if this specific content item is completed by the given student.
+        For quizzes, this property is not directly used for completion,
+        instead, Lesson.is_completed_by_student checks quiz pass status.
+        """
+        if not user.is_authenticated or not user.is_student:
+            return False
+        
+        # For non-quiz content, check StudentContentProgress
+        if self.content_type != 'quiz':
+            return StudentContentProgress.objects.filter(
+                student=user,
+                content=self,
+                completed=True
+            ).exists()
+        return False # Quizzes are handled by Lesson.is_completed_by_student's quiz check
+
 class Enrollment(models.Model):
     """
     Represents a student's enrollment in a course.
@@ -123,8 +198,8 @@ class Enrollment(models.Model):
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='enrollments', limit_choices_to={'is_student': True})
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollments')
     enrolled_at = models.DateTimeField(auto_now_add=True)
-    completed = models.BooleanField(default=False)
-    completed_at = models.DateTimeField(null=True, blank=True)
+    completed = models.BooleanField(default=False) # This will be managed by _sync_completion_status
+    completed_at = models.DateTimeField(null=True, blank=True) # This will be managed by _sync_completion_status
 
     class Meta:
         unique_together = ('student', 'course')
@@ -133,34 +208,82 @@ class Enrollment(models.Model):
     def __str__(self):
         return f"{self.student.username} enrolled in {self.course.title}"
     
+    # The save method on Enrollment is now simplified, as _sync_completion_status
+    # will handle setting 'completed' and 'completed_at'
     def save(self, *args, **kwargs):
-        # This save method primarily handles setting/clearing completed_at
-        # based on the 'completed' flag. The 'completed' flag itself is
-        # updated by StudentContentProgress.save() for synchronization.
-        if self.completed and not self.completed_at:
-            self.completed_at = timezone.now()
-        elif not self.completed and self.completed_at:
-            self.completed_at = None
         super().save(*args, **kwargs)
 
     @property
     def progress_percentage(self):
-        """Calculates the percentage of completed content for this enrollment."""
-        # Corrected: Count all content items belonging to lessons within modules of this course
+        """Calculates the percentage of completed content (non-quiz) for this enrollment."""
+        # Get all non-quiz content items for the course
         total_contents = Content.objects.filter(
             lesson__module__course=self.course
-        ).count()
+        ).exclude(content_type='quiz').count()
 
         if total_contents == 0:
             return 0
 
+        # Count completed non-quiz content items for this student in this course
         completed_contents = StudentContentProgress.objects.filter(
             student=self.student,
             content__lesson__module__course=self.course,
+            content__content_type__in=['video', 'pdf', 'text', 'slide', 'assignment'], # Explicitly list non-quiz types
             completed=True
         ).count()
 
         return round((completed_contents / total_contents) * 100)
+
+    @property
+    def is_content_completed(self):
+        """Returns True if all non-quiz content in the course is completed."""
+        # Check if all modules are completed based on the new module completion logic
+        all_modules = self.course.modules.all()
+        if not all_modules.exists():
+            return False # Course with no modules can't be content-completed
+
+        for module in all_modules:
+            if not module.is_completed_by_student(self.student):
+                return False
+        return True
+
+    @property
+    def is_quiz_passed(self):
+        """
+        Checks if the student has a passing attempt for the course's associated quiz.
+        Assumes a course has one primary assessment quiz.
+        """
+        # Find the quiz associated with this course (via its lessons/modules)
+        course_quiz = Quiz.objects.filter(
+            lesson__module__course=self.course
+        ).first()
+
+        if not course_quiz:
+            return True # No quiz for this course, so consider it passed by default for completion criteria
+
+        # Check for any passing attempt by this student for this specific quiz
+        return StudentQuizAttempt.objects.filter(
+            student=self.student,
+            quiz=course_quiz,
+            passed=True
+        ).exists()
+
+    def _sync_completion_status(self):
+        """
+        Synchronizes the 'completed' status of the enrollment based on
+        content completion and quiz passing status.
+        This method should be called whenever content progress or quiz attempts change.
+        """
+        should_be_completed = self.is_content_completed and self.is_quiz_passed
+
+        if should_be_completed and not self.completed:
+            self.completed = True
+            self.completed_at = timezone.now()
+            self.save(update_fields=['completed', 'completed_at'])
+        elif not should_be_completed and self.completed:
+            self.completed = False
+            self.completed_at = None
+            self.save(update_fields=['completed', 'completed_at'])
 
     @property
     def has_certificate(self):
@@ -175,7 +298,10 @@ class Enrollment(models.Model):
     @property
     def can_claim_certificate(self):
         """Checks if the student can claim a certificate for this enrollment."""
+        # Student can claim if enrollment is completed (meaning content + quiz passed)
+        # AND no certificate has been issued yet.
         return self.completed and not self.has_certificate
+
 
 class StudentContentProgress(models.Model):
     """
@@ -200,27 +326,14 @@ class StudentContentProgress(models.Model):
         
         super().save(*args, **kwargs) # Save the content progress first
 
-        # After saving content progress, update the overall enrollment status
-        # Find the enrollment for this student and course
+        # After saving content progress, trigger the enrollment completion status sync
         enrollment = Enrollment.objects.filter(
             student=self.student,
             course=self.content.lesson.module.course
         ).first()
 
         if enrollment:
-            # Recalculate progress using the @property and update enrollment 'completed' status
-            current_progress = enrollment.progress_percentage
-            
-            # Check if enrollment should be marked as completed
-            if current_progress == 100 and not enrollment.completed:
-                enrollment.completed = True
-                enrollment.completed_at = timezone.now() # Set completion time for enrollment
-                enrollment.save(update_fields=['completed', 'completed_at'])
-            # Check if enrollment should be marked as incomplete (if it was previously completed)
-            elif current_progress < 100 and enrollment.completed:
-                enrollment.completed = False
-                enrollment.completed_at = None
-                enrollment.save(update_fields=['completed', 'completed_at'])
+            enrollment._sync_completion_status()
 
 
     def __str__(self):
@@ -237,6 +350,7 @@ class Quiz(models.Model):
     description = models.TextField(blank=True, null=True)
     duration_minutes = models.PositiveIntegerField(default=0)
     pass_percentage = models.PositiveIntegerField(default=70)
+    max_attempts = models.PositiveIntegerField(default=3, help_text="Maximum number of attempts allowed for this quiz.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -281,16 +395,40 @@ class StudentQuizAttempt(models.Model):
     """
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='quiz_attempts', limit_choices_to={'is_student': True})
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='attempts')
+    enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name='quiz_attempts_for_enrollment', null=True, blank=True)
     score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     passed = models.BooleanField(default=False)
     attempt_date = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        status = "Passed" if self.passed else "Failed"
-        return f"{self.student.username} - {self.quiz.title} ({self.score or 'N/A'}% - {status})"
-
     class Meta:
         ordering = ['-attempt_date']
+
+    def save(self, *args, **kwargs):
+        # Calculate score and set 'passed' status before saving
+        if self.score is not None and self.quiz.pass_percentage is not None:
+            self.passed = self.score >= self.quiz.pass_percentage
+        
+        super().save(*args, **kwargs) # Save the attempt first
+
+        # After saving the attempt, trigger the enrollment completion status sync
+        # Ensure 'enrollment' is set, if not, try to find it via quiz -> lesson -> module -> course
+        if not self.enrollment and self.quiz.lesson:
+            self.enrollment = Enrollment.objects.filter(
+                student=self.student,
+                course=self.quiz.lesson.module.course
+            ).first()
+            if self.enrollment:
+                # If enrollment was just found and assigned, save again to persist the FK
+                super().save(update_fields=['enrollment']) # Save the FK link
+
+        if self.enrollment:
+            self.enrollment._sync_completion_status()
+
+
+    def __str__(self):
+        status = "Passed" if self.passed else "Incomplete"
+        return f"{self.student.username} - {self.quiz.title} ({self.score or 'N/A'}% - {status})"
+
 
 class StudentAnswer(models.Model):
     """

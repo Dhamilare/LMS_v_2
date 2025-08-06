@@ -19,6 +19,7 @@ import traceback
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .utils import send_templated_email
 import json
+from django.db.models import Prefetch
 
 # Helper functions for role-based access control
 def is_admin(user):
@@ -396,60 +397,118 @@ def course_detail(request, slug):
     """
     Displays the details of a specific course.
     Allows instructors to manage modules/lessons/content.
-    Allows students to view published courses and enroll.
+    Allows students to view published courses and enroll,
+    with module-by-module progression locking.
     """
     course = get_object_or_404(Course, slug=slug)
     is_enrolled = False
-    modules = course.modules.prefetch_related('lessons__contents').all()
-
-    if request.user.is_authenticated and request.user.is_student:
-        is_enrolled = Enrollment.objects.filter(student=request.user, course=course).exists()
-        
-        student_progress_map = {
-            p['content_id']: p['completed']
-            for p in StudentContentProgress.objects.filter(
-                student=request.user,
-                content__lesson__module__course=course
-            ).values('content_id', 'completed')
-        }
-
-        for module in modules: # Iterate over the pre-fetched modules
-            for lesson in module.lessons.all(): # These lessons are also pre-fetched
-                all_contents_in_lesson = list(lesson.contents.all()) # Convert to list to ensure consistent iteration
-                total_lesson_contents = len(all_contents_in_lesson)
-                
-                completed_lesson_contents = 0
-                for content_item in all_contents_in_lesson:
-                    # Check if this specific content item is completed by the student
-                    content_item.is_completed = student_progress_map.get(content_item.id, False)
-                    if content_item.is_completed:
-                        completed_lesson_contents += 1
-                
-                # A lesson is considered completed if it has content AND all its content is completed.
-                # If a lesson has no content, it's not "completed" in terms of student progress.
-                lesson.is_completed = (total_lesson_contents > 0 and completed_lesson_contents == total_lesson_contents)
-
-    # Determine if the user can access content (instructor of this course OR enrolled student)
-    can_access_content = False
-    if request.user.is_authenticated:
-        if request.user.is_instructor and course.instructor == request.user:
-            can_access_content = True
-        elif request.user.is_student and course.is_published and is_enrolled:
-            can_access_content = True
+    enrollment = None # Initialize enrollment object
 
     # Access control for viewing the course detail page itself
     if request.user.is_instructor and course.instructor != request.user:
         messages.error(request, "You do not have permission to view this course.")
         return redirect('dashboard')
-    elif request.user.is_student and not course.is_published and not is_enrolled:
-        messages.error(request, "This course is not yet published or you are not enrolled.")
-        return redirect('dashboard')
+    
+    if request.user.is_student:
+        enrollment = Enrollment.objects.filter(student=request.user, course=course).first()
+        if enrollment:
+            is_enrolled = True
+        
+        # If student is not enrolled and course is not published, redirect
+        if not course.is_published and not is_enrolled:
+            messages.error(request, "This course is not yet published or you are not enrolled.")
+            return redirect('dashboard')
+
+    # Prefetch related data for efficiency
+    # Order modules and lessons by 'order' field
+    modules_queryset = Module.objects.filter(course=course).order_by('order').prefetch_related(
+        Prefetch('lessons', queryset=Lesson.objects.order_by('order').prefetch_related(
+            Prefetch('contents', queryset=Content.objects.order_by('order')),
+            'quiz' # Prefetch related quiz for the lesson
+        ))
+    )
+
+    modules_data = []
+    # For students, the first module is accessible. Subsequent modules depend on prior completion.
+    # For instructors/admins, all modules are always accessible.
+    previous_module_completed = True 
+
+    for module in modules_queryset:
+        module_accessible = False
+        if request.user.is_instructor and course.instructor == request.user:
+            module_accessible = True # Instructor can always access their own course's modules
+        elif request.user.is_staff: # Admin can always access
+            module_accessible = True
+        elif request.user.is_student and is_enrolled:
+            # For students, a module is accessible if the previous one was completed
+            # or if it's the very first module.
+            if module.order == 1 or previous_module_completed:
+                module_accessible = True
+            
+        # Determine current module's completion status for the student
+        current_module_is_completed = False
+        if request.user.is_student and is_enrolled:
+            current_module_is_completed = module.is_completed_by_student(request.user)
+        
+        # Prepare lessons data for the current module
+        lessons_data = []
+        for lesson in module.lessons.all():
+            contents_data = []
+            for content_item in lesson.contents.all():
+                content_is_completed = False
+                if request.user.is_student and is_enrolled:
+                    # Use the is_completed_by_student property from the Content model
+                    content_is_completed = content_item.is_completed_by_student(request.user)
+                
+                contents_data.append({
+                    'id': content_item.id,
+                    'title': content_item.title,
+                    'content_type': content_item.content_type,
+                    'is_completed': content_is_completed,
+                    'file': content_item.file,
+                    'text_content': content_item.text_content,
+                    'video_url': content_item.video_url,
+                    'order': content_item.order,
+                    'get_content_type_display': content_item.get_content_type_display, # Pass method for template
+                })
+            
+            lesson_is_completed = False
+            if request.user.is_student and is_enrolled:
+                # Use the is_completed_by_student property from the Lesson model
+                lesson_is_completed = lesson.is_completed_by_student(request.user)
+
+            lessons_data.append({
+                'id': lesson.id,
+                'title': lesson.title,
+                'description': lesson.description,
+                'order': lesson.order,
+                'contents': contents_data,
+                'is_completed': lesson_is_completed, # Pass lesson completion status
+            })
+        
+        modules_data.append({
+            'id': module.id,
+            'title': module.title,
+            'description': module.description,
+            'order': module.order,
+            'lessons': lessons_data,
+            'is_accessible': module_accessible, # Pass accessibility status
+            'is_completed': current_module_is_completed, # Pass module completion status
+        })
+
+        # Update previous_module_completed for the next iteration for students
+        if request.user.is_student and is_enrolled:
+            previous_module_completed = current_module_is_completed
+        # For instructors/admins, previous_module_completed remains True implicitly
+        # as module_accessible is always true for them.
 
     context = {
         'course': course,
+        'modules': modules_data, # Pass the processed modules data to the template
         'is_enrolled': is_enrolled,
-        'can_access_content': can_access_content,
-        'modules': modules, # Pass the pre-fetched modules to the template
+        'enrollment': enrollment, # Pass enrollment object for progress/certificate checks
+        # 'can_access_content' is now implicitly handled by module.is_accessible
+        # for students, and always true for instructors/admins.
     }
     return render(request, 'course_detail.html', context)
 
@@ -853,7 +912,7 @@ def mark_content_completed(request, course_slug, module_id, lesson_id, content_i
 @user_passes_test(is_student)
 def quiz_take(request, course_slug, module_id, lesson_id, content_id):
     """
-    Allows a student to take a quiz.
+    Allows a student to take a quiz, enforcing max attempts.
     """
     course = get_object_or_404(Course, slug=course_slug)
     module = get_object_or_404(Module, id=module_id, course=course)
@@ -861,8 +920,11 @@ def quiz_take(request, course_slug, module_id, lesson_id, content_id):
     content = get_object_or_404(Content, id=content_id, lesson=lesson, content_type='quiz')
     quiz = get_object_or_404(Quiz, lesson=lesson) # Assuming one quiz per lesson for now
 
+    # Get the student's enrollment for this course
+    enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
+
     # Access control: Student must be enrolled and course published
-    if not Enrollment.objects.filter(student=request.user, course=course).exists() or not course.is_published:
+    if not course.is_published: # Enrollment check is handled by get_object_or_404 above
         messages.error(request, "You are not authorized to take this quiz.")
         return redirect('course_detail', slug=course.slug)
 
@@ -870,6 +932,27 @@ def quiz_take(request, course_slug, module_id, lesson_id, content_id):
     if not quiz.questions.exists():
         messages.info(request, "This quiz has no questions yet.")
         return redirect('content_detail', course_slug=course.slug, module_id=module.id, lesson_id=lesson.id, content_id=content.id)
+
+    # --- Assessment Logic: Check Retake Limits ---
+    current_attempts_count = StudentQuizAttempt.objects.filter(
+        student=request.user,
+        quiz=quiz
+    ).count()
+
+    if current_attempts_count >= quiz.max_attempts:
+        # Check if the student has passed any of the previous attempts
+        has_passed_quiz = StudentQuizAttempt.objects.filter(
+            student=request.user,
+            quiz=quiz,
+            passed=True
+        ).exists()
+
+        if has_passed_quiz:
+            messages.success(request, f"You have already passed the quiz '{quiz.title}'.")
+        else:
+            messages.error(request, f"You have reached the maximum number of attempts ({quiz.max_attempts}) for this quiz and have not passed.")
+        
+        return redirect('quiz_result', course_slug=course.slug, module_id=module.id, lesson_id=lesson.id, content_id=content.id, attempt_id=StudentQuizAttempt.objects.filter(student=request.user, quiz=quiz).order_by('-attempt_date').first().id) # Redirect to last attempt result
 
     form = QuizForm(quiz=quiz) # Initialize form with the quiz instance
 
@@ -880,6 +963,10 @@ def quiz_take(request, course_slug, module_id, lesson_id, content_id):
         'content': content,
         'quiz': quiz,
         'form': form,
+        'current_attempts_count': current_attempts_count,
+        'max_attempts': quiz.max_attempts,
+        'attempts_remaining': quiz.max_attempts - current_attempts_count,
+        'enrollment_id': enrollment.id, # Pass enrollment ID to the template for the form
     }
     return render(request, 'student/quiz_take.html', context)
 
@@ -895,10 +982,24 @@ def quiz_submit(request, course_slug, module_id, lesson_id, content_id):
     content = get_object_or_404(Content, id=content_id, lesson=lesson, content_type='quiz')
     quiz = get_object_or_404(Quiz, lesson=lesson)
 
+    # Get the student's enrollment for this course
+    enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
+
     # Access control: Student must be enrolled and course published
-    if not Enrollment.objects.filter(student=request.user, course=course).exists() or not course.is_published:
+    if not course.is_published: # Enrollment check is handled by get_object_or_404 above
         messages.error(request, "You are not authorized to submit this quiz.")
         return redirect('course_detail', slug=course.slug)
+
+    # --- Assessment Logic: Re-check Retake Limits on submission ---
+    current_attempts_count = StudentQuizAttempt.objects.filter(
+        student=request.user,
+        quiz=quiz
+    ).count()
+
+    if current_attempts_count >= quiz.max_attempts:
+        messages.error(request, f"You have already reached the maximum number of attempts ({quiz.max_attempts}) for this quiz.")
+        return redirect('quiz_result', course_slug=course.slug, module_id=module.id, lesson_id=lesson.id, content_id=content.id, attempt_id=StudentQuizAttempt.objects.filter(student=request.user, quiz=quiz).order_by('-attempt_date').first().id)
+
 
     if request.method == 'POST':
         form = QuizForm(request.POST, quiz=quiz)
@@ -909,9 +1010,11 @@ def quiz_submit(request, course_slug, module_id, lesson_id, content_id):
 
             with transaction.atomic():
                 # Create a new quiz attempt record
+                # IMPORTANT: Pass the enrollment object here!
                 attempt = StudentQuizAttempt.objects.create(
                     student=request.user,
                     quiz=quiz,
+                    enrollment=enrollment, # Pass the enrollment object
                     score=0, # Will update later
                     passed=False
                 )
@@ -948,7 +1051,7 @@ def quiz_submit(request, course_slug, module_id, lesson_id, content_id):
                 # Update the attempt with score and pass/fail status
                 attempt.score = round(score_percentage, 2)
                 attempt.passed = (score_percentage >= quiz.pass_percentage)
-                attempt.save()
+                attempt.save() # This save will trigger the enrollment._sync_completion_status()
 
                 messages.success(request, f'Quiz "{quiz.title}" submitted! Your score: {attempt.score:.2f}%')
                 return redirect('quiz_result', course_slug=course.slug, module_id=module.id, lesson_id=lesson.id, content_id=content.id, attempt_id=attempt.id)
@@ -962,6 +1065,10 @@ def quiz_submit(request, course_slug, module_id, lesson_id, content_id):
                 'content': content,
                 'quiz': quiz,
                 'form': form,
+                'current_attempts_count': current_attempts_count, # Pass these for re-rendering
+                'max_attempts': quiz.max_attempts,
+                'attempts_remaining': quiz.max_attempts - current_attempts_count,
+                'enrollment_id': enrollment.id,
             }
             return render(request, 'student/quiz_take.html', context)
     else:
@@ -981,8 +1088,11 @@ def quiz_result(request, course_slug, module_id, lesson_id, content_id, attempt_
     quiz = get_object_or_404(Quiz, lesson=lesson)
     attempt = get_object_or_404(StudentQuizAttempt, id=attempt_id, student=request.user, quiz=quiz)
 
+    # Get the student's enrollment for this course to check overall completion/certificate status
+    enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
+
     # Access control: Student must be enrolled and course published
-    if not Enrollment.objects.filter(student=request.user, course=course).exists() or not course.is_published:
+    if not course.is_published: # Enrollment check is handled by get_object_or_404 above
         messages.error(request, "You are not authorized to view this quiz result.")
         return redirect('course_detail', slug=course.slug)
 
@@ -1002,6 +1112,17 @@ def quiz_result(request, course_slug, module_id, lesson_id, content_id, attempt_
             'correct_option': next((opt for opt in options if opt.is_correct), None)
         })
 
+    # Determine if retake button should be shown
+    can_retake = False
+    current_attempts_count = StudentQuizAttempt.objects.filter(
+        student=request.user,
+        quiz=quiz
+    ).count()
+
+    # Only allow retake if not passed and attempts remaining
+    if not attempt.passed and current_attempts_count < quiz.max_attempts:
+        can_retake = True
+
     context = {
         'course': course,
         'module': module,
@@ -1010,8 +1131,13 @@ def quiz_result(request, course_slug, module_id, lesson_id, content_id, attempt_
         'quiz': quiz,
         'attempt': attempt,
         'questions_with_answers': questions_with_answers,
+        'can_retake': can_retake,
+        'current_attempts_count': current_attempts_count,
+        'max_attempts': quiz.max_attempts,
+        'enrollment': enrollment, # Pass enrollment for certificate checks
     }
     return render(request, 'student/quiz_result.html', context)
+
 
 
 @login_required

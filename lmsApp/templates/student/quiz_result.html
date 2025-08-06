@@ -1,4 +1,3 @@
-<!-- core/templates/core/quiz_result.html -->
 {% extends 'base.html' %}
 {% load static %}
 
@@ -25,6 +24,15 @@
         <p class="text-xl">Your Score: <span class="font-bold">{{ attempt.score|floatformat:2 }}%</span></p>
         <p class="text-lg">Required to Pass: {{ quiz.pass_percentage }}%</p>
         <p class="text-sm text-gray-700 mt-2">Attempt Date: {{ attempt.attempt_date|date:"M d, Y H:i" }}</p>
+        {# Display Attempt Information #}
+        <p class="text-sm text-gray-700 mt-2">
+            Attempt {{ current_attempts_count }} of {{ max_attempts }}
+            {% if current_attempts_count < max_attempts %}
+                (<span class="text-green-700">{{ max_attempts|sub:current_attempts_count }}</span> attempts remaining)
+            {% else %}
+                (<span class="text-red-700">No attempts remaining</span>)
+            {% endif %}
+        </p>
     </div>
 
     <h3 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
@@ -79,13 +87,33 @@
         {% endfor %}
     </div>
 
-    <div class="flex justify-between items-center mt-8">
-        <a href="{% url 'content_detail' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+    <div class="flex flex-col sm:flex-row justify-between items-center mt-8 space-y-4 sm:space-y-0 sm:space-x-4">
+        <a href="{% url 'content_detail' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 w-full sm:w-auto justify-center">
             <i class="fas fa-arrow-left mr-2"></i> Back to Content
         </a>
-        <a href="{% url 'quiz_take' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-            <i class="fas fa-redo mr-2"></i> Retake Quiz
-        </a>
+
+        {# Conditional Retake Quiz Button #}
+        {% if can_retake %}
+            <a href="{% url 'quiz_take' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 w-full sm:w-auto justify-center">
+                <i class="fas fa-redo mr-2"></i> Retake Quiz
+            </a>
+        {% endif %}
+
+        {# Conditional Certificate Actions #}
+        {% if enrollment.completed %} {# Check if the overall enrollment is completed (content + quiz passed) #}
+            {% if enrollment.has_certificate %}
+                <a href="{% url 'view_certificate' certificate_id=enrollment.certificate_obj.certificate_id %}" target="_blank" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto justify-center">
+                    <i class="fas fa-award mr-2"></i> View Certificate
+                </a>
+            {% elif enrollment.can_claim_certificate %}
+                <form method="post" action="{% url 'issue_certificate' course_slug=enrollment.course.slug %}" class="inline w-full sm:w-auto">
+                    {% csrf_token %}
+                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 w-full justify-center">
+                        <i class="fas fa-certificate mr-2"></i> Claim Certificate
+                    </button>
+                </form>
+            {% endif %}
+        {% endif %}
     </div>
 </div>
 {% endblock %}
