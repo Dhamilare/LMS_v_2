@@ -6,6 +6,8 @@
 {% block content %}
 <div class="bg-gray-50 min-h-screen font-inter text-gray-800 py-8">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+
+        <!-- Header -->
         <header class="text-center mb-12">
             <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight mb-4">
                 <i class="fas fa-chart-pie text-indigo-600 mr-3"></i> Audit Logs & Reports
@@ -17,6 +19,7 @@
 
         <!-- Summary Statistics Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            <!-- Total Courses -->
             <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                 <div class="p-3 bg-blue-100 rounded-full text-blue-600">
                     <i class="fas fa-book-open fa-2x"></i>
@@ -26,6 +29,8 @@
                     <p class="text-2xl font-bold text-gray-900">{{ total_courses }}</p>
                 </div>
             </div>
+
+            <!-- Total Students -->
             <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                 <div class="p-3 bg-green-100 rounded-full text-green-600">
                     <i class="fas fa-users fa-2x"></i>
@@ -35,6 +40,8 @@
                     <p class="text-2xl font-bold text-gray-900">{{ total_students }}</p>
                 </div>
             </div>
+
+            <!-- Total Enrollments -->
             <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                 <div class="p-3 bg-purple-100 rounded-full text-purple-600">
                     <i class="fas fa-user-check fa-2x"></i>
@@ -44,6 +51,8 @@
                     <p class="text-2xl font-bold text-gray-900">{{ total_enrollments }}</p>
                 </div>
             </div>
+
+            <!-- Completed Enrollments -->
             <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                 <div class="p-3 bg-yellow-100 rounded-full text-yellow-600">
                     <i class="fas fa-check-double fa-2x"></i>
@@ -60,23 +69,26 @@
             <i class="fas fa-chart-bar text-indigo-600 mr-3"></i> Visual Reports
         </h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+            <!-- Enrollment Distribution -->
             <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                     <i class="fas fa-graduation-cap mr-2 text-blue-500"></i> Course Enrollment Distribution
                 </h3>
                 <div class="h-80 flex justify-center items-center">
-                    <canvas id="enrollmentDistributionChart"></canvas>
+                    <canvas id="enrollmentDistributionChart" class="w-full h-full"></canvas>
                 </div>
                 <p class="text-sm text-gray-500 mt-4 text-center">
                     Shows the proportion of students enrolled in each course.
                 </p>
             </div>
+
+            <!-- Completion Status -->
             <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                     <i class="fas fa-tasks mr-2 text-green-500"></i> Overall Enrollment Completion Status
                 </h3>
                 <div class="h-80 flex justify-center items-center">
-                    <canvas id="completionStatusChart"></canvas>
+                    <canvas id="completionStatusChart" class="w-full h-full"></canvas>
                 </div>
                 <p class="text-sm text-gray-500 mt-4 text-center">
                     Breakdown of completed versus in-progress enrollments.
@@ -84,7 +96,7 @@
             </div>
         </div>
 
-        <!-- Detailed Audit Logs Table -->
+        <!-- Detailed Logs -->
         <h2 class="text-3xl font-bold text-gray-900 mb-6 flex items-center mt-12">
             <i class="fas fa-list-alt text-indigo-600 mr-3"></i> Detailed Enrollment Logs
         </h2>
@@ -93,14 +105,14 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instructor</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled On</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed On</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Certificate</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instructor</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled On</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed On</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Certificate</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -161,100 +173,72 @@
 
 {% block extra_scripts %}
 {{ block.super }}
-<!-- Chart.js CDN for powerful charting -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- JSON Data -->
+{{ course_labels_json|json_script:"course-labels" }}
+{{ enrollment_counts_json|json_script:"enrollment-counts" }}
+{{ completion_labels_json|json_script:"completion-labels" }}
+{{ completion_data_json|json_script:"completion-data" }}
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // --- Enrollment Distribution Chart ---
-        const enrollmentCtx = document.getElementById('enrollmentDistributionChart');
-        if (enrollmentCtx) {
-            const courseLabels = JSON.parse('{{ course_labels_json|escapejs }}');
-            const enrollmentCounts = JSON.parse('{{ enrollment_counts_json|escapejs }}');
-
-            new Chart(enrollmentCtx, {
-                type: 'pie',
-                data: {
-                    labels: courseLabels,
-                    datasets: [{
-                        data: enrollmentCounts,
-                        backgroundColor: [
-                            '#4F46E5', // Indigo-600
-                            '#8B5CF6', // Purple-500
-                            '#EC4899', // Pink-500
-                            '#F59E0B', // Amber-500
-                            '#10B981', // Emerald-500
-                            '#EF4444', // Red-500
-                            '#3B82F6', // Blue-500
-                            '#F97316', // Orange-500
-                            '#6B7280', // Gray-500
-                            '#6366F1', // Indigo-500
-                        ],
-                        hoverOffset: 10
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                font: {
-                                    size: 12,
-                                    family: 'Inter'
-                                },
-                                color: '#4B5563' // gray-700
-                            }
-                        },
-                        title: {
-                            display: false, // Title is in H3 tag
-                        }
-                    }
-                }
-            });
+document.addEventListener('DOMContentLoaded', function() {
+    function getJsonData(id) {
+        const element = document.getElementById(id);
+        if (element) {
+            try {
+                return JSON.parse(element.textContent);
+            } catch (e) {
+                console.error('Failed to parse JSON for', id, e);
+            }
         }
+        return [];
+    }
 
-        // --- Overall Completion Status Chart ---
-        const completionCtx = document.getElementById('completionStatusChart');
-        if (completionCtx) {
-            const completionLabels = JSON.parse('{{ completion_labels_json|escapejs }}');
-            const completionData = JSON.parse('{{ completion_data_json|escapejs }}');
+    const courseLabels = getJsonData('course-labels');
+    const enrollmentCounts = getJsonData('enrollment-counts');
+    const completionLabels = getJsonData('completion-labels');
+    const completionData = getJsonData('completion-data');
 
-            new Chart(completionCtx, {
-                type: 'pie',
-                data: {
-                    labels: completionLabels,
-                    datasets: [{
-                        data: completionData,
-                        backgroundColor: [
-                            '#10B981', // Emerald-500 (for Completed)
-                            '#3B82F6', // Blue-500 (for In Progress)
-                        ],
-                        hoverOffset: 10
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                font: {
-                                    size: 12,
-                                    family: 'Inter'
-                                },
-                                color: '#4B5563' // gray-700
-                            }
-                        },
-                        title: {
-                            display: false, // Title is in H3 tag
-                        }
-                    }
-                }
-            });
-        }
-    });
+    // Enrollment Chart
+    const enrollmentCtx = document.getElementById('enrollmentDistributionChart');
+    if (enrollmentCtx) {
+        new Chart(enrollmentCtx, {
+            type: 'pie',
+            data: {
+                labels: courseLabels.length ? courseLabels : ['No Data'],
+                datasets: [{
+                    data: enrollmentCounts.length ? enrollmentCounts : [1],
+                    backgroundColor: ['#4F46E5','#8B5CF6','#EC4899','#F59E0B','#10B981','#EF4444','#3B82F6','#F97316','#6B7280','#6366F1'],
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'right' } }
+            }
+        });
+    }
+
+    // Completion Chart
+    const completionCtx = document.getElementById('completionStatusChart');
+    if (completionCtx) {
+        new Chart(completionCtx, {
+            type: 'pie',
+            data: {
+                labels: completionLabels.length ? completionLabels : ['No Data'],
+                datasets: [{
+                    data: completionData.length ? completionData : [1],
+                    backgroundColor: ['#10B981', '#3B82F6'],
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'right' } }
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

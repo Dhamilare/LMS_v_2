@@ -20,28 +20,17 @@
                     <span class="ml-2 text-gray-700 text-sm">Correct Answer</span>
                 </label>
                 
-                {# Input field for 'option text' #}
+                {# Input field for 'option text' with Crispy Forms rendering errors and labels #}
                 <div class="flex-grow">
                     {{ option_form.text|as_crispy_field }}
                 </div>
                 
-                {# Hidden field for DELETE, though we set can_delete=False in formset, it's good practice to include #}
-                {% if option_form.instance.pk %}{{ option_form.id }}{% endif %}
+                {# This will render the hidden ID field for an existing option #}
+                {{ option_form.id }}
             </div>
-            
-            {# Display any field-specific errors for the option #}
-            {% if option_form.errors %}
-                <div class="text-red-600 text-sm mt-1">
-                    {% for field_name, errors in option_form.errors.items %}
-                        {% for error in errors %}
-                            <p>{{ option_form.fields[field_name].label|default:field_name }}: {{ error }}</p>
-                        {% endfor %}
-                    {% endfor %}
-                </div>
-            {% endif %}
         {% endfor %}
         
-        {# Display any non-field errors for the entire option formset (e.g., "Each question must have exactly one correct option.") #}
+        {# Display any non-field errors for the entire option formset #}
         {% if form.option_formset.non_form_errors %}
             <div class="text-red-600 text-sm mt-1">
                 {% for error in form.option_formset.non_form_errors %}

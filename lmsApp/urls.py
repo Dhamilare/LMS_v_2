@@ -49,6 +49,7 @@ urlpatterns = [
     path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/edit/', views.content_update, name='content_update'),
     path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/delete/', views.content_delete, name='content_delete'),
     path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/', views.content_detail, name='content_detail'), 
+   
     # --- Instructor Quiz Management ---
     path('instructor/quizzes/', views.quiz_list_instructor, name='quiz_list_instructor'), 
     path('instructor/quizzes/create/', views.quiz_create, name='quiz_create'), 

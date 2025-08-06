@@ -1,20 +1,34 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Manage Instructors{% endblock %}
 
 {% block content %}
+<!-- Font Awesome CDN for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+
 <div class="bg-white p-8 rounded-lg shadow-lg">
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
         <h2 class="text-3xl font-bold text-gray-800 flex items-center">
             <i class="fas fa-users-cog mr-3 text-indigo-600"></i> Manage Instructors
         </h2>
+        
+        <!-- Search Form -->
+        <form method="GET" action="{% url 'instructor_list' %}" class="relative flex-grow md:max-w-xs">
+            <input type="text" name="q" value="{{ query|default:'' }}" placeholder="Search instructors..."
+                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-300">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i class="fas fa-search text-gray-400"></i>
+            </div>
+        </form>
+
         <a href="{% url 'create_instructor' %}" 
-            class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+            class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center md:justify-start shadow-md hover:shadow-lg">
             <i class="fas fa-user-plus mr-2"></i> Add New Instructor
         </a>
     </div>
 
-    {% if instructors %}
+    {% if instructors.object_list %}
         <div id="instructor-table-container" class="overflow-x-auto">
             <table class="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm">
                 <thead class="bg-gray-100">
@@ -54,15 +68,56 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- Pagination Links -->
+        {% if instructors.has_other_pages %}
+            <nav class="mt-6 flex justify-center">
+                <ul class="flex items-center space-x-2">
+                    {% if instructors.has_previous %}
+                        <li>
+                            <a href="?page={{ instructors.previous_page_number }}{% if query %}&q={{ query }}{% endif %}"
+                               class="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md transition duration-300">
+                                Previous
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% for i in instructors.paginator.page_range %}
+                        <li>
+                            <a href="?page={{ i }}{% if query %}&q={{ query }}{% endif %}"
+                               class="px-4 py-2 text-sm font-medium rounded-md transition duration-300 
+                               {% if instructors.number == i %}bg-indigo-600 text-white shadow-md{% else %}text-gray-700 bg-gray-200 hover:bg-gray-300{% endif %}">
+                                {{ i }}
+                            </a>
+                        </li>
+                    {% endfor %}
+
+                    {% if instructors.has_next %}
+                        <li>
+                            <a href="?page={{ instructors.next_page_number }}{% if query %}&q={{ query }}{% endif %}"
+                               class="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md transition duration-300">
+                                Next
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+
     {% else %}
         <div class="text-center py-10 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
             <p class="text-gray-600 text-lg mb-4 flex items-center justify-center">
                 <i class="fas fa-info-circle mr-2"></i> No instructors found.
+                {% if query %}
+                    for the search term "{{ query }}".
+                {% endif %}
             </p>
-            <a href="{% url 'create_instructor' %}" 
-                class="bg-indigo-600 text-white py-2 px-6 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center mx-auto w-fit shadow-md hover:shadow-lg">
-                <i class="fas fa-user-plus mr-2"></i> Add First Instructor
-            </a>
+            {% if not query %}
+                <a href="{% url 'create_instructor' %}" 
+                    class="bg-indigo-600 text-white py-2 px-6 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center mx-auto w-fit shadow-md hover:shadow-lg">
+                    <i class="fas fa-user-plus mr-2"></i> Add First Instructor
+                </a>
+            {% endif %}
         </div>
     {% endif %}
     
@@ -74,7 +129,7 @@
     </div>
 </div>
 
-<!-- Modal -->
+<!-- Modal and Scripts remain the same -->
 <div id="modal-container" 
      class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 items-center justify-center transition-opacity duration-300">
     <div class="bg-white rounded-lg shadow-xl w-11/12 md:w-1/2 lg:w-1/3 max-h-[80vh] overflow-y-auto transform scale-95 transition-transform duration-300">

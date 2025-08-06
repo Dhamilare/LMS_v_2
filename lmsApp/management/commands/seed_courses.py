@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
-from lmsApp.models import Course, Module, Lesson, Content
 from django.core.management.base import BaseCommand
+from lmsApp.models import Course, Module, Lesson, Content
 
 User = get_user_model()
 
@@ -116,8 +116,8 @@ course_data = [
                         "title": "Creating a Marketing Persona",
                         "description": "Understanding your target audience.",
                         "content": [
-                            {"content_type": "slide", "file": "lms_content/buyer_persona_template.pptx", "order": 1},
-                            {"content_type": "video", "video_url": "https://www.youtube.com/watch?v=0h6a_c7VjN0", "order": 2}
+                             {"content_type": "slide", "file": "lms_content/buyer_persona_template.pptx", "order": 1},
+                             {"content_type": "video", "video_url": "https://www.youtube.com/watch?v=0h6a_c7VjN0", "order": 2}
                         ]
                     },
                     {
@@ -474,9 +474,87 @@ course_data = [
                 ]
             }
         ]
-    }
+    },
+    {
+        "course_title": "Introduction to Machine Learning",
+        "course_description": "An introduction to the fundamental concepts and algorithms of machine learning, from supervised to unsupervised learning.",
+        "instructor_username": "ml_guru",
+        "instructor_email": "ml_guru@example.com",
+        "modules": [
+            {
+                "title": "Module 1: Foundational Concepts",
+                "description": "Understanding the core ideas behind machine learning and its various types.",
+                "lessons": [
+                    {
+                        "title": "What is Machine Learning?",
+                        "description": "Defining the field and its real-world applications.",
+                        "content": [
+                            {"content_type": "text", "text_content": "A high-level overview of machine learning, its history, and its impact on technology.", "order": 1},
+                            {"content_type": "video", "video_url": "https://www.youtube.com/watch?v=GBd_0fH_p30", "order": 2}
+                        ]
+                    },
+                    {
+                        "title": "Supervised Learning",
+                        "description": "Introduction to classification and regression algorithms.",
+                        "content": [
+                            {"content_type": "slide", "file": "lms_content/supervised_learning_slides.pptx", "order": 1}
+                        ]
+                    },
+                    {
+                        "title": "Unsupervised Learning",
+                        "description": "Clustering and dimensionality reduction techniques.",
+                        "content": [
+                            {"content_type": "text", "text_content": "An explanation of clustering algorithms like K-Means and how they find patterns in data.", "order": 1},
+                            {"content_type": "pdf", "file": "lms_content/unsupervised_learning.pdf", "order": 2}
+                        ]
+                    },
+                    {
+                        "title": "Assignment: Simple Linear Regression",
+                        "description": "Build a basic linear regression model from scratch.",
+                        "content": [
+                             {"content_type": "assignment", "text_content": "Using a provided dataset, implement a simple linear regression model to predict a target variable.", "order": 1}
+                        ]
+                    }
+                ]
+            },
+            {
+                "title": "Module 2: Model Evaluation",
+                "description": "Learning how to evaluate the performance of your machine learning models.",
+                "lessons": [
+                    {
+                        "title": "Bias-Variance Tradeoff",
+                        "description": "Understanding the core challenge of model complexity.",
+                        "content": [
+                            {"content_type": "video", "video_url": "https://www.youtube.com/watch?v=GBI5d2k60k", "order": 1}
+                        ]
+                    },
+                    {
+                        "title": "Validation Techniques",
+                        "description": "Cross-validation and other methods for robust evaluation.",
+                        "content": [
+                            {"content_type": "text", "text_content": "A guide to different validation strategies like K-fold cross-validation.", "order": 1}
+                        ]
+                    },
+                    {
+                        "title": "Performance Metrics",
+                        "description": "Accuracy, precision, recall, and F1-score.",
+                        "content": [
+                            {"content_type": "slide", "file": "lms_content/ml_metrics_slides.pptx", "order": 1},
+                            {"content_type": "video", "video_url": "https://www.youtube.com/watch?v=J_lE6r2lWc", "order": 2}
+                        ]
+                    },
+                    {
+                        "title": "Assignment: Model Comparison",
+                        "description": "Compare the performance of two different classification models.",
+                        "content": [
+                             {"content_type": "assignment", "text_content": "Train a Logistic Regression and a Decision Tree classifier on the same dataset and compare their performance using various metrics.", "order": 1}
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
 ]
-
 
 
 class Command(BaseCommand):
@@ -487,13 +565,18 @@ class Command(BaseCommand):
 
         for course_info in course_data:
             # Get or create the instructor user
+            instructor_username = course_info["instructor_username"]
+            instructor_email = course_info["instructor_email"]
             instructor_user, created = User.objects.get_or_create(
-                username=course_info["instructor_username"],
+                username=instructor_username,
                 defaults={
-                    "email": course_info["instructor_email"],
+                    "email": instructor_email,
                     "is_staff": True,
+                    "is_instructor": True,
+                    "is_student": False,  # Explicitly set to False for instructors
                 }
             )
+
             # Set a password if a new user was created
             if created:
                 instructor_user.set_password("securepass123")
@@ -528,11 +611,10 @@ class Command(BaseCommand):
                         description=lesson_info["description"],
                         order=lesson_index
                     )
-                    self.stdout.write(f"   - Created lesson: {lesson.title}")
+                    self.stdout.write(f"  - Created lesson: {lesson.title}")
 
                     # Add Content
                     for content_index, content_info in enumerate(lesson_info["content"], 1):
-                        # CORRECTED: Pop the 'order' key from the dictionary to avoid duplicates
                         content_data = content_info.copy()
                         content_data.pop('order', None)
 
@@ -541,6 +623,7 @@ class Command(BaseCommand):
                             order=content_index,
                             **content_data
                         )
-                        self.stdout.write(f"     - Added content of type: {content_info['content_type']}")
+                        self.stdout.write(f"    - Added content of type: {content_info['content_type']}")
 
         self.stdout.write(self.style.SUCCESS("\n✅ All course data seeded successfully!"))
+

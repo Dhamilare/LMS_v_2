@@ -61,7 +61,7 @@
             {% for module in modules %}
                 {# Module Card #}
                 <div class="bg-gray-50 p-6 rounded-lg shadow-md border border-gray-200
-                            {% if module.is_accessible %}transform hover:scale-105 transition duration-300 ease-in-out{% else %}opacity-70 cursor-not-allowed{% endif %}">
+                             {% if module.is_accessible %}transform hover:scale-105 transition duration-300 ease-in-out{% else %}opacity-70 cursor-not-allowed{% endif %}">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-3">
                         <h4 class="text-xl font-semibold text-gray-700 flex items-center mb-2 md:mb-0">
                             {% if module.is_accessible %}
@@ -208,23 +208,47 @@
     {% endif %}
 
     {# Conditional Course-Level Quiz Button #}
-    {% if request.user.is_student and is_enrolled and course_quiz %}
+    {% if request.user.is_student and is_enrolled %}
         <div class="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200 shadow-md flex flex-col sm:flex-row items-center justify-between">
             <div class="flex items-center mb-3 sm:mb-0">
-                <i class="fas fa-graduation-cap text-3xl text-blue-600 mr-4"></i>
-                <div>
-                    <h3 class="text-xl font-bold text-gray-800">Final Course Assessment</h3>
-                    <p class="text-gray-600 text-sm">Pass this quiz to complete the course and earn your certificate.</p>
-                </div>
+                {% if course.is_completed %}
+                    <i class="fas fa-medal text-3xl text-green-600 mr-4"></i>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800">Course Completed!</h3>
+                        <p class="text-gray-600 text-sm">Congratulations! You have completed all course requirements.</p>
+                    </div>
+                {% elif course_quiz %}
+                    <i class="fas fa-graduation-cap text-3xl text-blue-600 mr-4"></i>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800">Final Course Assessment</h3>
+                        <p class="text-gray-600 text-sm">Pass this quiz to complete the course and earn your certification.</p>
+                    </div>
+                {% else %}
+                    <i class="fas fa-info-circle text-3xl text-gray-500 mr-4"></i>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800">No Final Assessment</h3>
+                        <p class="text-gray-600 text-sm">There is no final quiz assigned to this course.</p>
+                    </div>
+                {% endif %}
             </div>
-            {% if enrollment.is_content_completed %}
-                <a href="{% url 'quiz_take' course_slug=course.slug %}"
-                   class="bg-indigo-600 text-white py-2 px-5 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
-                    <i class="fas fa-play-circle mr-2"></i> Take Assessment
-                </a>
+            {% if course.is_completed %}
+                <span class="bg-green-500 text-white py-2 px-5 rounded-md flex items-center justify-center shadow-md w-full sm:w-auto">
+                    <i class="fas fa-check-circle mr-2"></i> Certificate Earned
+                </span>
+            {% elif course_quiz %}
+                {% if enrollment.is_content_completed %}
+                    <a href="{% url 'quiz_take' course_slug=course.slug %}"
+                       class="bg-indigo-600 text-white py-2 px-5 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
+                        <i class="fas fa-play-circle mr-2"></i> Take Assessment
+                    </a>
+                {% else %}
+                    <span class="bg-gray-300 text-gray-700 py-2 px-5 rounded-md flex items-center justify-center cursor-not-allowed shadow-md w-full sm:w-auto">
+                        <i class="fas fa-lock mr-2"></i> Complete all modules to unlock
+                    </span>
+                {% endif %}
             {% else %}
                 <span class="bg-gray-300 text-gray-700 py-2 px-5 rounded-md flex items-center justify-center cursor-not-allowed shadow-md w-full sm:w-auto">
-                    <i class="fas fa-lock mr-2"></i> Complete all modules to unlock
+                    <i class="fas fa-info-circle mr-2"></i> No action required
                 </span>
             {% endif %}
         </div>
@@ -295,9 +319,23 @@
     // Function to display a toast-like message (using alert for now)
     function displayMessage(type, message) {
         console.log(`[${type.toUpperCase()}] ${message}`);
-        alert(message); // Replace with a proper toast notification system
+        // This should be replaced with a proper toast notification system
+        // for a better user experience.
+        const toastContainer = document.getElementById('toast-container');
+        if (toastContainer) {
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-lg shadow-lg text-white mb-2 transform transition-all duration-300 ease-in-out {% if type == 'success' %}bg-green-500{% elif type == 'error' %}bg-red-500{% else %}bg-gray-500{% endif %}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-4');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, 3000);
+        } else {
+            alert(message);
+        }
     }
-
+    
     // --- Modal Functions ---
     const modalBackdrop = document.getElementById('modal-backdrop');
     const modalContainer = document.getElementById('modal-container');
@@ -411,7 +449,7 @@
     function showConfirmationModal(actionUrl, title, body) {
         if (!confirmBackdrop || !confirmContainer || !confirmTitle || !confirmBody || !confirmButton) {
             console.error("Confirmation modal elements not found.");
-            alert("Confirmation failed. Please try again."); // Fallback
+            // Replace with proper fallback UI if needed
             return;
         }
 

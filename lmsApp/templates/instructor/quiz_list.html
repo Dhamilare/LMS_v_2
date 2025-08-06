@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load crispy_forms_tags %}
 
 {% block title %}Manage Quizzes{% endblock %}
 
@@ -48,7 +49,7 @@
                                 class="bg-purple-600 text-white py-2 px-3 rounded-md hover:bg-purple-700 transition duration-300 flex items-center text-sm shadow-sm">
                             <i class="fas fa-link mr-2"></i> Assign Quiz
                         </button>
-                        <button onclick="loadModalForm('{% url 'quiz_create' %}?quiz_id={{ quiz.id }}', 'Edit Quiz: {{ quiz.title }}')" {# This button should ideally link to a quiz_update view #}
+                        <button onclick="loadModalForm('{% url 'quiz_create' %}?quiz_id={{ quiz.id }}', 'Edit Quiz: {{ quiz.title }}')"
                                 class="bg-gray-600 text-white py-2 px-3 rounded-md hover:bg-gray-700 transition duration-300 flex items-center text-sm shadow-sm">
                             <i class="fas fa-edit mr-2"></i> Edit Quiz Details
                         </button>
@@ -78,4 +79,115 @@
 {% include 'partials/modal_base.html' %}
 {% include 'partials/confirmation_modal.html' %}
 
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+    // Get modal elements
+    const modal = document.getElementById('quiz-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+
+    // Function to close the main modal
+    function closeModal() {
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            modalBody.innerHTML = ''; // Clear content on close
+        }
+    }
+
+    // Function to load a form into the main modal via AJAX
+    function loadModalForm(url, title) {
+        if (modalTitle) modalTitle.textContent = title;
+        if (modalBody) modalBody.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin text-indigo-600 fa-2x"></i></div>';
+        
+        fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => { throw new Error(text) });
+            }
+            return response.text();
+        })
+        .then(html => {
+            if (modalBody) modalBody.innerHTML = html;
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+            attachFormSubmissionHandler();
+        })
+        .catch(error => {
+            console.error('Error fetching form:', error);
+            if (modalBody) modalBody.innerHTML = '<p class="text-red-500">Failed to load the form. Please try again.</p>';
+        });
+    }
+
+    // Function to handle the AJAX form submission
+    function attachFormSubmissionHandler() {
+        const form = document.querySelector('#quiz-modal form');
+        if (form) {
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                const formData = new FormData(form);
+                const submitButton = form.querySelector('button[type="submit"]');
+
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
+                }
+
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => { throw new Error(text) });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Success: The quiz was created.
+                        alert(data.message);
+                        
+                        // THIS IS THE KEY CHANGE:
+                        // Instead of redirecting, we simply reload the page.
+                        // This forces the Django view to re-render the page
+                        // with the new quiz data.
+                        window.location.reload();
+
+                    } else {
+                        // Failure: Validation errors. Update the modal with the new form HTML.
+                        if (modalBody) modalBody.innerHTML = data.form_html;
+                        attachFormSubmissionHandler();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during form submission:', error);
+                    alert('An error occurred. Please try again.');
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Save Quiz';
+                    }
+                });
+            });
+        }
+    }
+
+    // Event listener to close the modal when clicking outside
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target.id === 'quiz-modal') {
+                closeModal();
+            }
+        });
+    }
+</script>
 {% endblock %}

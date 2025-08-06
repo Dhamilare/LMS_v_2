@@ -20,6 +20,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .utils import send_templated_email
 import json
 from django.db.models import Prefetch
+import csv
 
 # Helper functions for role-based access control
 def is_admin(user):
@@ -172,10 +173,47 @@ def create_instructor(request):
 @user_passes_test(is_admin)
 def instructor_list(request):
     """
-    Admin view to list all instructors.
+    Admin view to list all instructors with added search and pagination.
     """
-    instructors = User.objects.filter(is_instructor=True).order_by('username')
-    return render(request, 'admin/instructor_list.html', {'instructors': instructors})
+    # Get the search query from the GET request, defaulting to an empty string if not present
+    query = request.GET.get('q', '')
+
+    # Start with all users who are marked as instructors
+    instructors_list = User.objects.filter(is_instructor=True)
+
+    if query:
+        # If a search query is provided, filter the instructors using a Q object
+        instructors_list = instructors_list.filter(
+            Q(username__icontains=query) |
+            Q(email__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query)
+        )
+
+    # Order the final result by username
+    instructors_list = instructors_list.order_by('username')
+    
+    # --- Pagination Logic ---
+    # Set the number of items per page
+    paginator = Paginator(instructors_list, 10)  # Show 10 instructors per page
+    page = request.GET.get('page')
+
+    try:
+        instructors = paginator.page(page)
+    except PageNotAnInteger:
+        # If page is not an integer, deliver first page.
+        instructors = paginator.page(1)
+    except EmptyPage:
+        # If page is out of range (e.g. 9999), deliver last page of results.
+        instructors = paginator.page(paginator.num_pages)
+    
+    # Pass the paginated instructors and the original search query to the template
+    return render(request, 'admin/instructor_list.html', {
+        'instructors': instructors,
+        'query': query
+    })
+
+
 
 @login_required
 @user_passes_test(is_admin)
@@ -501,7 +539,7 @@ def course_detail(request, slug):
         'enrollment': enrollment,
         'course_quiz': course_quiz, # Pass the course-level quiz
     }
-    return render(request, 'lmsApp/course_detail.html', context)
+    return render(request, 'course_detail.html', context)
 
 
 @login_required
@@ -1298,80 +1336,90 @@ def audit_logs(request):
     Provides a comprehensive audit log and reporting dashboard for administrators
     and instructors, including enrollment statistics and course details.
     """
+
     # --- Overall Statistics ---
     total_courses = Course.objects.count()
     total_enrollments = Enrollment.objects.count()
-    total_students = User.objects.filter(is_student=True).count() # Count actual student users
+    total_students = User.objects.filter(is_student=True).count()
     total_completed_enrollments = Enrollment.objects.filter(completed=True).count()
 
-    # --- Data for Enrollment Distribution Pie Chart (by Course) ---
-    # Get enrollment counts per course
-    enrollment_by_course_data = Course.objects.annotate(
-        enroll_count=Coalesce(Count('enrollments'), 0) # Use 'enrollments' related_name
-    ).order_by('-enroll_count')
+    # --- Enrollment Distribution (by Course) ---
+    enrollment_by_course_data = (
+        Course.objects.annotate(
+            enroll_count=Coalesce(Count('enrollments'), 0)
+        )
+        .order_by('-enroll_count')
+    )
 
     course_labels = [course.title for course in enrollment_by_course_data]
     enrollment_counts = [course.enroll_count for course in enrollment_by_course_data]
 
-    # --- Data for Completion Status Pie Chart (Overall) ---
-    # Get counts of completed vs. in-progress enrollments
+    # --- Completion Status (Overall) ---
     completion_status_counts = Enrollment.objects.aggregate(
         completed_count=Count('id', filter=Q(completed=True)),
-        in_progress_count=Count('id', filter=Q(completed=False))
+        in_progress_count=Count('id', filter=Q(completed=False)),
     )
+
     completion_labels = ['Completed', 'In Progress']
     completion_data = [
-        completion_status_counts['completed_count'],
-        completion_status_counts['in_progress_count']
+        completion_status_counts.get('completed_count', 0) or 0,
+        completion_status_counts.get('in_progress_count', 0) or 0,
     ]
 
     # --- Detailed Enrollment Logs ---
-    # Fetch all enrollments with related course, student, and instructor info
-    # The certificate_obj, has_certificate, progress_percentage are now @properties on Enrollment model
-    all_enrollments = Enrollment.objects.select_related(
-        'course', 'student', 'course__instructor'
-    ).order_by('-enrolled_at')
+    all_enrollments = (
+        Enrollment.objects.select_related('course', 'student', 'course__instructor')
+        .order_by('-enrolled_at')
+    )
 
     detailed_logs = []
     for enrollment in all_enrollments:
+        # Determine certificate status/link
         certificate_status = "N/A"
         certificate_link = "#"
-        
-        if enrollment.has_certificate:
+
+        if getattr(enrollment, "has_certificate", False):
             certificate_status = "Issued"
-            certificate_link = enrollment.certificate_obj.get_absolute_url() # Use the model's get_absolute_url
-        elif enrollment.can_claim_certificate: # Check if eligible but not yet claimed
+            if getattr(enrollment, "certificate_obj", None):
+                certificate_link = enrollment.certificate_obj.get_absolute_url()
+        elif getattr(enrollment, "can_claim_certificate", False):
             certificate_status = "Eligible (Claimable)"
-        elif enrollment.completed: # Completed but not eligible/claimed (e.g., if no certificate defined)
+        elif enrollment.completed:
             certificate_status = "Completed (No Certificate)"
 
-
         detailed_logs.append({
-            'student_first_name': enrollment.student.first_name, # Added
-            'student_last_name': enrollment.student.last_name,   # Added
+            'student_first_name': enrollment.student.first_name,
+            'student_last_name': enrollment.student.last_name,
             'student_username': enrollment.student.username,
             'student_email': enrollment.student.email,
             'course_title': enrollment.course.title,
             'instructor_name': enrollment.course.instructor.get_full_name() or enrollment.course.instructor.username,
             'enrolled_at': enrollment.enrolled_at,
-            'completed_at': enrollment.completed_at, # Now directly from the model
+            'completed_at': enrollment.completed_at,
             'is_completed': enrollment.completed,
-            'progress_percentage': enrollment.progress_percentage, # Now directly from the model property
+            'progress_percentage': enrollment.progress_percentage,
             'certificate_status': certificate_status,
             'certificate_link': certificate_link,
         })
 
+    # --- Context for template ---
     context = {
+        # Summary stats
         'total_courses': total_courses,
-        'total_enrollments': total_enrollments,
         'total_students': total_students,
+        'total_enrollments': total_enrollments,
         'total_completed_enrollments': total_completed_enrollments,
-        'course_labels_json': json.dumps(course_labels),
-        'enrollment_counts_json': json.dumps(enrollment_counts),
-        'completion_labels_json': json.dumps(completion_labels),
-        'completion_data_json': json.dumps(completion_data),
+
+        # Chart data (raw Python objects for json_script)
+        'course_labels_json': course_labels,
+        'enrollment_counts_json': enrollment_counts,
+        'completion_labels_json': completion_labels,
+        'completion_data_json': completion_data,
+
+        # Table logs
         'detailed_logs': detailed_logs,
     }
+
     return render(request, 'admin/reporting.html', context)
 
 
@@ -1399,13 +1447,8 @@ def quiz_download_csv_template(request):
 @login_required
 @user_passes_test(is_instructor)
 def quiz_list_instructor(request):
-    """
-    Displays a list of all quizzes created by the instructor.
-    """
-    quizzes = Quiz.objects.filter(course__instructor=request.user).order_by('-created_at')
-    context = {
-        'quizzes': quizzes
-    }
+    quizzes = Quiz.objects.filter(created_by=request.user).order_by('-created_at')
+    context = {'quizzes': quizzes}
     return render(request, 'instructor/quiz_list.html', context)
 
 
@@ -1415,30 +1458,44 @@ def quiz_create(request):
     """
     Handles creation of a new quiz via AJAX modal.
     """
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
     if request.method == 'POST':
         form = QuizDetailsForm(request.POST)
         if form.is_valid():
-            quiz = form.save()
-            return JsonResponse({'success': True, 'message': f'Quiz "{quiz.title}" created successfully!', 'quiz_id': quiz.id})
+            # Save the form but don't commit to the database yet
+            quiz = form.save(commit=False)
+            # Set the created_by field to the current user
+            quiz.created_by = request.user
+            # Now save the quiz to the database
+            quiz.save()
+            return JsonResponse({
+                'success': True,
+                'message': f'Quiz "{quiz.title}" created successfully!',
+                'quiz_id': quiz.id
+            })
         else:
-            html_form = render_to_string('instructor/quiz_create.html', {'form': form}, request=request)
-            return JsonResponse({'success': False, 'error': 'Validation failed.', 'form_html': html_form}, status=400)
+            if is_ajax:
+                html_form = render_to_string('instructor/quiz_create.html', {'form': form}, request=request)
+                return JsonResponse({'success': False, 'error': 'Validation failed.', 'form_html': html_form}, status=400)
     else:
-        form = QuizDetailsForm() #
-    
+        form = QuizDetailsForm()
+
     context = {'form': form}
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+    if is_ajax:
         return render(request, 'instructor/quiz_create.html', context)
     return render(request, 'instructor/quiz_create.html', context)
+
 
 @login_required
 @user_passes_test(is_instructor)
 def quiz_detail_manage(request, quiz_id):
     """
     Displays details of a quiz and allows management of its questions and options.
+    Ensures the quiz was created by the logged-in instructor.
     """
-    # Quiz must belong to a course taught by the instructor
-    quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user)
+    # This query now correctly finds the quiz and ensures it was created by the current user.
+    quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user)
     questions = quiz.questions.all().order_by('order')
 
     context = {

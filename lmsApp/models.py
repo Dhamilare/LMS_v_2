@@ -324,12 +324,17 @@ class Quiz(models.Model):
     max_attempts = models.PositiveIntegerField(default=3, help_text="Maximum number of attempts allowed for this quiz.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='created_quizzes',
+        help_text="The instructor who created this quiz."
+    )
 
     def __str__(self):
         return self.title
 
     class Meta:
         verbose_name_plural = "Quizzes"
+        
 
 class Question(models.Model):
     """
