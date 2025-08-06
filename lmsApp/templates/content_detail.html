@@ -1,4 +1,3 @@
-<!-- core/templates/core/content_detail.html (Fixed YouTube URL) -->
 {% extends 'base.html' %}
 {% load static %}
 {% load custom_filters %} 
@@ -87,11 +86,11 @@
                 <button onclick="loadModalForm('{% url 'content_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
                     <i class="fas fa-edit mr-2"></i> Edit Content
                 </button>
-                <button onclick="loadModalForm('{% url 'content_delete' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')" class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+                <button onclick="showConfirmationModal('{% url 'content_delete' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}', 'Delete Content', 'Are you sure you want to delete this content? This action cannot be undone.')" class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
                     <i class="fas fa-trash-alt mr-2"></i> Delete Content
                 </button>
             </div>
-        {% elif request.user.is_student and student_progress and content.content_type != 'quiz' %} {# Only show for students who have a progress record and if not a quiz #}
+        {% elif request.user.is_student and student_progress and content.content_type != 'quiz' %}
             <button id="markCompleteBtn"
                     onclick="markContentCompleted('{% url 'mark_content_completed' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')"
                     class="py-2 px-4 rounded-md transition duration-300 flex items-center shadow-md hover:shadow-lg
@@ -111,12 +110,15 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
 <script>
-    // This function is already in base.html, but keeping it here for context if needed for testing
-    // async function getCookie(name) { ... }
+    // The getCookie and displayMessage functions are now expected to be available
+    // from the base.html's extra_scripts block, thanks to block.super.
 
     async function markContentCompleted(url) {
-        // No confirm dialog for toggling, as it's a quick action
         const markCompleteBtn = document.getElementById('markCompleteBtn');
         const originalHtml = markCompleteBtn.innerHTML;
         markCompleteBtn.disabled = true; // Disable button during request
@@ -128,7 +130,7 @@
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
+                    'X-CSRFToken': getCookie('csrftoken') // getCookie should now be defined
                 },
                 body: JSON.stringify({})
             });
@@ -136,7 +138,7 @@
             const result = await response.json();
 
             if (response.ok) {
-                displayMessage('success', result.message || 'Progress updated!');
+                displayMessage('success', result.message || 'Progress updated!'); // displayMessage should now be defined
                 // Update button text and style based on new status
                 if (result.completed) {
                     markCompleteBtn.classList.remove('bg-gray-200', 'hover:bg-gray-300', 'text-gray-800');
@@ -147,8 +149,6 @@
                     markCompleteBtn.classList.add('bg-gray-200', 'hover:bg-gray-300', 'text-gray-800');
                     markCompleteBtn.innerHTML = '<i class="fas fa-circle-notch mr-2"></i> Mark as Complete';
                 }
-                // Optionally, reload the dashboard to update overall progress
-                // window.location.reload(); // Might be too aggressive, let's update dashboard separately
             } else {
                 displayMessage('error', result.error || 'Failed to update progress.');
                 markCompleteBtn.innerHTML = originalHtml; // Restore original HTML on error
@@ -162,4 +162,4 @@
         }
     }
 </script>
-{% endblock content %}
+{% endblock %}

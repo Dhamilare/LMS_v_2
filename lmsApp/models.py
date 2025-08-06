@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 import uuid
 from django.urls import reverse
+from django.db.models import Sum, F, Count
 
 class User(AbstractUser):
     """
@@ -95,6 +96,9 @@ class Content(models.Model):
         ('video', 'Video'),
         ('pdf', 'PDF Document'),
         ('text', 'Text/Notes'),
+        ('slide', 'Slide Presentation'),
+        ('quiz', 'Quiz'),
+        ('assignment', 'Assignment'),
     )
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='contents')
     title = models.CharField(max_length=200)
@@ -120,6 +124,7 @@ class Enrollment(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollments')
     enrolled_at = models.DateTimeField(auto_now_add=True)
     completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ('student', 'course')
@@ -127,6 +132,50 @@ class Enrollment(models.Model):
 
     def __str__(self):
         return f"{self.student.username} enrolled in {self.course.title}"
+    
+    def save(self, *args, **kwargs):
+        # This save method primarily handles setting/clearing completed_at
+        # based on the 'completed' flag. The 'completed' flag itself is
+        # updated by StudentContentProgress.save() for synchronization.
+        if self.completed and not self.completed_at:
+            self.completed_at = timezone.now()
+        elif not self.completed and self.completed_at:
+            self.completed_at = None
+        super().save(*args, **kwargs)
+
+    @property
+    def progress_percentage(self):
+        """Calculates the percentage of completed content for this enrollment."""
+        # Corrected: Count all content items belonging to lessons within modules of this course
+        total_contents = Content.objects.filter(
+            lesson__module__course=self.course
+        ).count()
+
+        if total_contents == 0:
+            return 0
+
+        completed_contents = StudentContentProgress.objects.filter(
+            student=self.student,
+            content__lesson__module__course=self.course,
+            completed=True
+        ).count()
+
+        return round((completed_contents / total_contents) * 100)
+
+    @property
+    def has_certificate(self):
+        """Checks if a certificate has been issued for this enrollment."""
+        return Certificate.objects.filter(student=self.student, course=self.course).exists()
+
+    @property
+    def certificate_obj(self):
+        """Returns the certificate object if it exists, otherwise None."""
+        return Certificate.objects.filter(student=self.student, course=self.course).first()
+
+    @property
+    def can_claim_certificate(self):
+        """Checks if the student can claim a certificate for this enrollment."""
+        return self.completed and not self.has_certificate
 
 class StudentContentProgress(models.Model):
     """
@@ -143,11 +192,36 @@ class StudentContentProgress(models.Model):
         verbose_name_plural = "Student Content Progress"
 
     def save(self, *args, **kwargs):
+        # Set completed_at for this specific content progress entry
         if self.completed and not self.completed_at:
             self.completed_at = timezone.now()
         elif not self.completed and self.completed_at:
             self.completed_at = None
-        super().save(*args, **kwargs)
+        
+        super().save(*args, **kwargs) # Save the content progress first
+
+        # After saving content progress, update the overall enrollment status
+        # Find the enrollment for this student and course
+        enrollment = Enrollment.objects.filter(
+            student=self.student,
+            course=self.content.lesson.module.course
+        ).first()
+
+        if enrollment:
+            # Recalculate progress using the @property and update enrollment 'completed' status
+            current_progress = enrollment.progress_percentage
+            
+            # Check if enrollment should be marked as completed
+            if current_progress == 100 and not enrollment.completed:
+                enrollment.completed = True
+                enrollment.completed_at = timezone.now() # Set completion time for enrollment
+                enrollment.save(update_fields=['completed', 'completed_at'])
+            # Check if enrollment should be marked as incomplete (if it was previously completed)
+            elif current_progress < 100 and enrollment.completed:
+                enrollment.completed = False
+                enrollment.completed_at = None
+                enrollment.save(update_fields=['completed', 'completed_at'])
+
 
     def __str__(self):
         status = "Completed" if self.completed else "Incomplete"

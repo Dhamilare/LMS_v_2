@@ -12,6 +12,7 @@ urlpatterns = [
     path('instructors/', views.instructor_list, name='instructor_list'), 
     path('instructors/<int:pk>/edit/', views.instructor_update, name='instructor_update'),
     path('instructors/<int:pk>/delete/', views.instructor_delete, name='instructor_delete'), 
+     path('audit-logs/', views.audit_logs, name='audit_logs'),
 
     # Instructor Course Management
     path('courses/', views.course_list, name='course_list'),

@@ -6,7 +6,9 @@ from django.contrib import messages
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string, get_template
-from django.db.models import Q, Max
+from django.db.models import Q, Max, Count, Sum
+from django.db.models.functions import Coalesce
+from django.urls import reverse
 from .forms import *
 from .models import *
 from io import BytesIO
@@ -16,6 +18,7 @@ import os
 import traceback
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .utils import send_templated_email
+import json
 
 # Helper functions for role-based access control
 def is_admin(user):
@@ -85,7 +88,7 @@ def user_logout(request):
 def dashboard(request):
     """
     Displays the user's dashboard based on their role.
-    Includes course search functionality for students.
+    Includes course search functionality and pagination for students.
     """
     user = request.user
     context = {
@@ -96,58 +99,50 @@ def dashboard(request):
     }
 
     if user.is_instructor:
+        # For instructors, fetch their courses.
+        # Pagination for instructor courses can be added here if needed.
         context['courses'] = Course.objects.filter(instructor=user).order_by('-created_at')
     elif user.is_student:
-        context['enrolled_courses'] = Enrollment.objects.filter(student=user).select_related('course').order_by('-enrolled_at')
+        # --- Enrolled Courses Logic ---
+        # The progress_percentage, completed, has_certificate, certificate_obj,
+        # and can_claim_certificate are now properties on the Enrollment model.
+        # We just need to fetch the Enrollment objects.
+        enrolled_courses_list = Enrollment.objects.filter(student=user).select_related('course').order_by('-enrolled_at')
         
-        # Calculate progress for each enrolled course and check certificate status
-        for enrollment in context['enrolled_courses']:
-            total_contents = Content.objects.filter(lesson__module__course=enrollment.course).count()
-            completed_contents = StudentContentProgress.objects.filter(
-                student=user,
-                content__lesson__module__course=enrollment.course,
-                completed=True
-            ).count()
-            
-            enrollment.progress_percentage = 0
-            if total_contents > 0:
-                enrollment.progress_percentage = int((completed_contents / total_contents) * 100)
-            
-            # Update enrollment.completed based on 100% progress
-            if enrollment.progress_percentage == 100 and not enrollment.completed:
-                enrollment.completed = True
-                enrollment.save(update_fields=['completed'])
-            elif enrollment.progress_percentage < 100 and enrollment.completed:
-                # If progress drops below 100% (e.g., instructor adds new content), mark as incomplete
-                enrollment.completed = False
-                enrollment.save(update_fields=['completed'])
+        # Apply pagination for enrolled courses
+        enrolled_paginator = Paginator(enrolled_courses_list, 6) # 6 items per page
+        enrolled_page_number = request.GET.get('enrolled_page') # Use 'enrolled_page' parameter for enrolled courses
 
-            # Check for certificate availability
-            enrollment.has_certificate = False
-            enrollment.certificate_obj = None
-            if enrollment.completed:
-                certificate = Certificate.objects.filter(student=user, course=enrollment.course).first()
-                if certificate:
-                    enrollment.has_certificate = True
-                    enrollment.certificate_obj = certificate
-                else:
-                    enrollment.can_claim_certificate = True # Can claim if completed but no certificate yet
+        try:
+            enrolled_page_obj = enrolled_paginator.get_page(enrolled_page_number)
+        except Exception: # Catch PageNotAnInteger or EmptyPage
+            enrolled_page_obj = enrolled_paginator.page(1)
+        
+        context['enrolled_courses'] = enrolled_page_obj # Pass the paginated object
 
+        # --- Available Courses Search and Pagination Logic for students ---
+        search_query = request.GET.get('q', '') # Get search query from 'q' parameter
+        
+        # Start with all published courses not yet enrolled by the student
+        available_courses_queryset = Course.objects.filter(is_published=True).exclude(enrollments__student=user)
 
-        # Course Search Logic for Students
-        search_query = request.GET.get('q')
         if search_query:
-            # Filter available courses by title or description
-            context['available_courses'] = Course.objects.filter(
-                is_published=True
-            ).exclude(
-                enrollments__student=user
-            ).filter(
+            # Filter available courses by title or description if a search query exists
+            available_courses_queryset = available_courses_queryset.filter(
                 Q(title__icontains=search_query) | Q(description__icontains=search_query)
-            ).order_by('-created_at')
+            ).distinct()
             context['search_query'] = search_query # Pass query back to template for input field
-        else:
-            context['available_courses'] = Course.objects.filter(is_published=True).exclude(enrollments__student=user).order_by('-created_at')[:5] # Show some available courses not yet enrolled
+
+        # Apply pagination for available courses
+        available_paginator = Paginator(available_courses_queryset, 6) # 6 items per page
+        available_page_number = request.GET.get('available_page') # Use 'available_page' parameter for available courses
+
+        try:
+            available_page_obj = available_paginator.get_page(available_page_number)
+        except Exception: # Catch PageNotAnInteger or EmptyPage
+            available_page_obj = available_paginator.page(1)
+        
+        context['available_courses'] = available_page_obj # Pass the paginated object
     
     return render(request, 'dashboard.html', context)
 
@@ -1190,3 +1185,88 @@ def certificate_catalog(request):
         'student_certificates': student_certificates,
     }
     return render(request, 'student/certificate_catalog.html', context)
+
+
+
+@login_required
+@user_passes_test(is_admin)
+def audit_logs(request):
+    """
+    Provides a comprehensive audit log and reporting dashboard for administrators
+    and instructors, including enrollment statistics and course details.
+    """
+    # --- Overall Statistics ---
+    total_courses = Course.objects.count()
+    total_enrollments = Enrollment.objects.count()
+    total_students = User.objects.filter(is_student=True).count() # Count actual student users
+    total_completed_enrollments = Enrollment.objects.filter(completed=True).count()
+
+    # --- Data for Enrollment Distribution Pie Chart (by Course) ---
+    # Get enrollment counts per course
+    enrollment_by_course_data = Course.objects.annotate(
+        enroll_count=Coalesce(Count('enrollments'), 0) # Use 'enrollments' related_name
+    ).order_by('-enroll_count')
+
+    course_labels = [course.title for course in enrollment_by_course_data]
+    enrollment_counts = [course.enroll_count for course in enrollment_by_course_data]
+
+    # --- Data for Completion Status Pie Chart (Overall) ---
+    # Get counts of completed vs. in-progress enrollments
+    completion_status_counts = Enrollment.objects.aggregate(
+        completed_count=Count('id', filter=Q(completed=True)),
+        in_progress_count=Count('id', filter=Q(completed=False))
+    )
+    completion_labels = ['Completed', 'In Progress']
+    completion_data = [
+        completion_status_counts['completed_count'],
+        completion_status_counts['in_progress_count']
+    ]
+
+    # --- Detailed Enrollment Logs ---
+    # Fetch all enrollments with related course, student, and instructor info
+    # The certificate_obj, has_certificate, progress_percentage are now @properties on Enrollment model
+    all_enrollments = Enrollment.objects.select_related(
+        'course', 'student', 'course__instructor'
+    ).order_by('-enrolled_at')
+
+    detailed_logs = []
+    for enrollment in all_enrollments:
+        certificate_status = "N/A"
+        certificate_link = "#"
+        
+        if enrollment.has_certificate:
+            certificate_status = "Issued"
+            certificate_link = enrollment.certificate_obj.get_absolute_url() # Use the model's get_absolute_url
+        elif enrollment.can_claim_certificate: # Check if eligible but not yet claimed
+            certificate_status = "Eligible (Claimable)"
+        elif enrollment.completed: # Completed but not eligible/claimed (e.g., if no certificate defined)
+            certificate_status = "Completed (No Certificate)"
+
+
+        detailed_logs.append({
+            'student_first_name': enrollment.student.first_name, # Added
+            'student_last_name': enrollment.student.last_name,   # Added
+            'student_username': enrollment.student.username,
+            'student_email': enrollment.student.email,
+            'course_title': enrollment.course.title,
+            'instructor_name': enrollment.course.instructor.get_full_name() or enrollment.course.instructor.username,
+            'enrolled_at': enrollment.enrolled_at,
+            'completed_at': enrollment.completed_at, # Now directly from the model
+            'is_completed': enrollment.completed,
+            'progress_percentage': enrollment.progress_percentage, # Now directly from the model property
+            'certificate_status': certificate_status,
+            'certificate_link': certificate_link,
+        })
+
+    context = {
+        'total_courses': total_courses,
+        'total_enrollments': total_enrollments,
+        'total_students': total_students,
+        'total_completed_enrollments': total_completed_enrollments,
+        'course_labels_json': json.dumps(course_labels),
+        'enrollment_counts_json': json.dumps(enrollment_counts),
+        'completion_labels_json': json.dumps(completion_labels),
+        'completion_data_json': json.dumps(completion_data),
+        'detailed_logs': detailed_logs,
+    }
+    return render(request, 'admin/reporting.html', context)

@@ -126,7 +126,7 @@
                             <i class="fa-solid fa-users-cog mr-3 text-lg"></i>
                             <span class="font-medium">Instructor management</span>
                         </a>
-                        <a href="#" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                        <a href="{% url 'audit_logs' %}" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
                             <i class="fa-solid fa-chart-line mr-3 text-lg"></i>
                             <span class="font-medium">Report Analytics</span>
                         </a>
@@ -207,6 +207,199 @@
                 chevron.classList.toggle('rotate-180');
             });
         }
+
+        // --- Global Utility Functions (Added Here) ---
+        // Function to get the CSRF token from the cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Function to display a toast-like message (simple alert for now)
+        function displayMessage(type, message) {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            // You might replace this with a more sophisticated toast notification UI
+            alert(message);
+        }
+
+        // --- Modal Functions (Copied from previous response to ensure consistency) ---
+        const modalBackdrop = document.getElementById('modal-backdrop');
+        const modalContainer = document.getElementById('modal-container');
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
+
+        async function loadModalForm(url, title = 'Form') {
+            modalTitle.textContent = title;
+            modalBody.innerHTML = '<div class="flex justify-center items-center h-48"><i class="fas fa-spinner fa-spin fa-3x text-indigo-500"></i></div>';
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok.');
+                }
+                const formHtml = await response.text();
+                modalBody.innerHTML = formHtml;
+                openModal();
+                const form = modalBody.querySelector('form');
+                if (form) {
+                    form.addEventListener('submit', handleModalFormSubmit);
+                }
+
+            } catch (error) {
+                console.error('Error loading modal content:', error);
+                modalBody.innerHTML = `<p class="text-red-500">Failed to load content. Please try again.</p>`;
+            }
+        }
+
+        async function handleModalFormSubmit(event) {
+            event.preventDefault();
+            const form = event.target;
+            const url = form.action;
+            const method = form.method;
+            const formData = new FormData(form);
+
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton ? submitButton.innerHTML : '';
+            if (submitButton) {
+                submitButton.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> Saving...`;
+                submitButton.disabled = true;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    closeModal();
+                    const result = await response.json();
+                    displayMessage('success', result.message || 'Operation successful!');
+                    window.location.reload();
+                } else {
+                    const formHtml = await response.text();
+                    modalBody.innerHTML = formHtml;
+                    const newForm = modalBody.querySelector('form');
+                    if (newForm) {
+                        newForm.addEventListener('submit', handleModalFormSubmit);
+                    }
+                    try {
+                        const errorResult = JSON.parse(formHtml);
+                        displayMessage('error', errorResult.error || 'Please correct the errors in the form.');
+                    } catch (e) {
+                         // If the response is not JSON, it's likely a full page render with errors
+                         displayMessage('error', 'Please correct the errors in the form.');
+                    }
+                }
+            } catch (error) {
+                console.error('Error submitting form:', error);
+                displayMessage('error', 'An error occurred. Please try again.');
+            } finally {
+                if (submitButton) {
+                    submitButton.innerHTML = originalButtonText;
+                    submitButton.disabled = false;
+                }
+            }
+        }
+
+        function openModal() {
+            modalBackdrop.classList.remove('hidden');
+            setTimeout(() => {
+                modalBackdrop.classList.add('opacity-100');
+                modalContainer.classList.remove('scale-95', 'opacity-0');
+                modalContainer.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            modalContainer.classList.remove('scale-100', 'opacity-100');
+            modalContainer.classList.add('scale-95', 'opacity-0');
+            modalBackdrop.classList.remove('opacity-100');
+            setTimeout(() => {
+                modalBackdrop.classList.add('hidden');
+                modalBody.innerHTML = '';
+            }, 300);
+        }
+
+        // --- Confirmation Modal Functions ---
+        const confirmBackdrop = document.getElementById('confirmation-modal-backdrop');
+        const confirmTitle = document.getElementById('confirm-modal-title');
+        const confirmBody = document.getElementById('confirm-modal-body');
+        const confirmButton = document.getElementById('confirm-modal-action-button');
+
+        function showConfirmationModal(actionUrl, title, body) {
+            confirmTitle.textContent = title;
+            confirmBody.textContent = body;
+            confirmButton.onclick = () => performConfirmedAction(actionUrl);
+            
+            if (confirmBackdrop) { // Check if element exists before manipulating classes
+                confirmBackdrop.classList.remove('hidden');
+                setTimeout(() => {
+                    confirmBackdrop.classList.add('opacity-100');
+                    const confirmModalInner = confirmBackdrop.querySelector('div');
+                    if (confirmModalInner) {
+                        confirmModalInner.classList.remove('scale-95', 'opacity-0');
+                        confirmModalInner.classList.add('scale-100', 'opacity-100');
+                    }
+                }, 10);
+            }
+        }
+
+        function closeConfirmationModal() {
+            if (confirmBackdrop) { // Check if element exists
+                const modalContainer = confirmBackdrop.querySelector('div');
+                if (modalContainer) {
+                    modalContainer.classList.remove('scale-100', 'opacity-100');
+                    modalContainer.classList.add('scale-95', 'opacity-0');
+                }
+                confirmBackdrop.classList.remove('opacity-100');
+                setTimeout(() => {
+                    confirmBackdrop.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        async function performConfirmedAction(url) {
+            closeConfirmationModal(); // Close the confirmation modal first
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    displayMessage('success', result.message || 'Operation successful!');
+                    window.location.reload();
+                } else {
+                    displayMessage('error', result.error || 'Operation failed.');
+                }
+            } catch (error) {
+                console.error('Error during action:', error);
+                displayMessage('error', 'An error occurred.');
+            }
+        }
+
     </script>
     
     {% block extra_scripts %}

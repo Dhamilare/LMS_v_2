@@ -22,9 +22,6 @@
                     <a href="{% url 'instructor_list' %}" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 flex items-center justify-center text-sm shadow-sm hover:shadow-md">
                         <i class="fas fa-users mr-2"></i> Manage Instructors
                     </a>
-                    <span class="bg-gray-200 text-gray-800 py-2 px-4 rounded-md flex items-center justify-center text-sm shadow-sm">
-                        <i class="fas fa-chart-line mr-2"></i> View System Reports (coming soon)
-                    </span>
                 </div>
             </div>
         </div>
@@ -50,8 +47,7 @@
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {% for course in courses %}
-                    <!-- The entire card is now a clickable link -->
-                    <a href="{% url 'course_detail' slug=course.slug %}" class="block bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                         <img src="{{ course.thumbnail|default:'https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail' }}" alt="{{ course.title }} Thumbnail" class="w-full h-40 sm:h-48 object-cover">
                         <div class="p-4 sm:p-5">
                             <h3 class="text-lg sm:text-xl font-semibold text-gray-800 mb-2">{{ course.title }}</h3>
@@ -60,14 +56,17 @@
                                 <span class="flex items-center"><i class="fas fa-user mr-1 sm:mr-2"></i> Instructor: {{ course.instructor.get_full_name|default:course.instructor.username }}</span>
                                 <span class="flex items-center"><i class="fas fa-dollar-sign mr-1 sm:mr-2"></i> Price: {% if course.price %}{{ course.price }}{% else %}Free{% endif %}</span>
                             </div>
-                            <div class="flex justify-between items-center">
+                            <div class="flex justify-between items-center mt-4"> {# Added mt-4 here #}
                                 <span class="px-2 py-0.5 sm:px-3 sm:py-1 text-xs font-semibold rounded-full flex items-center
                                     {% if course.is_published %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
                                     {% if course.is_published %}<i class="fas fa-check-circle mr-1"></i> Published{% else %}<i class="fas fa-hourglass-half mr-1"></i> Draft{% endif %}
                                 </span>
+                                <a href="{% url 'course_detail' slug=course.slug %}" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center text-sm shadow-sm hover:shadow-md">
+                                    View Course <i class="fas fa-arrow-right ml-2"></i>
+                                </a>
                             </div>
                         </div>
-                    </a>
+                    </div>
                 {% endfor %}
             </div>
         {% else %}
@@ -115,8 +114,7 @@
         {% if enrolled_courses %}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {% for enrollment in enrolled_courses %}
-                    <!-- The entire card is now a clickable link -->
-                    <a href="{% url 'course_detail' slug=enrollment.course.slug %}" class="block bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                         <img src="{{ enrollment.course.thumbnail|default:'https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail' }}" alt="{{ enrollment.course.title }} Thumbnail" class="w-full h-40 sm:h-48 object-cover">
                         <div class="p-4 sm:p-5">
                             <h3 class="text-lg sm:text-xl font-semibold text-gray-800 mb-2">{{ enrollment.course.title }}</h3>
@@ -131,7 +129,7 @@
                                 </div>
                                 <span class="text-sm font-medium text-gray-700 ml-2 sm:ml-3">{{ enrollment.progress_percentage }}%</span>
                             </div>
-                            <div class="flex justify-between items-center mt-4">
+                            <div class="flex justify-between items-center mt-4"> {# Added mt-4 here #}
                                 <span class="px-2 py-0.5 sm:px-3 sm:py-1 text-xs font-semibold rounded-full flex items-center
                                     {% if enrollment.completed %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
                                     {% if enrollment.completed %}<i class="fas fa-check-double mr-1"></i> Completed{% else %}<i class="fas fa-spinner fa-spin mr-1"></i> In Progress{% endif %}
@@ -149,10 +147,14 @@
                                             </button>
                                         </form>
                                     {% endif %}
+                                {% else %} {# If not completed, show View Course button #}
+                                    <a href="{% url 'course_detail' slug=enrollment.course.slug %}" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center text-sm shadow-sm hover:shadow-md">
+                                        View Course <i class="fas fa-arrow-right ml-2"></i>
+                                    </a>
                                 {% endif %}
                             </div>
                         </div>
-                    </a>
+                    </div>
                 {% endfor %}
             </div>
         {% else %}
@@ -173,8 +175,7 @@
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {% for course in available_courses %}
-                    <!-- The entire card is now a clickable link -->
-                    <a href="{% url 'course_detail' slug=course.slug %}" class="block bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                         <img src="{{ course.thumbnail|default:'https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail' }}" alt="{{ course.title }} Thumbnail" class="w-full h-40 sm:h-48 object-cover">
                         <div class="p-4 sm:p-5">
                             <h3 class="text-lg sm:text-xl font-semibold text-gray-800 mb-2">{{ course.title }}</h3>
@@ -183,13 +184,16 @@
                                 <span class="flex items-center"><i class="fas fa-user mr-1 sm:mr-2"></i> Instructor: {{ course.instructor.get_full_name|default:course.instructor.username }}</span>
                                 <span class="flex items-center"><i class="fas fa-dollar-sign mr-1 sm:mr-2"></i> Price: {% if course.price %}{{ course.price }}{% else %}Free{% endif %}</span>
                             </div>
-                            <div class="flex justify-between items-center">
+                            <div class="flex justify-between items-center mt-4"> {# Added mt-4 here #}
                                 <span class="px-2 py-0.5 sm:px-3 sm:py-1 text-xs font-semibold rounded-full flex items-center bg-green-100 text-green-800">
                                     <i class="fas fa-check-circle mr-1"></i> Published
                                 </span>
+                                <a href="{% url 'course_detail' slug=course.slug %}" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center text-sm shadow-sm hover:shadow-md">
+                                    View Course <i class="fas fa-arrow-right ml-2"></i>
+                                </a>
                             </div>
                         </div>
-                    </a>
+                    </div>
                 {% endfor %}
             </div>
         {% elif search_query %}

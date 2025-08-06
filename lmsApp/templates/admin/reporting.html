@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Audit Logs & Reports{% endblock %}
+
+{% block content %}
+<div class="bg-gray-50 min-h-screen font-inter text-gray-800 py-8">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight mb-4">
+                <i class="fas fa-chart-pie text-indigo-600 mr-3"></i> Audit Logs & Reports
+            </h1>
+            <p class="text-lg sm:text-xl text-gray-600">
+                Comprehensive insights into your LMS performance and student activity.
+            </p>
+        </header>
+
+        <!-- Summary Statistics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
+                <div class="p-3 bg-blue-100 rounded-full text-blue-600">
+                    <i class="fas fa-book-open fa-2x"></i>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Total Courses</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ total_courses }}</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
+                <div class="p-3 bg-green-100 rounded-full text-green-600">
+                    <i class="fas fa-users fa-2x"></i>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Total Students</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ total_students }}</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
+                <div class="p-3 bg-purple-100 rounded-full text-purple-600">
+                    <i class="fas fa-user-check fa-2x"></i>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Total Enrollments</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ total_enrollments }}</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
+                <div class="p-3 bg-yellow-100 rounded-full text-yellow-600">
+                    <i class="fas fa-check-double fa-2x"></i>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Completed Enrollments</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ total_completed_enrollments }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <h2 class="text-3xl font-bold text-gray-900 mb-6 flex items-center">
+            <i class="fas fa-chart-bar text-indigo-600 mr-3"></i> Visual Reports
+        </h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+            <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-graduation-cap mr-2 text-blue-500"></i> Course Enrollment Distribution
+                </h3>
+                <div class="h-80 flex justify-center items-center">
+                    <canvas id="enrollmentDistributionChart"></canvas>
+                </div>
+                <p class="text-sm text-gray-500 mt-4 text-center">
+                    Shows the proportion of students enrolled in each course.
+                </p>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-tasks mr-2 text-green-500"></i> Overall Enrollment Completion Status
+                </h3>
+                <div class="h-80 flex justify-center items-center">
+                    <canvas id="completionStatusChart"></canvas>
+                </div>
+                <p class="text-sm text-gray-500 mt-4 text-center">
+                    Breakdown of completed versus in-progress enrollments.
+                </p>
+            </div>
+        </div>
+
+        <!-- Detailed Audit Logs Table -->
+        <h2 class="text-3xl font-bold text-gray-900 mb-6 flex items-center mt-12">
+            <i class="fas fa-list-alt text-indigo-600 mr-3"></i> Detailed Enrollment Logs
+        </h2>
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instructor</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled On</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed On</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Certificate</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for log in detailed_logs %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">
+                                    {% if log.student_first_name or log.student_last_name %}
+                                        {{ log.student_first_name }} {{ log.student_last_name }}
+                                    {% else %}
+                                        {{ log.student_username }}
+                                    {% endif %}
+                                </div>
+                                <div class="text-sm text-gray-500">{{ log.student_email }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ log.course_title }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ log.instructor_name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.enrolled_at|date:"M d, Y" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {% if log.completed_at %}{{ log.completed_at|date:"M d, Y" }}{% else %}N/A{% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <div class="w-24 bg-gray-200 rounded-full h-2.5">
+                                    <div class="bg-indigo-600 h-2.5 rounded-full" style="width: {{ log.progress_percentage }}%;"></div>
+                                </div>
+                                <span class="text-xs text-gray-500 mt-1 block">{{ log.progress_percentage }}%</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                    {% if log.is_completed %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                                    {% if log.is_completed %}Completed{% else %}In Progress{% endif %}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {% if log.certificate_link and log.certificate_link != '#' %}
+                                    <a href="{{ log.certificate_link }}" target="_blank" class="text-indigo-600 hover:underline flex items-center">
+                                        {{ log.certificate_status }} <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                    </a>
+                                {% else %}
+                                    {{ log.certificate_status }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                No enrollment data available.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<!-- Chart.js CDN for powerful charting -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Enrollment Distribution Chart ---
+        const enrollmentCtx = document.getElementById('enrollmentDistributionChart');
+        if (enrollmentCtx) {
+            const courseLabels = JSON.parse('{{ course_labels_json|escapejs }}');
+            const enrollmentCounts = JSON.parse('{{ enrollment_counts_json|escapejs }}');
+
+            new Chart(enrollmentCtx, {
+                type: 'pie',
+                data: {
+                    labels: courseLabels,
+                    datasets: [{
+                        data: enrollmentCounts,
+                        backgroundColor: [
+                            '#4F46E5', // Indigo-600
+                            '#8B5CF6', // Purple-500
+                            '#EC4899', // Pink-500
+                            '#F59E0B', // Amber-500
+                            '#10B981', // Emerald-500
+                            '#EF4444', // Red-500
+                            '#3B82F6', // Blue-500
+                            '#F97316', // Orange-500
+                            '#6B7280', // Gray-500
+                            '#6366F1', // Indigo-500
+                        ],
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                font: {
+                                    size: 12,
+                                    family: 'Inter'
+                                },
+                                color: '#4B5563' // gray-700
+                            }
+                        },
+                        title: {
+                            display: false, // Title is in H3 tag
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Overall Completion Status Chart ---
+        const completionCtx = document.getElementById('completionStatusChart');
+        if (completionCtx) {
+            const completionLabels = JSON.parse('{{ completion_labels_json|escapejs }}');
+            const completionData = JSON.parse('{{ completion_data_json|escapejs }}');
+
+            new Chart(completionCtx, {
+                type: 'pie',
+                data: {
+                    labels: completionLabels,
+                    datasets: [{
+                        data: completionData,
+                        backgroundColor: [
+                            '#10B981', // Emerald-500 (for Completed)
+                            '#3B82F6', // Blue-500 (for In Progress)
+                        ],
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                font: {
+                                    size: 12,
+                                    family: 'Inter'
+                                },
+                                color: '#4B5563' // gray-700
+                            }
+                        },
+                        title: {
+                            display: false, // Title is in H3 tag
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
