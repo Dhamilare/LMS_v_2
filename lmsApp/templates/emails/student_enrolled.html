@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Student Enrollment</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 0;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+        }
+        .header {
+            background-color: #4f46e5;
+            color: #ffffff;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .content {
+            padding: 30px;
+            color: #374151;
+            line-height: 1.6;
+        }
+        .content h2 {
+            font-size: 24px;
+            color: #1f2937;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        .content p {
+            margin-bottom: 15px;
+        }
+        .info-box {
+            background-color: #eef2ff;
+            border-left: 4px solid #4f46e5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info-box p {
+            margin: 0;
+        }
+        .footer {
+            background-color: #f3f4f6;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer p {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>New Student Enrolled!</h1>
+        </div>
+
+        <div class="content">
+            <p>Hello,</p>
+            
+            <p>Congratulations! A new student has just enrolled in one of your courses.</p>
+            
+            <div class="info-box">
+                <p><strong>Student Name:</strong> {{ student_name }}</p>
+                <p><strong>Course Title:</strong> {{ course_title }}</p>
+                <p><strong>Enrollment Date:</strong> {{ enrollment_date }}</p>
+            </div>
+
+            <p>You can now view this student's progress and manage their course access from your dashboard.</p>
+            
+            <p>Thank you for your hard work and dedication!</p>
+            <p>The LMS Team</p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; {{ current_year }} LMS. All rights reserved.</p>
+        </div>
+    </div>
+
+</body>
+</html>

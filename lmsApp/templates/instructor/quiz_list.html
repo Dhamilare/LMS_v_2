@@ -27,7 +27,7 @@
                     <div class="text-gray-500 text-xs mb-3">
                         <p><i class="fas fa-percent mr-1"></i> Pass Percentage: {{ quiz.pass_percentage }}%</p>
                         <p><i class="fas fa-redo-alt mr-1"></i> Max Attempts: {{ quiz.max_attempts }}</p>
-                        <p><i class="fas fa-clock mr-1"></i> Duration: {{ quiz.duration_minutes }} mins (Informational)</p>
+                        <!-- <p><i class="fas fa-clock mr-1"></i> Duration: {{ quiz.duration_minutes }} mins (Informational)</p> -->
                     </div>
                     
                     {% if quiz.course %}
@@ -47,7 +47,7 @@
                         </a>
                         <button onclick="loadModalForm('{% url 'quiz_assign_to_course' quiz_id=quiz.id %}', 'Assign Quiz: {{ quiz.title }}')"
                                 class="bg-purple-600 text-white py-2 px-3 rounded-md hover:bg-purple-700 transition duration-300 flex items-center text-sm shadow-sm">
-                            <i class="fas fa-link mr-2"></i> Assign Quiz
+                            <i class="fas fa-link mr-2"></i> Assign To Course
                         </button>
                         <button onclick="loadModalForm('{% url 'quiz_create' %}?quiz_id={{ quiz.id }}', 'Edit Quiz: {{ quiz.title }}')"
                                 class="bg-gray-600 text-white py-2 px-3 rounded-md hover:bg-gray-700 transition duration-300 flex items-center text-sm shadow-sm">

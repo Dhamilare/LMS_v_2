@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Assign Course to Student{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 sm:p-8 rounded-lg shadow-lg max-w-7xl mx-auto my-8">
+    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
+        <i class="fas fa-user-plus mr-2 sm:mr-3 text-indigo-600"></i> Assign Courses
+    </h2>
+
+    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-3 sm:space-y-0">
+        <p class="text-gray-600 text-base sm:text-lg">Select a course and a student to assign them to a course. The student will receive an email notification.</p>
+        <button id="assign-course-btn"
+                class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+            <i class="fas fa-plus-circle mr-2"></i> Assign New Course
+        </button>
+    </div>
+
+    <!-- This section would dynamically list existing assignments. -->
+    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <h3 class="text-xl font-semibold text-gray-800 mb-2">Existing Assignments</h3>
+        <p class="text-gray-600">
+            This area can be populated with a list of students and the courses they have been assigned to. You can implement this part once the core functionality is working.
+        </p>
+    </div>
+
+    <div class="mt-8 text-center">
+        <a href="{% url 'dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- MODAL HTML STRUCTURE -->
+<div id="assign-modal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-50 hidden items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+        <div class="flex items-center justify-between p-4 border-b">
+            <h3 id="modal-title" class="text-xl font-semibold text-gray-800"></h3>
+            <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times fa-lg"></i>
+            </button>
+        </div>
+        <div id="modal-body" class="p-6">
+            <!-- AJAX content will be loaded here -->
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+    // Wait for the DOM to be fully loaded before running the script
+    window.addEventListener('DOMContentLoaded', (event) => {
+        // Get modal elements
+        const modal = document.getElementById('assign-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
+        const assignButton = document.getElementById('assign-course-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const assignCourseUrl = "{% url 'assign_course' %}";
+
+        // Function to close the main modal
+        function closeModal() {
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                modalBody.innerHTML = ''; // Clear content on close
+            }
+        }
+
+        // Function to load a form into the main modal via AJAX
+        function loadModalForm(url, title) {
+            if (modalTitle) modalTitle.textContent = title;
+            if (modalBody) modalBody.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin text-indigo-600 fa-2x"></i></div>';
+            
+            fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text) });
+                }
+                return response.text();
+            })
+            .then(html => {
+                if (modalBody) modalBody.innerHTML = html;
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                }
+                attachFormSubmissionHandler();
+            })
+            .catch(error => {
+                console.error('Error fetching form:', error);
+                if (modalBody) modalBody.innerHTML = '<p class="text-red-500">Failed to load the form. Please try again.</p>';
+            });
+        }
+
+        // Function to handle the AJAX form submission
+        function attachFormSubmissionHandler() {
+            const form = document.querySelector('#assign-modal form');
+            if (form) {
+                form.addEventListener('submit', function(event) {
+                    event.preventDefault();
+                    
+                    const formData = new FormData(form);
+                    const submitButton = form.querySelector('button[type="submit"]');
+
+                    if (submitButton) {
+                        submitButton.disabled = true;
+                        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
+                    }
+
+                    fetch(form.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(data => { throw new Error(data.message || 'Server error occurred.') });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            // Success: The course was assigned.
+                            // NOTE: Using a custom alert since window.alert() is not ideal in a modern app
+                            // You can replace this with a toast notification or custom modal.
+                            alert(data.message); 
+                            window.location.reload();
+                        } else {
+                            // Failure: Validation errors or other issues.
+                            alert(data.message);
+                            if (submitButton) {
+                                submitButton.disabled = false;
+                                submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Assign Course';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error during form submission:', error);
+                        alert('An error occurred. Please try again.');
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Assign Course';
+                        }
+                    });
+                });
+            }
+        }
+
+        // Event listeners for opening and closing the modal
+        if (assignButton) {
+            assignButton.addEventListener('click', () => {
+                loadModalForm(assignCourseUrl, 'Assign a Course to a Student');
+            });
+        }
+
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', closeModal);
+        }
+
+        // Event listener to close the modal when clicking outside
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target.id === 'assign-modal') {
+                    closeModal();
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

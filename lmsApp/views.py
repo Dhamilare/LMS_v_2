@@ -22,6 +22,24 @@ import json
 from django.db.models import Prefetch
 import csv
 from django.db.models import Avg
+from django.contrib.auth.models import Group
+
+
+def send_enrollment_email_to_instructor(request, enrollment):
+    """Helper function to send the enrollment email to the instructor."""
+    instructor = enrollment.course.instructor
+    context = {
+        'student_name': enrollment.student.get_full_name() or enrollment.student.username,
+        'course_title': enrollment.course.title,
+        'enrollment_date': enrollment.enrolled_at.strftime('%Y-%m-%d'),
+    }
+    send_templated_email(
+        'email/student_enrolled.html',
+        f'New Enrollment in {enrollment.course.title}',
+        [instructor.email],
+        context
+    )
+
 
 # Helper functions for role-based access control
 def is_admin(user):
@@ -847,33 +865,63 @@ def content_detail(request, course_slug, module_id, lesson_id, content_id):
     }
     return render(request, 'content_detail.html', context)
 
+
 @login_required
-@user_passes_test(is_student) # Only students can enroll
+@user_passes_test(is_student) 
 def enroll_course(request, slug):
     """
     Allows a student to enroll in a course.
+    
+    This view handles two scenarios:
+    1. A student self-enrolling in a course.
+    2. A student confirming their enrollment in a course that was
+       previously assigned to them by an instructor.
     """
     course = get_object_or_404(Course, slug=slug)
     student = request.user
 
+    # Initial checks for unpublished courses
     if not course.is_published:
         if is_ajax(request):
             return JsonResponse({'success': False, 'error': 'Cannot enroll in an unpublished course.'}, status=400)
         messages.error(request, 'Cannot enroll in an unpublished course.')
         return redirect('course_detail', slug=course.slug)
 
-    if Enrollment.objects.filter(student=student, course=course).exists():
-        if is_ajax(request):
-            return JsonResponse({'success': False, 'error': 'You are already enrolled in this course.'}, status=400)
-        messages.info(request, 'You are already enrolled in this course.')
-        return redirect('course_detail', slug=course.slug)
-
     try:
         with transaction.atomic():
-            enrollment = Enrollment.objects.create(student=student, course=course)
-            messages.success(request, f'Successfully enrolled in "{course.title}"!')
+            # Check for an existing enrollment first
+            try:
+                enrollment = Enrollment.objects.get(student=student, course=course)
+                
+                # If an enrollment record exists but the student is not yet enrolled,
+                # it means the instructor assigned the course.
+                if not enrollment.is_enrolled:
+                    enrollment.is_enrolled = True
+                    enrollment.enrolled_at = datetime.now()
+                    enrollment.save()
+                    action_message = 'You have successfully confirmed your enrollment.'
+                    # Send enrollment notification to the instructor
+                    send_enrollment_email_to_instructor(request, enrollment)
+                else:
+                    # The student is already enrolled, whether by assignment or self-enrollment
+                    action_message = 'You are already enrolled in this course.'
+                    
+                messages.info(request, action_message)
 
-            # --- Send Enrollment Confirmation Email ---
+            except Enrollment.DoesNotExist:
+                # No enrollment record exists, so this is a new self-enrollment
+                enrollment = Enrollment.objects.create(
+                    student=student, 
+                    course=course,
+                    is_enrolled=True,
+                    enrolled_at=datetime.now()
+                )
+                action_message = f'Successfully enrolled in "{course.title}"!'
+                messages.success(request, action_message)
+                # Send enrollment notification to the instructor
+                send_enrollment_email_to_instructor(request, enrollment)
+            
+            # --- Send Enrollment Confirmation Email to Student ---
             email_subject = f"Enrollment Confirmation: {course.title}"
             email_context = {
                 'student_name': student.get_full_name() or student.username,
@@ -891,15 +939,16 @@ def enroll_course(request, slug):
             # --- End Email Send ---
 
             if is_ajax(request):
-                return JsonResponse({'success': True, 'message': f'Successfully enrolled in "{course.title}"!', 'redirect_url': str(redirect('course_detail', slug=course.slug).url)})
+                return JsonResponse({'success': True, 'message': action_message, 'redirect_url': str(redirect('course_detail', slug=course.slug).url)})
             return redirect('course_detail', slug=course.slug)
+
     except Exception as e:
         messages.error(request, f'Failed to enroll in course: {e}')
-        traceback.print_exc() # Print full traceback to console
+        # traceback.print_exc() # Print full traceback to console
         if is_ajax(request):
             return JsonResponse({'success': False, 'error': f'Failed to enroll in course: {e}'}, status=500)
         return redirect('course_detail', slug=course.slug)
-    
+
 
 @login_required
 @user_passes_test(is_student) # Only students can mark content as complete
@@ -1821,3 +1870,114 @@ def course_transcript(request, course_slug):
         'has_passed_final_quiz': has_passed_final_quiz,
     }
     return render(request, 'student/course_transcript.html', context)
+
+
+@user_passes_test(is_instructor)
+def assign_course_to_student_view(request):
+    """
+    Handles assigning a course to a student and sending an initial email.
+    """
+    if request.method == 'POST':
+        form = AssignCourseForm(request.POST)
+        if form.is_valid():
+            student = form.cleaned_data.get('student')
+            course = form.cleaned_data.get('course')
+
+            # Check if an enrollment already exists
+            enrollment, created = Enrollment.objects.get_or_create(
+                student=student, 
+                course=course,
+                defaults={'is_enrolled': False} # Initially, they are not enrolled until they accept
+            )
+
+            if not created and enrollment.is_enrolled:
+                return JsonResponse({'success': False, 'message': 'Student is already enrolled in this course.'}, status=400)
+            
+            # Send assignment email to the student
+            context = {
+                'student_name': student.get_full_name() or student.username,
+                'course_title': course.title,
+                # Assuming get_absolute_url() points to a self-enrollment page
+                'course_url': request.build_absolute_uri(course.get_absolute_url()), 
+            }
+            send_templated_email(
+                'email/course_assigned.html',
+                'You have been assigned a new course!',
+                [student.email],
+                context
+            )
+            
+            return JsonResponse({'success': True, 'message': f"Course '{course.title}' assigned to {student.get_full_name()}."})
+        else:
+            return JsonResponse({'success': False, 'message': 'Validation failed.'}, status=400)
+    else:
+        form = AssignCourseForm()
+    
+    context = {'form': form}
+    return render(request, 'instructor/student_assign_form.html', context)
+
+
+@user_passes_test(is_instructor)
+def assign_course_page_view(request):
+    """
+    Renders the main page for assigning courses.
+    """
+    return render(request, 'instructor/course_assign.html')
+
+
+@user_passes_test(is_admin)
+def group_management_view(request, pk=None):
+    """
+    A view to manage group permissions and members.
+    Handles both creating a new group and editing an existing one.
+    This view is now restricted to staff members.
+    """
+    if pk:
+        # This part handles the 'update' functionality
+        group = get_object_or_404(Group, pk=pk)
+        title = f"Edit Group: {group.name}"
+    else:
+        # This part handles the 'create' functionality
+        group = None
+        title = "Create New Group"
+
+    if request.method == 'POST':
+        form = GroupPermissionForm(request.POST, instance=group)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Group '{form.cleaned_data['name']}' saved successfully!")
+            return redirect('group_list')
+    else:
+        form = GroupPermissionForm(instance=group)
+    
+    context = {
+        'form': form,
+        'title': title,
+        'group': group, # Pass the group object to the template
+    }
+    return render(request, 'admin/group_management.html', context)
+
+@user_passes_test(is_admin)
+def group_list_view(request):
+    """
+    A simple view to list all existing groups.
+    This view is also restricted to staff members.
+    """
+    groups = Group.objects.all().order_by('name')
+    context = {
+        'groups': groups,
+    }
+    return render(request, 'admin/group_list.html', context)
+
+
+@user_passes_test(is_admin)
+def group_delete_view(request, pk):
+    """
+    Deletes a group.
+    This view only accepts POST requests and is restricted to staff members.
+    """
+    group = get_object_or_404(Group, pk=pk)
+    group_name = group.name
+    group.delete()
+    messages.success(request, f"Group '{group_name}' was deleted successfully.")
+    return redirect('group_list')

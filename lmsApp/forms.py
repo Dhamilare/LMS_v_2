@@ -2,11 +2,13 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, UserChangeForm
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout, Submit, Field, Div, HTML
+from crispy_forms.layout import Layout, Submit, Field, HTML, Row, Column
 from .models import *
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.forms import inlineformset_factory, BaseInlineFormSet
+from django.contrib.auth.models import Group, Permission
+from django.contrib.contenttypes.models import ContentType
 
 class StudentRegistrationForm(forms.ModelForm):
     """
@@ -382,6 +384,26 @@ class QuizAssignmentForm(forms.Form):
                 instructor=instructor_user
             ).exclude(quiz__isnull=False).order_by('title')
 
+class AssignCourseForm(forms.ModelForm):
+    """
+    A form for instructors to assign a course to a student.
+    """
+    class Meta:
+        model = Enrollment
+        fields = ['student', 'course']
+
+    # Customize the fields to use better widgets and labels
+    student = forms.ModelChoiceField(
+        queryset=User.objects.filter(is_staff=False).order_by('first_name', 'last_name'),
+        label="Select Student",
+        widget=forms.Select(attrs={'class': 'form-select block w-full mt-1 rounded-md'})
+    )
+    course = forms.ModelChoiceField(
+        queryset=Course.objects.all().order_by('title'),
+        label="Select Course",
+        widget=forms.Select(attrs={'class': 'form-select block w-full mt-1 rounded-md'})
+    )
+
 
 # Form for CSV Upload
 class CSVUploadForm(forms.Form):
@@ -414,3 +436,100 @@ class TakeQuizForm(forms.Form):
             )
             self.fields[f'question_{question.id}'].widget.attrs['data-question-id'] = question.id
 
+
+
+class GroupPermissionForm(forms.ModelForm):
+    """
+    A custom ModelForm for managing Group permissions and members,
+    with a FormHelper for styling via crispy_forms.
+    This version excludes certain permissions related to internal models.
+    """
+    
+    # Field to select permissions. We'll filter this to show only relevant permissions.
+    permissions = forms.ModelMultipleChoiceField(
+        queryset=None,
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Permissions"
+    )
+
+    # Field to select users to add to or remove from the group.
+    users = forms.ModelMultipleChoiceField(
+        queryset=User.objects.all().order_by('username'),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Users in this Group"
+    )
+
+    class Meta:
+        model = Group
+        fields = ['name', 'permissions', 'users']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # ====================================================================
+        # EXCLUDING PERMISSIONS FROM CERTAIN MODELS
+        # We will build a list of models for which we DO want to manage
+        # permissions. Models like StudentContentProgress, StudentQuizAttempt,
+        # and Certificate are typically managed by application logic, so
+        # we'll exclude them from the permissions list.
+        # ====================================================================
+
+        # Models to include permissions for
+        lms_models_to_include = [
+            Course, Module, Lesson, Certificate, Content, Enrollment, 
+            Quiz, Question, Option, User # Including User for user management permissions
+        ]
+        
+        # Get the content types for the included models
+        lms_content_types = [ContentType.objects.get_for_model(model) for model in lms_models_to_include]
+        
+        # Filter the permissions queryset to only include permissions for the specified models
+        self.fields['permissions'].queryset = Permission.objects.filter(
+            content_type__in=lms_content_types
+        ).order_by('content_type__app_label', 'content_type__model', 'codename')
+
+        # If a group instance is provided, pre-populate the form fields
+        if self.instance.pk:
+            self.fields['permissions'].initial = self.instance.permissions.all()
+            self.fields['users'].initial = self.instance.user_set.all()
+
+        # Set up the FormHelper for crispy_forms layout
+        self.helper = FormHelper()
+        self.helper.form_method = 'post'
+        self.helper.layout = Layout(
+            Field('name', css_class='form-control'),
+            Row(
+                Column(
+                    HTML('<h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Assign Permissions</h3>'),
+                    Field('permissions', css_class='form-check-input', css_id='id_permissions'),
+                    css_class='md:col-span-1'
+                ),
+                Column(
+                    HTML('<h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Add Users to Group</h3>'),
+                    Field('users', css_class='form-check-input', css_id='id_users'),
+                    css_class='md:col-span-1'
+                ),
+                css_class='grid md:grid-cols-2 gap-8'
+            ),
+            Submit('submit', 'Save Group', css_class='mt-6 px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out shadow-md float-right')
+        )
+        self.fields['name'].widget.attrs.update({'class': 'w-full px-3 py-2 border rounded-lg text-gray-700 focus:outline-none focus:border-indigo-500'})
+
+    def save(self, commit=True):
+        """
+        Custom save method to handle updating both group permissions and users.
+        """
+        group = super().save(commit=False)
+        if commit:
+            group.save()
+            # Update the group's permissions
+            group_permissions = self.cleaned_data.get('permissions')
+            group.permissions.set(group_permissions)
+
+            # Update the users in the group
+            group_users = self.cleaned_data.get('users')
+            group.user_set.set(group_users)
+        
+        return group

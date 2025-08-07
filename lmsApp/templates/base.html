@@ -106,6 +106,9 @@
                                 <a href="{% url 'course_list' %}" class="flex items-center p-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200">
                                     <i class="fa-solid fa-edit mr-2"></i> Manage courses
                                 </a>
+                                <a href="{% url 'assign_course_page' %}" class="flex items-center p-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                                    <i class="fa-solid fa-user-plus mr-2"></i> Assign courses
+                                </a>
                             </div>
                         </div>
                         <a href="{% url 'quiz_list_instructor' %}" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
@@ -129,6 +132,10 @@
                         <a href="{% url 'audit_logs' %}" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
                             <i class="fa-solid fa-chart-line mr-3 text-lg"></i>
                             <span class="font-medium">Report Analytics</span>
+                        </a>
+                        <a href="{% url 'group_list' %}" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                            <i class="fa-solid fa-users-cog mr-3 text-lg"></i>
+                            <span class="font-medium">Manage Permission</span>
                         </a>
                     {% endif %}
                 {% else %}

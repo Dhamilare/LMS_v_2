@@ -15,11 +15,18 @@ urlpatterns = [
     path('instructors/<int:pk>/delete/', views.instructor_delete, name='instructor_delete'), 
     path('audit-logs/', views.audit_logs, name='audit_logs'),
 
+    path('groups/', views.group_list_view, name='group_list'),
+    path('groups/manage/new/', views.group_management_view, name='group_create'),
+    path('groups/manage/<int:pk>/', views.group_management_view, name='group_update'),
+    path('groups/delete/<int:pk>/', views.group_delete_view, name='group_delete'),
+
     # --- Instructor Course Management ---
     path('courses/', views.course_list, name='course_list'), # Instructor's list of courses
     path('courses/create/', views.course_create, name='course_create'),
     path('courses/<slug:slug>/edit/', views.course_update, name='course_update'),
     path('courses/<slug:slug>/delete/', views.course_delete, name='course_delete'), 
+    path('assign-course/', views.assign_course_to_student_view, name='assign_course'),
+    path('assign-course-page/', views.assign_course_page_view, name='assign_course_page'),
 
     # --- Student Course Enrollment & Detail ---
     path('student_courses/', views.all_courses, name='all_courses'), 

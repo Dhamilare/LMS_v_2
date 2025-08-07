@@ -1,0 +1,27 @@
+{% load crispy_forms_tags %}
+
+<form method="post" action="{% url 'assign_course' %}" class="space-y-6">
+    {% csrf_token %}
+    <div>
+        <label for="{{ form.student.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.student.label }}
+        </label>
+        {{ form.student }}
+    </div>
+    
+    <div>
+        <label for="{{ form.course.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            {{ form.course.label }}
+        </label>
+        {{ form.course }}
+    </div>
+
+    <div class="mt-6 flex justify-end">
+        <button type="button" onclick="closeModal()" class="mr-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition duration-300">
+            Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition duration-300">
+            <i class="fas fa-paper-plane mr-2"></i> Assign Course
+        </button>
+    </div>
+</form>

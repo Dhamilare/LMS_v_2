@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You have been assigned a new course!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 0;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+        }
+        .header {
+            background-color: #4f46e5;
+            color: #ffffff;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .content {
+            padding: 30px;
+            color: #374151;
+            line-height: 1.6;
+        }
+        .content h2 {
+            font-size: 24px;
+            color: #1f2937;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        .content p {
+            margin-bottom: 15px;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #4f46e5;
+            color: #ffffff !important;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 9999px; /* This is a large value to make it pill-shaped */
+            transition: background-color 0.3s ease;
+        }
+        .button:hover {
+            background-color: #4338ca;
+        }
+        .footer {
+            background-color: #f3f4f6;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer p {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>Course Assignment Notification</h1>
+        </div>
+
+        <div class="content">
+            <p>Hello {{ student_name }},</p>
+            
+            <p>You have been assigned to a new course on our Learning Management System!</p>
+            
+            <p><strong>Course Title:</strong> {{ course_title }}</p>
+
+            <p>You can now enroll in this course by clicking the button below. Once enrolled, you will gain full access to the course materials.</p>
+            
+            <div class="button-container">
+                <a href="{{ course_url }}" class="button" target="_blank">Enroll in Course</a>
+            </div>
+
+            <p>If you have any questions, please don't hesitate to contact your instructor or the support team.</p>
+            
+            <p>Thank you,</p>
+            <p>The LMS Team</p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; {{ current_year }} LMS. All rights reserved.</p>
+        </div>
+    </div>
+
+</body>
+</html>
