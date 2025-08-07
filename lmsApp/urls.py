@@ -22,9 +22,10 @@ urlpatterns = [
     path('courses/<slug:slug>/delete/', views.course_delete, name='course_delete'), 
 
     # --- Student Course Enrollment & Detail ---
-    path('student_courses/', views.all_courses, name='all_courses'), # Student's view of all available courses
-    path('courses/<slug:slug>/', views.course_detail, name='course_detail'), # Course overview for students/instructors
+    path('student_courses/', views.all_courses, name='all_courses'), 
+    path('courses/<slug:slug>/', views.course_detail, name='course_detail'),
     path('courses/<slug:slug>/enroll/', views.enroll_course, name='enroll_course'),
+    path('courses/<slug:course_slug>/transcript/', views.course_transcript, name='course_transcript'),
 
     # --- Progress Tracking (Content Completion) ---
     path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/mark-completed/', views.mark_content_completed, name='mark_content_completed'),

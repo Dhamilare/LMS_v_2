@@ -90,8 +90,8 @@
                     <form action="{% url 'dashboard' %}" method="get" class="col-span-full mb-4">
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
                             <input type="text" name="q" placeholder="Search courses by title or description..."
-                                   value="{{ search_query|default:'' }}"
-                                   class="flex-grow w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm">
+                                       value="{{ search_query|default:'' }}"
+                                       class="flex-grow w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm">
                             <div class="flex space-x-2 w-full sm:w-auto">
                                 <button type="submit" class="flex-grow sm:flex-grow-0 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-sm text-sm">
                                     <i class="fas fa-search mr-2"></i> Search
@@ -129,29 +129,14 @@
                                 </div>
                                 <span class="text-sm font-medium text-gray-700 ml-2 sm:ml-3">{{ enrollment.progress_percentage }}%</span>
                             </div>
-                            <div class="flex justify-between items-center mt-4"> {# Added mt-4 here #}
+                            <div class="flex justify-end items-center mt-4">
                                 <span class="px-2 py-0.5 sm:px-3 sm:py-1 text-xs font-semibold rounded-full flex items-center
-                                    {% if enrollment.completed %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                                    {% if enrollment.completed %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %} mr-4">
                                     {% if enrollment.completed %}<i class="fas fa-check-double mr-1"></i> Completed{% else %}<i class="fas fa-spinner fa-spin mr-1"></i> In Progress{% endif %}
                                 </span>
-                                {% if enrollment.completed %}
-                                    {% if enrollment.has_certificate %}
-                                        <a href="{% url 'view_certificate' certificate_id=enrollment.certificate_obj.certificate_id %}" target="_blank" class="text-green-600 hover:text-green-800 font-medium flex items-center text-sm">
-                                            View Certificate <i class="fas fa-award ml-1 sm:ml-2"></i>
-                                        </a>
-                                    {% elif enrollment.can_claim_certificate %}
-                                        <form method="post" action="{% url 'issue_certificate' course_slug=enrollment.course.slug %}" class="inline">
-                                            {% csrf_token %}
-                                            <button type="submit" class="bg-yellow-500 text-white py-1.5 px-3 rounded-md hover:bg-yellow-600 transition duration-300 flex items-center text-xs sm:text-sm">
-                                                <i class="fas fa-certificate mr-1 sm:mr-2"></i> Claim Certificate
-                                            </button>
-                                        </form>
-                                    {% endif %}
-                                {% else %} {# If not completed, show View Course button #}
-                                    <a href="{% url 'course_detail' slug=enrollment.course.slug %}" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center text-sm shadow-sm hover:shadow-md">
-                                        View Course <i class="fas fa-arrow-right ml-2"></i>
-                                    </a>
-                                {% endif %}
+                                <a href="{% url 'course_detail' slug=enrollment.course.slug %}" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center text-sm shadow-sm hover:shadow-md">
+                                    View Course <i class="fas fa-arrow-right ml-2"></i>
+                                </a>
                             </div>
                         </div>
                     </div>

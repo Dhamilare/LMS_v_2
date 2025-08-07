@@ -24,11 +24,14 @@
         <p class="text-sm text-gray-700 mt-2">Attempt Date: {{ attempt.attempt_date|date:"M d, Y H:i" }}</p>
         <p class="text-sm text-gray-700 mt-2">
             Attempt {{ current_attempts_count }} of {{ max_attempts }}
-            {% if current_attempts_count < max_attempts %}
-                (<span class="text-green-700">{{ max_attempts|sub:current_attempts_count }}</span> attempts remaining)
+            {# --- CHANGE START --- #}
+            {# Use the new attempts_remaining variable #}
+            {% if attempts_remaining > 0 %}
+                (<span class="text-green-700">{{ attempts_remaining }}</span> attempts remaining)
             {% else %}
                 (<span class="text-red-700">No attempts remaining</span>)
             {% endif %}
+            {# --- CHANGE END --- #}
         </p>
     </div>
 

@@ -21,6 +21,7 @@ from .utils import send_templated_email
 import json
 from django.db.models import Prefetch
 import csv
+from django.db.models import Avg
 
 # Helper functions for role-based access control
 def is_admin(user):
@@ -440,9 +441,8 @@ def course_detail(request, slug):
     """
     course = get_object_or_404(Course, slug=slug)
     is_enrolled = False
-    enrollment = None # Initialize enrollment object
+    enrollment = None
 
-    # Access control for viewing the course detail page itself
     if request.user.is_instructor and course.instructor != request.user:
         messages.error(request, "You do not have permission to view this course.")
         return redirect('dashboard')
@@ -452,12 +452,10 @@ def course_detail(request, slug):
         if enrollment:
             is_enrolled = True
         
-        # If student is not enrolled and course is not published, redirect
         if not course.is_published and not is_enrolled:
             messages.error(request, "This course is not yet published or you are not enrolled.")
             return redirect('dashboard')
 
-    # Prefetch related data for efficiency
     modules_queryset = Module.objects.filter(course=course).order_by('order').prefetch_related(
         Prefetch('lessons', queryset=Lesson.objects.order_by('order').prefetch_related(
             Prefetch('contents', queryset=Content.objects.order_by('order')),
@@ -526,18 +524,26 @@ def course_detail(request, slug):
 
         if request.user.is_student and is_enrolled:
             previous_module_completed = current_module_is_completed
-        
-    # Get the course-level quiz if it exists
+    
+    # Check for a passing final quiz attempt
+    has_passed_final_quiz = False
     course_quiz = None
     if hasattr(course, 'quiz'):
         course_quiz = course.quiz
+        if request.user.is_student and is_enrolled:
+            has_passed_final_quiz = StudentQuizAttempt.objects.filter(
+                student=request.user,
+                quiz=course_quiz,
+                passed=True
+            ).exists()
 
     context = {
         'course': course,
         'modules': modules_data,
         'is_enrolled': is_enrolled,
         'enrollment': enrollment,
-        'course_quiz': course_quiz, # Pass the course-level quiz
+        'course_quiz': course_quiz,
+        'has_passed_final_quiz': has_passed_final_quiz, # This is the new variable
     }
     return render(request, 'course_detail.html', context)
 
@@ -1110,7 +1116,7 @@ def quiz_result(request, course_slug, attempt_id):
     Displays the result of a student's quiz attempt.
     """
     course = get_object_or_404(Course, slug=course_slug)
-    quiz = get_object_or_404(Quiz, course=course) 
+    quiz = get_object_or_404(Quiz, course=course)
     attempt = get_object_or_404(StudentQuizAttempt, id=attempt_id, student=request.user, quiz=quiz)
 
     enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
@@ -1140,6 +1146,11 @@ def quiz_result(request, course_slug, attempt_id):
         quiz=quiz
     ).count()
 
+    # --- CHANGE START ---
+    # Calculate the remaining attempts in the view
+    attempts_remaining = quiz.max_attempts - current_attempts_count
+    # --- CHANGE END ---
+
     if not attempt.passed and current_attempts_count < quiz.max_attempts:
         can_retake = True
 
@@ -1152,6 +1163,9 @@ def quiz_result(request, course_slug, attempt_id):
         'current_attempts_count': current_attempts_count,
         'max_attempts': quiz.max_attempts,
         'enrollment': enrollment,
+        # --- CHANGE START ---
+        'attempts_remaining': attempts_remaining,
+        # --- CHANGE END ---
     }
     return render(request, 'student/quiz_result.html', context)
 
@@ -1766,4 +1780,44 @@ def quiz_download_csv_template(request):
     ])
     return response
 
+@login_required
+@user_passes_test(is_student)
+def course_transcript(request, course_slug):
+    """
+    Displays a transcript of all quiz results for a student in a specific course.
+    Adds a button to view the transcript if the student has passed the final course quiz.
+    """
+    course = get_object_or_404(Course, slug=course_slug)
+    enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
 
+    # Directly access the final quiz using the OneToOne relationship
+    final_quiz = None
+    has_passed_final_quiz = False
+    
+    if hasattr(course, 'quiz'):
+        final_quiz = course.quiz
+        # Check for a passing attempt on this specific final quiz
+        has_passed_final_quiz = StudentQuizAttempt.objects.filter(
+            student=request.user,
+            quiz=final_quiz,
+            passed=True
+        ).exists()
+
+    # Fetch all quiz attempts for the student in this course
+    course_quizzes = Quiz.objects.filter(course=course)
+    attempts = StudentQuizAttempt.objects.filter(
+        student=request.user,
+        quiz__in=course_quizzes
+    ).order_by('attempt_date')
+
+    # Calculate the overall average score for all attempts in the course
+    average_score = attempts.aggregate(Avg('score'))['score__avg']
+
+    context = {
+        'course': course,
+        'enrollment': enrollment,
+        'attempts': attempts,
+        'average_score': average_score,
+        'has_passed_final_quiz': has_passed_final_quiz,
+    }
+    return render(request, 'student/course_transcript.html', context)
