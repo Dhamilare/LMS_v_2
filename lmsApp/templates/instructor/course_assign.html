@@ -11,20 +11,111 @@
     </h2>
 
     <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-3 sm:space-y-0">
-        <p class="text-gray-600 text-base sm:text-lg">Select a course and a student to assign them to a course. The student will receive an email notification.</p>
+        <p class="text-gray-600 text-base sm:text-lg">View, search, and manage all student course assignments from one place.</p>
         <button id="assign-course-btn"
                 class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
             <i class="fas fa-plus-circle mr-2"></i> Assign New Course
         </button>
     </div>
 
-    <!-- This section would dynamically list existing assignments. -->
-    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <h3 class="text-xl font-semibold text-gray-800 mb-2">Existing Assignments</h3>
-        <p class="text-gray-600">
-            This area can be populated with a list of students and the courses they have been assigned to. You can implement this part once the core functionality is working.
-        </p>
+    <!-- Search and Statistics Section -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Search Bar -->
+        <div class="col-span-1 md:col-span-2">
+            <form method="GET" action="." class="flex items-center space-x-2">
+                <div class="relative flex-grow">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                    <input type="search" name="q" value="{{ search_query }}"
+                           class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out sm:text-sm"
+                           placeholder="Search by student or course title">
+                </div>
+                <button type="submit"
+                        class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300">
+                    Search
+                </button>
+            </form>
+        </div>
+
+        <!-- Pie Chart -->
+        <div class="col-span-1 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <h3 class="text-xl font-semibold text-gray-800 mb-2">Enrollment Status</h3>
+            <div class="w-full h-48 flex items-center justify-center">
+                <canvas id="enrollment-chart"></canvas>
+            </div>
+        </div>
     </div>
+    
+    <!-- Enrollment Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for enrollment in page_obj %}
+        <div class="bg-gray-50 rounded-lg shadow-md hover:shadow-lg transition duration-300 overflow-hidden">
+            <div class="p-5">
+                <div class="flex items-center space-x-3 mb-2">
+                    <div class="flex-shrink-0 w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-900">{{ enrollment.student.get_full_name|default:enrollment.student.username }}</h4>
+                        <p class="text-sm text-gray-500">{{ enrollment.course.title }}</p>
+                    </div>
+                </div>
+                <div class="mt-4 space-y-2">
+                    <div class="flex items-center text-sm text-gray-700">
+                        <i class="fas fa-calendar-alt text-gray-400 mr-2"></i>
+                        <span>Assigned: {{ enrollment.enrolled_at|date:"F d, Y" }}</span>
+                    </div>
+                    <div class="flex items-center text-sm text-gray-700">
+                        {% if enrollment.completed %}
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            <span>Completed: {{ enrollment.completed_at|date:"F d, Y" }}</span>
+                        {% else %}
+                            <i class="fas fa-spinner fa-spin text-yellow-500 mr-2"></i>
+                            <span>Status: In Progress</span>
+                        {% endif %}
+                    </div>
+                    <div class="mt-4">
+                        <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-indigo-600 bg-indigo-200">
+                            Progress: {{ enrollment.progress_percentage }}%
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-10">
+            <p class="text-gray-500 text-lg">No assignments found matching your criteria.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-8 flex justify-center items-center space-x-2">
+        {% if page_obj.has_previous %}
+            <a href="?page=1&q={{ search_query }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                &laquo; First
+            </a>
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ search_query }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                &lsaquo; Previous
+            </a>
+        {% endif %}
+
+        <span class="text-sm text-gray-700">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+        </span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&q={{ search_query }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Next &rsaquo;
+            </a>
+            <a href="?page={{ page_obj.paginator.num_pages }}&q={{ search_query }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Last &raquo;
+            </a>
+        {% endif %}
+    </nav>
+    {% endif %}
 
     <div class="mt-8 text-center">
         <a href="{% url 'dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
@@ -52,10 +143,45 @@
 
 {% block extra_scripts %}
 {{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
 <script>
-    // Wait for the DOM to be fully loaded before running the script
+    // Pie Chart Logic
+    const ctx = document.getElementById('enrollment-chart').getContext('2d');
+    const chartData = JSON.parse('{{ chart_data|json_script:"chart_data" }}');
+
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                data: chartData.data,
+                backgroundColor: [
+                    'rgba(52, 211, 153, 0.8)', // Tailwind green-400
+                    'rgba(251, 191, 36, 0.8)'  // Tailwind yellow-400
+                ],
+                borderColor: [
+                    'rgba(52, 211, 153, 1)',
+                    'rgba(251, 191, 36, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                },
+                title: {
+                    display: false,
+                    text: 'Enrollment Status'
+                }
+            }
+        }
+    });
+
+    // Modal Logic (re-using your original script, but cleaner)
     window.addEventListener('DOMContentLoaded', (event) => {
-        // Get modal elements
         const modal = document.getElementById('assign-modal');
         const modalTitle = document.getElementById('modal-title');
         const modalBody = document.getElementById('modal-body');
@@ -63,19 +189,15 @@
         const closeModalBtn = document.getElementById('close-modal-btn');
         const assignCourseUrl = "{% url 'assign_course' %}";
 
-        // Function to close the main modal
         function closeModal() {
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                modalBody.innerHTML = ''; // Clear content on close
-            }
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            modalBody.innerHTML = '';
         }
 
-        // Function to load a form into the main modal via AJAX
         function loadModalForm(url, title) {
-            if (modalTitle) modalTitle.textContent = title;
-            if (modalBody) modalBody.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin text-indigo-600 fa-2x"></i></div>';
+            modalTitle.textContent = title;
+            modalBody.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin text-indigo-600 fa-2x"></i></div>';
             
             fetch(url, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -87,20 +209,17 @@
                 return response.text();
             })
             .then(html => {
-                if (modalBody) modalBody.innerHTML = html;
-                if (modal) {
-                    modal.classList.remove('hidden');
-                    modal.classList.add('flex');
-                }
+                modalBody.innerHTML = html;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
                 attachFormSubmissionHandler();
             })
             .catch(error => {
                 console.error('Error fetching form:', error);
-                if (modalBody) modalBody.innerHTML = '<p class="text-red-500">Failed to load the form. Please try again.</p>';
+                modalBody.innerHTML = '<p class="text-red-500">Failed to load the form. Please try again.</p>';
             });
         }
 
-        // Function to handle the AJAX form submission
         function attachFormSubmissionHandler() {
             const form = document.querySelector('#assign-modal form');
             if (form) {
@@ -109,52 +228,37 @@
                     
                     const formData = new FormData(form);
                     const submitButton = form.querySelector('button[type="submit"]');
+                    const originalHtml = submitButton.innerHTML;
 
-                    if (submitButton) {
-                        submitButton.disabled = true;
-                        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
-                    }
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
 
                     fetch(form.action, {
                         method: 'POST',
                         body: formData,
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     })
-                    .then(response => {
-                        if (!response.ok) {
-                            return response.json().then(data => { throw new Error(data.message || 'Server error occurred.') });
-                        }
-                        return response.json();
-                    })
+                    .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            // Success: The course was assigned.
-                            // NOTE: Using a custom alert since window.alert() is not ideal in a modern app
-                            // You can replace this with a toast notification or custom modal.
                             alert(data.message); 
                             window.location.reload();
                         } else {
-                            // Failure: Validation errors or other issues.
                             alert(data.message);
-                            if (submitButton) {
-                                submitButton.disabled = false;
-                                submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Assign Course';
-                            }
+                            submitButton.disabled = false;
+                            submitButton.innerHTML = originalHtml;
                         }
                     })
                     .catch(error => {
                         console.error('Error during form submission:', error);
                         alert('An error occurred. Please try again.');
-                        if (submitButton) {
-                            submitButton.disabled = false;
-                            submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Assign Course';
-                        }
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalHtml;
                     });
                 });
             }
         }
 
-        // Event listeners for opening and closing the modal
         if (assignButton) {
             assignButton.addEventListener('click', () => {
                 loadModalForm(assignCourseUrl, 'Assign a Course to a Student');
@@ -165,7 +269,6 @@
             closeModalBtn.addEventListener('click', closeModal);
         }
 
-        // Event listener to close the modal when clicking outside
         if (modal) {
             modal.addEventListener('click', function(e) {
                 if (e.target.id === 'assign-modal') {

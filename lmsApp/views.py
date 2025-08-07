@@ -1924,9 +1924,43 @@ def assign_course_to_student_view(request):
 @user_passes_test(is_instructor)
 def assign_course_page_view(request):
     """
-    Renders the main page for assigning courses.
+    Renders the main page for assigning courses with a list of all enrollments.
+    Includes search, pagination, and a pie chart for statistics.
     """
-    return render(request, 'instructor/course_assign.html')
+    # Start with all enrollments, pre-fetching related objects for performance
+    all_enrollments = Enrollment.objects.all().select_related('student', 'course').order_by('-enrolled_at')
+
+    search_query = request.GET.get('q', '')
+    if search_query:
+        all_enrollments = all_enrollments.filter(
+            Q(student__first_name__icontains=search_query) |
+            Q(student__last_name__icontains=search_query) |
+            Q(student__username__icontains=search_query) |
+            Q(course__title__icontains=search_query)
+        )
+
+    # Calculate statistics for the pie chart
+    total_enrollments = all_enrollments.count()
+    completed_count = all_enrollments.filter(completed=True).count()
+    in_progress_count = total_enrollments - completed_count
+    
+    chart_data = {
+        'labels': ['Completed', 'In-Progress'],
+        'data': [completed_count, in_progress_count],
+    }
+
+    # Set up pagination
+    paginator = Paginator(all_enrollments, 9)  # Show 9 enrollments per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'chart_data': chart_data,
+        'form': AssignCourseForm(),
+    }
+    return render(request, 'instructor/course_assign.html', context)
 
 
 @user_passes_test(is_admin)
