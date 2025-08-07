@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Assignment Confirmation</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fafc;
+            margin: 0;
+            padding: 0;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .header {
+            background-color: #2563eb;
+            color: #ffffff;
+            padding: 40px;
+            text-align: center;
+        }
+        .content {
+            padding: 40px;
+            color: #4b5563;
+            line-height: 1.6;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #2563eb;
+            color: #ffffff !important;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 6px;
+            transition: background-color 0.3s ease;
+        }
+        .button:hover {
+            background-color: #1d4ed8;
+        }
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body style="font-family: 'Inter', sans-serif; background-color: #f7fafc; margin: 0; padding: 0;">
+    <div style="background-color: #f7fafc;">
+        <div class="email-container" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+            
+            <!-- Header -->
+            <div class="header" style="background-color: #2563eb; color: #ffffff; padding: 40px; text-align: center;">
+                <h1 style="margin: 0; font-size: 28px; font-weight: 700;">Assignment Confirmation</h1>
+            </div>
+
+            <!-- Content -->
+            <div class="content" style="padding: 40px; color: #4b5563; line-height: 1.6;">
+                <h2 style="font-size: 24px; font-weight: 600; margin-top: 0; color: #1f2937;">Hello {{ instructor_name }},</h2>
+                <p style="margin-bottom: 24px;">This is a confirmation that the following course has been successfully assigned to a student:</p>
+                <ul style="list-style-type: none; padding: 0; margin: 0 0 24px 0;">
+                    <li style="margin-bottom: 8px;"><strong>Course Title:</strong> {{ course_title }}</li>
+                    <li style="margin-bottom: 8px;"><strong>Student Name:</strong> {{ student_name }}</li>
+                    <li style="margin-bottom: 8px;"><strong>Assignment Date:</strong> {{ assignment_date }}</li>
+                </ul>
+                <p style="margin-bottom: 24px;">You can view the student's progress and manage this course from your instructor dashboard.</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{{ dashboard_url }}" class="button" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #ffffff !important; text-decoration: none; font-weight: bold; border-radius: 6px; transition: background-color 0.3s ease;">
+                        Go to Dashboard
+                    </a>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer" style="text-align: center; padding: 24px; color: #9ca3af; font-size: 14px;">
+                <p style="margin: 0;">Thanks,</p>
+                <p style="margin: 0;">The LMS Team</p>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>
