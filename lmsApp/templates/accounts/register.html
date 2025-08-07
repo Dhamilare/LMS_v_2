@@ -5,18 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LMS - Register</title>
-    
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    
+
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -26,14 +26,13 @@
 
 <body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
     <div class="flex flex-col md:flex-row w-full max-w-6xl bg-white shadow-xl overflow-hidden border border-gray-300 rounded-lg">
-        
+
         <!-- Left Column -->
         <div class="hidden md:flex md:w-1/2 p-10 bg-blue-600 text-white flex-col justify-center items-center text-center space-y-6">
             <h1 class="text-4xl font-bold">Welcome to the LMS</h1>
             <p class="text-lg leading-relaxed">
                 Your platform for seamless learning and teaching. Dive into a world of knowledge with interactive courses, lessons, and smart analytics.
             </p>
-            
             <div class="space-y-4 text-left">
                 <div class="flex items-center space-x-3">
                     <i class="fa-solid fa-graduation-cap text-2xl"></i>
@@ -52,7 +51,7 @@
 
         <!-- Right Column -->
         <div class="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
-            
+
             <!-- Heading -->
             <div class="text-center mb-8">
                 <h2 class="text-3xl font-bold text-gray-800">Create an Account</h2>
@@ -81,47 +80,71 @@
             <!-- Registration Form -->
             <form method="post" class="space-y-6">
                 {% csrf_token %}
-                
+
+                <!-- Username -->
                 <div>
                     <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-gray-700">
                         <i class="fa-solid fa-user-circle mr-2"></i>Username
                     </label>
                     {{ form.username }}
+                    {% for error in form.username.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ error }}</p>
+                    {% endfor %}
                 </div>
 
+                <!-- Email -->
                 <div>
                     <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700">
                         <i class="fa-solid fa-envelope mr-2"></i>Email Address
                     </label>
                     {{ form.email }}
+                    {% for error in form.email.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ error }}</p>
+                    {% endfor %}
                 </div>
 
+                <!-- First Name -->
                 <div>
                     <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700">
                         <i class="fa-solid fa-id-card mr-2"></i>First Name
                     </label>
                     {{ form.first_name }}
+                    {% for error in form.first_name.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ error }}</p>
+                    {% endfor %}
                 </div>
 
+                <!-- Last Name -->
                 <div>
                     <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700">
                         <i class="fa-solid fa-id-card mr-2"></i>Last Name
                     </label>
                     {{ form.last_name }}
+                    {% for error in form.last_name.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ error }}</p>
+                    {% endfor %}
                 </div>
 
+                <!-- Password -->
                 <div>
                     <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700">
                         <i class="fa-solid fa-lock mr-2"></i>Password
                     </label>
                     {{ form.password }}
+                    {% for error in form.password.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ error }}</p>
+                    {% endfor %}
                 </div>
 
+                <!-- Confirm Password -->
                 <div>
                     <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-gray-700">
                         <i class="fa-solid fa-lock mr-2"></i>Confirm Password
                     </label>
                     {{ form.password2 }}
+                    {% for error in form.password2.errors %}
+                        <p class="text-sm text-red-600 mt-1">{{ error }}</p>
+                    {% endfor %}
                 </div>
 
                 <button type="submit" 

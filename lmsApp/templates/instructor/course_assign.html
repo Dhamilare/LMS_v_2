@@ -5,49 +5,51 @@
 {% block title %}Assign Course to Student{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 sm:p-8 rounded-lg shadow-lg max-w-7xl mx-auto my-8">
+<div class="bg-white p-6 sm:p-8 rounded-lg shadow-lg max-w-7xl mx-auto my-6 sm:my-8">
     <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
         <i class="fas fa-user-plus mr-2 sm:mr-3 text-indigo-600"></i> Assign Courses
     </h2>
 
+    <!-- Header and Assign Button -->
     <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-3 sm:space-y-0">
         <p class="text-gray-600 text-base sm:text-lg">View, search, and manage all student course assignments from one place.</p>
         <button id="assign-course-btn"
-                class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+                class="w-full sm:w-auto bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center sm:justify-start shadow-md hover:shadow-lg">
             <i class="fas fa-plus-circle mr-2"></i> Assign New Course
         </button>
     </div>
 
     <!-- Search and Statistics Section -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <!-- Search Bar -->
+        <!-- Search Form -->
         <div class="col-span-1 md:col-span-2">
-            <form method="GET" action="." class="flex items-center space-x-2">
-                <div class="relative flex-grow">
+            <form method="GET" action="." class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                <div class="relative w-full">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fas fa-search text-gray-400"></i>
                     </div>
                     <input type="search" name="q" value="{{ search_query }}"
-                           class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out sm:text-sm"
+                           class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out text-sm"
                            placeholder="Search by student or course title">
                 </div>
                 <button type="submit"
-                        class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300">
+                        class="w-full sm:w-auto bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300">
                     Search
                 </button>
             </form>
         </div>
 
-        <!-- Pie Chart -->
+        <!-- Stacked Bar Chart -->
         <div class="col-span-1 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h3 class="text-xl font-semibold text-gray-800 mb-2">Enrollment Status</h3>
+            <h3 class="text-xl font-semibold text-gray-800 mb-2">Student Progress by Module</h3>
             <div class="w-full h-48 flex items-center justify-center">
                 <canvas id="enrollment-chart"></canvas>
             </div>
         </div>
     </div>
     
-    <!-- Enrollment Cards -->
+    <!-- Enrollment Cards Grid (Responsive) -->
+    <!-- The grid adjusts based on screen size: 1 column on mobile, 2 on medium screens, 3 on large screens -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for enrollment in page_obj %}
         <div class="bg-gray-50 rounded-lg shadow-md hover:shadow-lg transition duration-300 overflow-hidden">
@@ -92,7 +94,7 @@
 
     <!-- Pagination -->
     {% if page_obj.has_other_pages %}
-    <nav class="mt-8 flex justify-center items-center space-x-2">
+    <nav class="mt-8 flex flex-wrap justify-center items-center space-x-2 space-y-2 sm:space-y-0">
         {% if page_obj.has_previous %}
             <a href="?page=1&q={{ search_query }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                 &laquo; First
@@ -102,7 +104,7 @@
             </a>
         {% endif %}
 
-        <span class="text-sm text-gray-700">
+        <span class="text-sm text-gray-700 mx-2">
             Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
         </span>
 
@@ -124,7 +126,9 @@
     </div>
 </div>
 
-<!-- MODAL HTML STRUCTURE -->
+<!-- MODAL HTML STRUCTURES -->
+
+<!-- Modal for the Assign Course Form -->
 <div id="assign-modal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-50 hidden items-center justify-center">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
         <div class="flex items-center justify-between p-4 border-b">
@@ -134,10 +138,25 @@
             </button>
         </div>
         <div id="modal-body" class="p-6">
-            <!-- AJAX content will be loaded here -->
+            <!-- AJAX form content will be loaded here -->
         </div>
     </div>
 </div>
+
+<!-- Modal for alerts and messages (REPLACES alert()) -->
+<div id="message-modal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-50 hidden items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4">
+        <div class="p-6 text-center">
+            <div id="message-icon" class="mb-4 text-4xl"></div>
+            <h3 id="message-title" class="text-2xl font-bold mb-2"></h3>
+            <p id="message-body" class="text-gray-600 mb-6"></p>
+            <button id="close-message-btn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- This is the corrected way to pass JSON data from Django to JavaScript -->
+{{ chart_data|json_script:"chart_data" }}
 
 {% endblock %}
 
@@ -145,57 +164,88 @@
 {{ block.super }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
 <script>
-    // Pie Chart Logic
-    const ctx = document.getElementById('enrollment-chart').getContext('2d');
-    const chartData = JSON.parse('{{ chart_data|json_script:"chart_data" }}');
+    // --- Chart.js Initialization ---
+    window.addEventListener('DOMContentLoaded', function () {
+        // Correctly parse JSON from the script tag
+        const chartData = JSON.parse(document.getElementById('chart_data').textContent);
 
-    new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: chartData.labels,
-            datasets: [{
-                data: chartData.data,
-                backgroundColor: [
-                    'rgba(52, 211, 153, 0.8)', // Tailwind green-400
-                    'rgba(251, 191, 36, 0.8)'  // Tailwind yellow-400
-                ],
-                borderColor: [
-                    'rgba(52, 211, 153, 1)',
-                    'rgba(251, 191, 36, 1)'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
+        const ctx = document.getElementById('enrollment-chart').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: chartData.labels,
+                datasets: chartData.datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // Ensures the chart fills its container
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                    title: {
+                        display: false,
+                        text: 'Student Progress by Module'
+                    }
                 },
-                title: {
-                    display: false,
-                    text: 'Enrollment Status'
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        max: 100
+                    }
                 }
             }
-        }
-    });
+        });
 
-    // Modal Logic (re-using your original script, but cleaner)
-    window.addEventListener('DOMContentLoaded', (event) => {
-        const modal = document.getElementById('assign-modal');
+        // --- Modal Logic for Forms and Messages ---
+        const assignModal = document.getElementById('assign-modal');
         const modalTitle = document.getElementById('modal-title');
         const modalBody = document.getElementById('modal-body');
         const assignButton = document.getElementById('assign-course-btn');
         const closeModalBtn = document.getElementById('close-modal-btn');
         const assignCourseUrl = "{% url 'assign_course' %}";
 
-        function closeModal() {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
+        const messageModal = document.getElementById('message-modal');
+        const messageTitle = document.getElementById('message-title');
+        const messageBody = document.getElementById('message-body');
+        const messageIcon = document.getElementById('message-icon');
+        const closeMessageBtn = document.getElementById('close-message-btn');
+
+        // Function to show a general message modal
+        function showMessageModal(title, message, isSuccess = true) {
+            messageTitle.textContent = title;
+            messageBody.textContent = message;
+            messageIcon.innerHTML = isSuccess
+                ? '<i class="fas fa-check-circle text-green-500"></i>'
+                : '<i class="fas fa-exclamation-triangle text-red-500"></i>';
+
+            messageModal.classList.remove('hidden');
+            messageModal.classList.add('flex');
+        }
+
+        // Function to close the general message modal
+        function closeMessageModal() {
+            messageModal.classList.add('hidden');
+            messageModal.classList.remove('flex');
+        }
+
+        // Function to close the assign form modal
+        function closeAssignModal() {
+            assignModal.classList.add('hidden');
+            assignModal.classList.remove('flex');
             modalBody.innerHTML = '';
         }
 
-        function loadModalForm(url, title) {
+        function loadAssignForm(url, title) {
             modalTitle.textContent = title;
             modalBody.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin text-indigo-600 fa-2x"></i></div>';
             
@@ -210,13 +260,14 @@
             })
             .then(html => {
                 modalBody.innerHTML = html;
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
+                assignModal.classList.remove('hidden');
+                assignModal.classList.add('flex');
                 attachFormSubmissionHandler();
             })
             .catch(error => {
                 console.error('Error fetching form:', error);
-                modalBody.innerHTML = '<p class="text-red-500">Failed to load the form. Please try again.</p>';
+                showMessageModal('Error', 'Failed to load the form. Please try again.', false);
+                closeAssignModal();
             });
         }
 
@@ -241,19 +292,25 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            alert(data.message); 
-                            window.location.reload();
+                            closeAssignModal();
+                            showMessageModal('Success!', data.message);
+                            // Reload the page after a successful submission
+                            setTimeout(() => { window.location.reload(); }, 1500); 
                         } else {
-                            alert(data.message);
+                            // If form validation fails, the server sends back the form HTML with errors
+                            if (data.form_html) {
+                                modalBody.innerHTML = data.form_html;
+                                attachFormSubmissionHandler(); // Re-attach handler to the new form
+                            }
+                            showMessageModal('Error', data.message, false);
                             submitButton.disabled = false;
                             submitButton.innerHTML = originalHtml;
                         }
                     })
                     .catch(error => {
                         console.error('Error during form submission:', error);
-                        alert('An error occurred. Please try again.');
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = originalHtml;
+                        closeAssignModal();
+                        showMessageModal('Error', 'An error occurred. Please try again.', false);
                     });
                 });
             }
@@ -261,20 +318,24 @@
 
         if (assignButton) {
             assignButton.addEventListener('click', () => {
-                loadModalForm(assignCourseUrl, 'Assign a Course to a Student');
+                loadAssignForm(assignCourseUrl, 'Assign a Course to a Student');
             });
         }
 
         if (closeModalBtn) {
-            closeModalBtn.addEventListener('click', closeModal);
+            closeModalBtn.addEventListener('click', closeAssignModal);
         }
 
-        if (modal) {
-            modal.addEventListener('click', function(e) {
+        if (assignModal) {
+            assignModal.addEventListener('click', function(e) {
                 if (e.target.id === 'assign-modal') {
-                    closeModal();
+                    closeAssignModal();
                 }
             });
+        }
+
+        if (closeMessageBtn) {
+            closeMessageBtn.addEventListener('click', closeMessageModal);
         }
     });
 </script>

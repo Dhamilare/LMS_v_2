@@ -1,6 +1,6 @@
 # instructor/views.py (Updated for AJAX Modals)
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.db import transaction
@@ -23,6 +23,13 @@ from django.db.models import Prefetch
 import csv
 from django.db.models import Avg
 from django.contrib.auth.models import Group
+import random
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+from django.contrib.sites.shortcuts import get_current_site
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_str
 
 
 def send_enrollment_email_to_instructor(request, enrollment):
@@ -58,42 +65,79 @@ def is_ajax(request):
 
 def student_register(request):
     """
-    Handles student registration.
-    Only allows students to register.
+    Handles student registration with email verification using the existing
+    send_templated_email utility function.
     """
     if request.method == 'POST':
         form = StudentRegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            login(request, user) # Log in the user after successful registration
-            messages.success(request, 'Registration successful! Welcome to LMS Portal.')
-            return redirect('dashboard')
+            # Save user with is_active=False
+            user = form.save(commit=False)
+            user.is_active = False
+            user.save()
+
+            # Prepare context for the email template
+            current_site = get_current_site(request)
+            context = {
+                'user': user,
+                'domain': current_site.domain,
+                'uid': urlsafe_base64_encode(force_bytes(user.pk)),
+                'token': default_token_generator.make_token(user),
+            }
+
+            # Use the custom email utility to send the verification email
+            send_templated_email(
+                template_name='emails/account_activation_email.html',
+                subject='Activate your LMS account',
+                recipient_list=[form.cleaned_data.get('email')],
+                context=context
+            )
+
+            messages.success(request, 'Registration successful! Please check your email to activate your account.')
+            return redirect('login')
         else:
             messages.error(request, 'Registration failed. Please correct the errors.')
     else:
         form = StudentRegistrationForm()
     return render(request, 'accounts/register.html', {'form': form})
 
+
+def verify_email(request, uidb64, token):
+    """
+    Verifies the email token and activates the user account.
+    """
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except(TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        user.is_active = True
+        user.save()
+        messages.success(request, 'Thank you for your email confirmation. You can now log in to your account.')
+        return redirect('login')
+    else:
+        messages.error(request, 'Activation link is invalid or has expired.')
+        return redirect('login')
+    
+
 def user_login(request):
     """
-    Handles user login for all roles (Admin, Instructor, Student).
+    Handles user login for all roles (Admin, Instructor, Student) using email-based auth.
     """
     if request.method == 'POST':
         form = LoginForm(request, data=request.POST)
         if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
-            if user is not None:
-                login(request, user)
-                messages.success(request, f'Welcome back, {user.username}!')
-                return redirect('dashboard')
-            else:
-                messages.error(request, "Invalid username or password.")
+            user = form.get_user()
+            login(request, user)
+            messages.success(request, f'Welcome back, {user.username}!')
+            return redirect('dashboard')
         else:
-            messages.error(request, "Please correct the errors in the form.")
+            messages.error(request, "Email or Password Incorrect!.")
     else:
         form = LoginForm()
+    
     return render(request, 'accounts/login.html', {'form': form})
 
 @login_required
@@ -1925,10 +1969,12 @@ def assign_course_to_student_view(request):
 def assign_course_page_view(request):
     """
     Renders the main page for assigning courses with a list of all enrollments.
-    Includes search, pagination, and a pie chart for statistics.
+    Includes search, pagination, and a stacked bar chart for progress per student.
     """
-    # Start with all enrollments, pre-fetching related objects for performance
-    all_enrollments = Enrollment.objects.all().select_related('student', 'course').order_by('-enrolled_at')
+    # Use select_related to pre-fetch 'student' and 'course' objects
+    all_enrollments = Enrollment.objects.filter(
+        course__instructor=request.user
+    ).select_related('student', 'course').order_by('-enrolled_at')
 
     search_query = request.GET.get('q', '')
     if search_query:
@@ -1939,18 +1985,70 @@ def assign_course_page_view(request):
             Q(course__title__icontains=search_query)
         )
 
-    # Calculate statistics for the pie chart
-    total_enrollments = all_enrollments.count()
-    completed_count = all_enrollments.filter(completed=True).count()
-    in_progress_count = total_enrollments - completed_count
+    # --- Data Generation for Stacked Bar Chart ---
+    chart_labels = []
+    chart_datasets = {}
+    
+    def get_random_color():
+        r = random.randint(0, 255)
+        g = random.randint(0, 255)
+        b = random.randint(0, 255)
+        return f'rgba({r}, {g}, {b}, 0.8)'
+
+    unique_content_colors = {}
+    
+    # Get all content items to establish the full list of labels for the chart legend
+    all_content_items = Content.objects.all().order_by('title')
+    for content in all_content_items:
+        if content.title not in unique_content_colors:
+            unique_content_colors[content.title] = get_random_color()
+
+    enrollment_list = list(all_enrollments)
+    for enrollment in enrollment_list:
+        student_name = enrollment.student.get_full_name() or enrollment.student.username
+        chart_labels.append(student_name)
+        
+        # CORRECTED: Use the full relationship path to get content for the course
+        # The path is: Content -> Lesson -> Module -> Course
+        course_content_items = Content.objects.filter(lesson__module__course=enrollment.course).order_by('title')
+        
+        # Initialize datasets for all unique content across all students
+        for content_item in all_content_items:
+             if content_item.title not in chart_datasets:
+                chart_datasets[content_item.title] = {
+                    'label': content_item.title,
+                    'data': [0] * len(enrollment_list),
+                    'backgroundColor': unique_content_colors.get(content_item.title, 'rgba(156, 163, 175, 0.8)')
+                }
+        
+        # Populate progress for the current student
+        student_progress_data = StudentContentProgress.objects.filter(
+            student=enrollment.student,
+            content__in=course_content_items
+        )
+
+        for content_progress in student_progress_data:
+            content_title = content_progress.content.title
+            if content_title in chart_datasets:
+                student_index = chart_labels.index(student_name)
+                chart_datasets[content_title]['data'][student_index] = 100
     
     chart_data = {
-        'labels': ['Completed', 'In-Progress'],
-        'data': [completed_count, in_progress_count],
+        'labels': chart_labels,
+        'datasets': list(chart_datasets.values())
     }
+    
+    if not chart_data['labels']:
+        chart_data = {
+            'labels': ['No Students'],
+            'datasets': [{
+                'label': 'Progress',
+                'data': [0],
+                'backgroundColor': ['#9CA3AF']
+            }]
+        }
 
-    # Set up pagination
-    paginator = Paginator(all_enrollments, 9)  # Show 9 enrollments per page
+    paginator = Paginator(all_enrollments, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -1961,6 +2059,7 @@ def assign_course_page_view(request):
         'form': AssignCourseForm(),
     }
     return render(request, 'instructor/course_assign.html', context)
+
 
 
 @user_passes_test(is_admin)

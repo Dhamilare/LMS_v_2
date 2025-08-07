@@ -9,6 +9,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.forms import inlineformset_factory, BaseInlineFormSet
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth import authenticate
 
 class StudentRegistrationForm(forms.ModelForm):
     """
@@ -40,7 +41,7 @@ class StudentRegistrationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Base Tailwind block style (no shadows)
+        # Tailwind styles
         base_classes = (
             "w-full block bg-white border border-gray-300 rounded-md "
             "px-4 py-3 text-gray-800 placeholder-gray-500 "
@@ -56,6 +57,18 @@ class StudentRegistrationForm(forms.ModelForm):
         for field_name, field in self.fields.items():
             css_classes = error_classes if self.errors.get(field_name) else base_classes
             field.widget.attrs.update({"class": css_classes})
+
+    def clean_username(self):
+        username = self.cleaned_data.get("username")
+        if User.objects.filter(username__iexact=username).exists():
+            raise ValidationError("A user with this username already exists.")
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email")
+        if User.objects.filter(email__iexact=email).exists():
+            raise ValidationError("A user with this email already exists.")
+        return email
 
     def clean_password2(self):
         password = self.cleaned_data.get("password")
@@ -82,10 +95,17 @@ class StudentRegistrationForm(forms.ModelForm):
             user.save()
         return user
 
+
 class LoginForm(AuthenticationForm):
     """
-    Custom form for user login with Tailwind block style (no shadow, spacious).
+    Custom form for user login, allowing login with email instead of username,
+    and providing more specific error messages for email/password validation.
     """
+    # Overriding the username field to change its label and to handle email input
+    username = forms.CharField(
+        label="Email",
+        widget=forms.TextInput(attrs={'autofocus': True}),
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -107,6 +127,46 @@ class LoginForm(AuthenticationForm):
             css_classes = error_classes if self.errors.get(field_name) else base_classes
             placeholder = f"Enter your {field.label.lower()}"
             field.widget.attrs.update({"class": css_classes, "placeholder": placeholder})
+            
+    def clean(self):
+        """
+        Overrides the clean method to provide specific errors for email and password.
+        """
+        email = self.cleaned_data.get('username')
+        password = self.cleaned_data.get('password')
+
+        if not email:
+            raise ValidationError("Email is required.")
+        if not password:
+            raise ValidationError("Password is required.")
+
+        try:
+            # First, try to find a user with the provided email.
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            # If no user is found with that email, raise a specific error on the username field.
+            raise ValidationError(
+                "No account is registered with that email address.",
+                code="invalid_email",
+                params={'field': 'username'}
+            )
+        else:
+            # If a user is found, attempt to authenticate with the found user's username.
+            authenticated_user = authenticate(self.request, username=user.username, password=password)
+            if authenticated_user is None:
+                # If authentication fails, it's because the password was wrong.
+                raise ValidationError(
+                    "Incorrect password.",
+                    code="invalid_password",
+                    params={'field': 'password'}
+                )
+            
+            # If all checks pass, set the user on the form and pass it along.
+            self.user_cache = authenticated_user
+
+        return self.cleaned_data
+    
+
 
 class InstructorCreationForm(UserCreationForm):
     """
