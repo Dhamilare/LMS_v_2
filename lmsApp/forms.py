@@ -392,12 +392,21 @@ class AssignCourseForm(forms.ModelForm):
         model = Enrollment
         fields = ['student', 'course']
 
-    # Customize the fields to use better widgets and labels
+    # Customize the queryset to filter for non-staff users (students)
     student = forms.ModelChoiceField(
-        queryset=User.objects.filter(is_staff=False).order_by('first_name', 'last_name'),
+        queryset=User.objects.filter(is_staff=False, is_instructor=False).order_by('first_name', 'last_name'),
         label="Select Student",
         widget=forms.Select(attrs={'class': 'form-select block w-full mt-1 rounded-md'})
     )
+    
+    # We override this method to display the student's full name
+    # It will use the full name if available, otherwise it falls back to the username.
+    def label_from_instance(self, obj):
+        full_name = obj.get_full_name()
+        if full_name:
+            return f"{full_name} ({obj.username})"
+        return obj.username
+
     course = forms.ModelChoiceField(
         queryset=Course.objects.all().order_by('title'),
         label="Select Course",

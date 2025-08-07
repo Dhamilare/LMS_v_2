@@ -34,7 +34,7 @@ def send_enrollment_email_to_instructor(request, enrollment):
         'enrollment_date': enrollment.enrolled_at.strftime('%Y-%m-%d'),
     }
     send_templated_email(
-        'email/student_enrolled.html',
+        'emails/student_enrolled.html',
         f'New Enrollment in {enrollment.course.title}',
         [instructor.email],
         context
@@ -1875,46 +1875,50 @@ def course_transcript(request, course_slug):
 @user_passes_test(is_instructor)
 def assign_course_to_student_view(request):
     """
-    Handles assigning a course to a student and sending an initial email.
+    Handles assigning a course to a student.
+    
+    If it's an AJAX GET request, it returns the form HTML.
+    If it's an AJAX POST request, it processes the form and returns JSON.
     """
     if request.method == 'POST':
         form = AssignCourseForm(request.POST)
         if form.is_valid():
-            student = form.cleaned_data.get('student')
-            course = form.cleaned_data.get('course')
-
-            # Check if an enrollment already exists
+            # Use 'completed' field as per your Enrollment model
             enrollment, created = Enrollment.objects.get_or_create(
-                student=student, 
-                course=course,
-                defaults={'is_enrolled': False} # Initially, they are not enrolled until they accept
+                student=form.cleaned_data['student'], 
+                course=form.cleaned_data['course'],
+                defaults={'completed': False}
             )
 
-            if not created and enrollment.is_enrolled:
+            # Check if the enrollment already existed and was completed
+            if not created and enrollment.completed:
                 return JsonResponse({'success': False, 'message': 'Student is already enrolled in this course.'}, status=400)
             
-            # Send assignment email to the student
-            context = {
-                'student_name': student.get_full_name() or student.username,
-                'course_title': course.title,
-                # Assuming get_absolute_url() points to a self-enrollment page
-                'course_url': request.build_absolute_uri(course.get_absolute_url()), 
-            }
-            send_templated_email(
-                'email/course_assigned.html',
-                'You have been assigned a new course!',
-                [student.email],
-                context
-            )
+            # If the enrollment was just created or was not yet completed, we can proceed
+            if created or not enrollment.completed:
+                student = enrollment.student
+                course = enrollment.course
+                context = {
+                    'student_name': student.get_full_name() or student.username,
+                    'course_title': course.title,
+                    'course_url': request.build_absolute_uri(course.get_absolute_url()),
+                }
+                send_templated_email(
+                    'emails/course_assigned.html',
+                    'You have been assigned a new course!',
+                    [student.email],
+                    context
+                )
+                return JsonResponse({'success': True, 'message': f"Course '{course.title}' assigned to {student.get_full_name()}."})
             
-            return JsonResponse({'success': True, 'message': f"Course '{course.title}' assigned to {student.get_full_name()}."})
+            return JsonResponse({'success': False, 'message': 'An unexpected error occurred.'}, status=400)
+
         else:
             return JsonResponse({'success': False, 'message': 'Validation failed.'}, status=400)
-    else:
+    else: # GET request
         form = AssignCourseForm()
-    
-    context = {'form': form}
-    return render(request, 'instructor/student_assign_form.html', context)
+        # Render the form snippet for the modal
+        return render(request, 'instructor/student_assign_form.html', {'form': form})
 
 
 @user_passes_test(is_instructor)
