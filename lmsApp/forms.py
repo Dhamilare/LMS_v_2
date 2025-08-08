@@ -505,8 +505,31 @@ class TakeQuizForm(forms.Form):
             )
             self.fields[f'question_{question.id}'].widget.attrs['data-question-id'] = question.id
 
+class SingleQuestionForm(forms.Form):
+    """
+    A form for displaying and handling a single question.
+    This is the ideal form to use for a paginated quiz.
+    """
+    def __init__(self, question, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Get all options for the current question
+        options = question.options.all()
+
+        # Create a list of tuples for the choices, using only the option text as the label
+        choices = [(option.id, option.text) for option in options]
+
+        # Create a single field for this question
+        # We use ChoiceField to have full control over the displayed labels
+        self.fields[f'question_{question.id}'] = forms.ChoiceField(
+            choices=choices,
+            widget=forms.RadioSelect(attrs={'class': 'form-radio h-4 w-4 text-indigo-600'}),
+            label=question.text,
+            required=True
+        )
 
 
+        
 class GroupPermissionForm(forms.ModelForm):
     """
     A custom ModelForm for managing Group permissions and members,

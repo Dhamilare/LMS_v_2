@@ -1040,29 +1040,24 @@ def mark_content_completed(request, course_slug, module_id, lesson_id, content_i
 @user_passes_test(is_student)
 def quiz_take(request, course_slug):
     """
-    Allows a student to take a course-level quiz, enforcing max attempts.
+    Allows a student to take a course-level quiz, paginating through questions.
     """
     course = get_object_or_404(Course, slug=course_slug)
-    quiz = get_object_or_404(Quiz, course=course) # Get quiz directly from course
-
+    quiz = get_object_or_404(Quiz, course=course)
     enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
 
-    # Access control: Student must be enrolled and course published
     if not course.is_published:
         messages.error(request, "You are not authorized to take this quiz.")
         return redirect('course_detail', slug=course.slug)
-    
-    # --- IMPORTANT: Quiz can only be taken if all content is completed ---
+
     if not enrollment.is_content_completed:
         messages.error(request, "You must complete all course content before taking this assessment.")
         return redirect('course_detail', slug=course.slug)
 
-    # Check if quiz has questions
     if not quiz.questions.exists():
         messages.info(request, "This quiz has no questions yet.")
         return redirect('course_detail', slug=course.slug)
 
-    # --- Assessment Logic: Check Retake Limits ---
     current_attempts_count = StudentQuizAttempt.objects.filter(
         student=request.user,
         quiz=quiz
@@ -1079,15 +1074,45 @@ def quiz_take(request, course_slug):
             messages.success(request, f"You have already passed the quiz '{quiz.title}'.")
         else:
             messages.error(request, f"You have reached the maximum number of attempts ({quiz.max_attempts}) for this quiz and have not passed.")
-        
-        # Redirect to the result of the last attempt if attempts are exhausted
+
         last_attempt = StudentQuizAttempt.objects.filter(student=request.user, quiz=quiz).order_by('-attempt_date').first()
         if last_attempt:
             return redirect('quiz_result', course_slug=course.slug, attempt_id=last_attempt.id)
-        else: # Fallback if no attempts exist (shouldn't happen if count > 0)
+        else:
             return redirect('course_detail', slug=course.slug)
 
-    form = TakeQuizForm(quiz=quiz) # Use TakeQuizForm
+    # --- Pagination Logic ---
+    questions = quiz.questions.all().order_by('order')
+    paginator = Paginator(questions, 1)
+    
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    current_question = page_obj.object_list[0]
+
+    if 'quiz_answers' not in request.session:
+        request.session['quiz_answers'] = {}
+    
+    if request.method == 'POST':
+        form = SingleQuestionForm(current_question, request.POST)
+        if form.is_valid():
+            chosen_option_id = form.cleaned_data.get(f'question_{current_question.id}')
+            request.session['quiz_answers'][str(current_question.id)] = chosen_option_id
+            request.session.modified = True
+
+            if page_obj.has_next():
+                # Correct way to call the method and build the URL
+                next_page_url = f'{reverse("quiz_take", args=[course.slug])}?page={page_obj.next_page_number()}'
+                return redirect(next_page_url)
+            else:
+                return redirect('quiz_submit', course_slug=course.slug)
+        else:
+            messages.error(request, "Please select an option before proceeding.")
+            
+    initial_data = {}
+    if str(current_question.id) in request.session.get('quiz_answers', {}):
+        initial_data[f'question_{current_question.id}'] = request.session['quiz_answers'][str(current_question.id)]
+    
+    form = SingleQuestionForm(current_question, initial=initial_data)
 
     context = {
         'course': course,
@@ -1097,18 +1122,21 @@ def quiz_take(request, course_slug):
         'max_attempts': quiz.max_attempts,
         'attempts_remaining': quiz.max_attempts - current_attempts_count,
         'enrollment_id': enrollment.id,
+        'page_obj': page_obj,
     }
     return render(request, 'student/quiz_take.html', context)
+
+
 
 @login_required
 @user_passes_test(is_student)
 def quiz_submit(request, course_slug):
     """
-    Handles the submission and grading of a course-level quiz.
+    Handles the final submission and grading of a course-level quiz
+    using answers stored in the session.
     """
     course = get_object_or_404(Course, slug=course_slug)
     quiz = get_object_or_404(Quiz, course=course) 
-
     enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
 
     if not course.is_published:
@@ -1119,7 +1147,6 @@ def quiz_submit(request, course_slug):
         messages.error(request, "You must complete all course content before submitting this assessment.")
         return redirect('course_detail', slug=course.slug)
 
-    # --- Assessment Logic: Re-check Retake Limits on submission ---
     current_attempts_count = StudentQuizAttempt.objects.filter(
         student=request.user,
         quiz=quiz
@@ -1133,72 +1160,60 @@ def quiz_submit(request, course_slug):
         else:
             return redirect('course_detail', slug=course.slug)
 
-    if request.method == 'POST':
-        form = TakeQuizForm(request.POST, quiz=quiz) # Use TakeQuizForm
-        if form.is_valid():
-            total_questions = quiz.questions.count()
-            correct_answers_count = 0
-            student_answers_to_save = []
-
-            with transaction.atomic():
-                # Get enrollment_id from the hidden input
-                enrollment_id = request.POST.get('enrollment_id')
-                enrollment_obj = get_object_or_404(Enrollment, id=enrollment_id, student=request.user, course=course)
-
-                attempt = StudentQuizAttempt.objects.create(
-                    student=request.user,
-                    quiz=quiz,
-                    enrollment=enrollment_obj, # Pass the enrollment object
-                    score=0, # Will update later
-                    passed=False
-                )
-
-                for question in quiz.questions.all():
-                    field_name = f'question_{question.id}'
-                    chosen_option_id = form.cleaned_data.get(field_name)
-
-                    chosen_option = None
-                    if chosen_option_id:
-                        chosen_option = get_object_or_404(Option, id=chosen_option_id, question=question)
-
-                    student_answers_to_save.append(
-                        StudentAnswer(
-                            attempt=attempt,
-                            question=question,
-                            chosen_option=chosen_option
-                        )
-                    )
-
-                    if chosen_option and chosen_option.is_correct:
-                        correct_answers_count += 1
-                
-                StudentAnswer.objects.bulk_create(student_answers_to_save)
-
-                score_percentage = 0
-                if total_questions > 0:
-                    score_percentage = (correct_answers_count / total_questions) * 100
-                
-                attempt.score = round(score_percentage, 2)
-                attempt.passed = (score_percentage >= quiz.pass_percentage)
-                attempt.save() # This save will trigger the enrollment._sync_completion_status()
-
-                messages.success(request, f'Quiz "{quiz.title}" submitted! Your score: {attempt.score:.2f}%')
-                return redirect('quiz_result', course_slug=course.slug, attempt_id=attempt.id)
-        else:
-            messages.error(request, "Please correct the errors below.")
-            context = {
-                'course': course,
-                'quiz': quiz,
-                'form': form,
-                'current_attempts_count': current_attempts_count,
-                'max_attempts': quiz.max_attempts,
-                'attempts_remaining': quiz.max_attempts - current_attempts_count,
-                'enrollment_id': enrollment.id,
-            }
-            return render(request, 'student/quiz_take.html', context)
-    else:
-        messages.error(request, "Invalid request method for quiz submission.")
+    quiz_answers = request.session.get('quiz_answers', {})
+    
+    if not quiz_answers:
+        messages.error(request, "No answers found. Please try taking the quiz again.")
         return redirect('quiz_take', course_slug=course.slug)
+
+    total_questions = quiz.questions.count()
+    correct_answers_count = 0
+    student_answers_to_save = []
+
+    with transaction.atomic():
+        attempt = StudentQuizAttempt.objects.create(
+            student=request.user,
+            quiz=quiz,
+            enrollment=enrollment,
+            score=0,
+            passed=False
+        )
+
+        for question in quiz.questions.all():
+            chosen_option_id = quiz_answers.get(str(question.id))
+            chosen_option = None
+            if chosen_option_id:
+                try:
+                    chosen_option = Option.objects.get(id=chosen_option_id, question=question)
+                except Option.DoesNotExist:
+                    pass
+
+            student_answers_to_save.append(
+                StudentAnswer(
+                    attempt=attempt,
+                    question=question,
+                    chosen_option=chosen_option
+                )
+            )
+
+            if chosen_option and chosen_option.is_correct:
+                correct_answers_count += 1
+        
+        StudentAnswer.objects.bulk_create(student_answers_to_save)
+
+        score_percentage = 0
+        if total_questions > 0:
+            score_percentage = (correct_answers_count / total_questions) * 100
+        
+        attempt.score = round(score_percentage, 2)
+        attempt.passed = (score_percentage >= quiz.pass_percentage)
+        attempt.save()
+
+        if 'quiz_answers' in request.session:
+            del request.session['quiz_answers']
+        
+        messages.success(request, f'Quiz "{quiz.title}" submitted! Your score: {attempt.score:.2f}%')
+        return redirect('quiz_result', course_slug=course.slug, attempt_id=attempt.id)
 
 
 @login_required
