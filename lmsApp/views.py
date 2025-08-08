@@ -617,7 +617,7 @@ def course_detail(request, slug):
         'is_enrolled': is_enrolled,
         'enrollment': enrollment,
         'course_quiz': course_quiz,
-        'has_passed_final_quiz': has_passed_final_quiz, # This is the new variable
+        'has_passed_final_quiz': has_passed_final_quiz,
     }
     return render(request, 'course_detail.html', context)
 
@@ -1030,7 +1030,7 @@ def mark_content_completed(request, course_slug, module_id, lesson_id, content_i
         
         status_message = "marked as complete." if progress.completed else "marked as incomplete."
         messages.success(request, f'Content "{content.title}" {status_message}')
-        return JsonResponse({'success': True, 'completed': progress.completed, 'message': f'Content "{content.title}" {status_message}'})
+        return JsonResponse({'success': True, 'completed': progress.completed, 'message': f'Content {status_message}'})
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Failed to update progress: {e}'}, status=500)
