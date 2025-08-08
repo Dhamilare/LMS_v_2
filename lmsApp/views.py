@@ -20,7 +20,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .utils import send_templated_email
 import json
 from django.db.models import Prefetch
-import csv
+import csv, io
 from django.db.models import Avg
 from django.contrib.auth.models import Group
 import random
@@ -1598,15 +1598,40 @@ def quiz_create(request):
 def quiz_detail_manage(request, quiz_id):
     """
     Displays details of a quiz and allows management of its questions and options.
-    Ensures the quiz was created by the logged-in instructor.
+    Includes pagination and search functionality.
     """
-    # This query now correctly finds the quiz and ensures it was created by the current user.
+    # Query the database for the quiz, ensuring it belongs to the current user
     quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user)
-    questions = quiz.questions.all().order_by('order')
+    
+    # Start with all questions for the quiz, ordered by 'order'
+    questions_list = quiz.questions.all().order_by('order')
+
+    # --- Search Functionality ---
+    search_query = request.GET.get('q')
+    if search_query:
+        questions_list = questions_list.filter(
+            Q(text__icontains=search_query) | 
+            Q(options__text__icontains=search_query)
+        ).distinct()
+
+    # --- Pagination Functionality ---
+    paginator = Paginator(questions_list, 10) # Show 10 questions per page
+    page = request.GET.get('page')
+    
+    try:
+        page_obj = paginator.page(page)
+    except PageNotAnInteger:
+        # If page is not an integer, deliver first page.
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        # If page is out of range (e.g. 9999), deliver last page of results.
+        page_obj = paginator.page(paginator.num_pages)
 
     context = {
         'quiz': quiz,
-        'questions': questions,
+        'page_obj': page_obj, 
+        'questions': page_obj.object_list, 
+        'search_query': search_query, 
     }
     return render(request, 'instructor/quiz_detail_manage.html', context)
 
@@ -1764,7 +1789,7 @@ def quiz_assign_to_course(request, quiz_id): # Renamed view
     return render(request, 'instructor/quiz_assign_form.html', context) # Fallback
 
 
-@login_required
+
 @user_passes_test(is_instructor)
 def quiz_upload_csv(request, quiz_id):
     """
@@ -1772,7 +1797,7 @@ def quiz_upload_csv(request, quiz_id):
     CSV format: question_text,option1,is_correct1,option2,is_correct2,option3,is_correct3,option4,is_correct4
     is_correct values should be 'True' or 'False'.
     """
-    quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user) # Updated lookup
+    quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user)
 
     if request.method == 'POST':
         form = CSVUploadForm(request.POST, request.FILES)
@@ -1781,67 +1806,81 @@ def quiz_upload_csv(request, quiz_id):
             if not csv_file.name.endswith('.csv'):
                 return JsonResponse({'success': False, 'error': 'File is not a CSV.'}, status=400)
             
-            # Use io.TextIOWrapper to handle file decoding
-            file_data = io.TextIOWrapper(csv_file.file, encoding='utf-8')
-            reader = csv.reader(file_data)
-            header = next(reader, None) # Skip header row
-
-            questions_to_create = []
+            # This is the single list that will hold all choices to be bulk-created
             options_to_create = []
+            questions_to_create = []
 
-            with transaction.atomic():
-                # First pass: Create questions to get their IDs
-                for i, row in enumerate(reader):
-                    if len(row) != 9:
-                        transaction.set_rollback(True)
-                        return JsonResponse({'success': False, 'error': f'Row {i+2}: Incorrect number of columns. Expected 9, got {len(row)}.'}, status=400)
-                    
-                    question_text = row[0].strip()
-                    if not question_text:
-                        transaction.set_rollback(True)
-                        return JsonResponse({'success': False, 'error': f'Row {i+2}: Question text cannot be empty.'}, status=400)
-
-                    # Get the current max order for questions in this quiz
+            try:
+                # Wrap the entire file processing in a single atomic transaction
+                with transaction.atomic():
+                    # Get the starting order for new questions
                     max_order = quiz.questions.aggregate(models.Max('order'))['order__max'] or 0
-                    question = Question(quiz=quiz, text=question_text, order=max_order + i + 1)
-                    questions_to_create.append(question)
-                
-                # Bulk create questions
-                # This will assign IDs to the question objects in the list
-                Question.objects.bulk_create(questions_to_create)
 
-                # Second pass: Process options using the newly created question objects
-                # Reset file pointer for the second pass
-                csv_file.file.seek(0) 
-                file_data = io.TextIOWrapper(csv_file.file, encoding='utf-8')
-                reader = csv.reader(file_data)
-                next(reader, None) # Skip header again
+                    # Use io.TextIOWrapper to handle file decoding
+                    file_data = io.TextIOWrapper(csv_file.file, encoding='utf-8')
+                    reader = csv.reader(file_data)
+                    next(reader, None) # Skip header row
 
-                for i, row in enumerate(reader):
-                    question = questions_to_create[i] # Link to the corresponding created question object
+                    # Process the file in a single pass
+                    for i, row in enumerate(reader):
+                        # Validate row length
+                        if len(row) != 9:
+                            raise ValueError(f'Row {i+2}: Incorrect number of columns. Expected 9, got {len(row)}.')
 
-                    correct_options_in_row = 0
-                    for j in range(1, 9, 2): # Iterate through option text and is_correct pairs
-                        option_text = row[j].strip()
-                        is_correct_str = row[j+1].strip().lower()
-                        is_correct = is_correct_str == 'true'
+                        question_text = row[0].strip()
+                        if not question_text:
+                            raise ValueError(f'Row {i+2}: Question text cannot be empty.')
+                        
+                        # Create the Question object
+                        new_question = Question(quiz=quiz, text=question_text, order=max_order + i + 1)
+                        questions_to_create.append(new_question)
 
-                        if not option_text:
-                            transaction.set_rollback(True)
-                            return JsonResponse({'success': False, 'error': f'Row {i+2}, Option {((j-1)//2)+1}: Option text cannot be empty.'}, status=400)
+                        correct_options_in_row = 0
+                        # Iterate through option text and is_correct pairs
+                        for j in range(1, 9, 2):
+                            option_text = row[j].strip()
+                            is_correct_str = row[j+1].strip().lower()
+                            is_correct = is_correct_str == 'true'
 
-                        if is_correct:
-                            correct_options_in_row += 1
+                            if not option_text:
+                                raise ValueError(f'Row {i+2}, Option {((j-1)//2)+1}: Option text cannot be empty.')
 
-                        options_to_create.append(Option(question=question, text=option_text, is_correct=is_correct))
+                            if is_correct:
+                                correct_options_in_row += 1
+
+                            # Append to options list, but we can't link it to the question yet as it has no ID
+                            options_to_create.append({
+                                'question_index': i,
+                                'text': option_text,
+                                'is_correct': is_correct
+                            })
+                        
+                        if correct_options_in_row != 1:
+                            raise ValueError(f'Row {i+2}: Each question must have exactly one correct option.')
+
+                    # Now, bulk create questions to get their IDs
+                    Question.objects.bulk_create(questions_to_create)
+
+                    # Now that questions have IDs, we can link them to the options and bulk create
+                    final_options = []
+                    for option_data in options_to_create:
+                        question = questions_to_create[option_data['question_index']]
+                        final_options.append(
+                            Option(question=question, text=option_data['text'], is_correct=option_data['is_correct'])
+                        )
                     
-                    if correct_options_in_row != 1:
-                        transaction.set_rollback(True)
-                        return JsonResponse({'success': False, 'error': f'Row {i+2}: Each question must have exactly one correct option.'}, status=400)
-                
-                Option.objects.bulk_create(options_to_create)
+                    Option.objects.bulk_create(final_options)
+            
+            except ValueError as e:
+                # Catch specific validation errors during processing
+                return JsonResponse({'success': False, 'error': str(e)}, status=400)
+            except Exception as e:
+                # Catch any other unexpected errors
+                return JsonResponse({'success': False, 'error': f'An unexpected error occurred during file processing: {str(e)}'}, status=500)
 
+            # If all goes well, return a success response
             return JsonResponse({'success': True, 'message': f'{len(questions_to_create)} questions uploaded successfully!'})
+        
         else:
             html_form = render_to_string('instructor/quiz_upload_csv.html', {'form': form, 'quiz': quiz}, request=request)
             return JsonResponse({'success': False, 'error': 'Validation failed.', 'form_html': html_form}, status=400)
@@ -1852,6 +1891,8 @@ def quiz_upload_csv(request, quiz_id):
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return render(request, 'instructor/quiz_upload_csv.html', context)
     return render(request, 'instructor/quiz_upload_csv.html', context)
+
+
 
 @login_required
 @user_passes_test(is_instructor)
