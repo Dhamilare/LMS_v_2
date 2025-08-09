@@ -10,6 +10,16 @@ from django.forms import inlineformset_factory, BaseInlineFormSet
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import authenticate
+from django.contrib.auth.forms import SetPasswordForm
+
+
+class CustomSetPasswordForm(SetPasswordForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Remove the help text from both password fields
+        self.fields['new_password1'].help_text = ''
+        self.fields['new_password2'].help_text = ''
+
 
 class StudentRegistrationForm(forms.ModelForm):
     """

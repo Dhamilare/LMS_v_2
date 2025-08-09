@@ -30,7 +30,8 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
-from datetime import datetime
+from .utils import send_custom_password_reset_email
+from django.contrib.auth.forms import PasswordResetForm
 
 
 def send_enrollment_email_to_instructor(request, enrollment):
@@ -58,6 +59,26 @@ def send_enrollment_email_to_instructor(request, enrollment):
             [instructor.email],
             email_context
         )
+
+
+def custom_password_reset(request):
+    if request.method == "POST":
+        form = PasswordResetForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            users = User.objects.filter(email=email, is_active=True)
+            if users.exists():
+                for user in users:
+                    send_custom_password_reset_email(user, request)
+            return redirect('password_reset_done')
+            
+    else:
+        form = PasswordResetForm()
+
+    context = {
+        "form": form,
+    }
+    return render(request, "accounts/password_reset.html", context)
 
 
 # Helper functions for role-based access control

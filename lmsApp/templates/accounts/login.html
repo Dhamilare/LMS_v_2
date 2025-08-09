@@ -92,17 +92,22 @@
 
                 <!-- Password -->
                 <div>
-                    <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700">
-                        <i class="fa-solid fa-lock mr-2"></i>Password
-                    </label>
+                    <div class="flex justify-between items-center">
+                        <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            <i class="fa-solid fa-lock mr-2"></i>Password
+                        </label>
+                        <a href="{% url 'custom_password_reset' %}" class="text-xs font-medium text-blue-600 hover:text-blue-500">
+                            Forgot password?
+                        </a>
+                    </div>
                     {{ form.password }}
                 </div>
 
                 <!-- Submit -->
                 <button type="submit" 
                     class="w-full flex justify-center py-3 px-4 border border-transparent shadow-sm text-sm font-medium 
-                           text-white bg-blue-600 hover:bg-blue-700 focus:outline-none 
-                           focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition rounded">
+                            text-white bg-blue-600 hover:bg-blue-700 focus:outline-none 
+                            focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition rounded">
                     <i class="fa-solid fa-right-to-bracket mr-2"></i>Sign In
                 </button>
             </form>
