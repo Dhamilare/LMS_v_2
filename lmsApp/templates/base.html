@@ -125,6 +125,10 @@
                             <span class="font-medium">Certificate</span>
                         </a>
                     {% elif user.is_staff %}
+                         <a href="{% url 'student_list' %}" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                            <i class="fa-solid fa-users mr-3 text-lg"></i>
+                            <span class="font-medium">Students</span>
+                        </a>
                         <a href="{% url 'instructor_list' %}" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
                             <i class="fa-solid fa-users-cog mr-3 text-lg"></i>
                             <span class="font-medium">Instructor management</span>

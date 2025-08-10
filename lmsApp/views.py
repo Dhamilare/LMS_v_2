@@ -81,6 +81,29 @@ def custom_password_reset(request):
     return render(request, "accounts/password_reset.html", context)
 
 
+@login_required
+def set_password_after_microsoft_login(request):
+    """
+    Allows a user who has logged in via a social provider to set a local password.
+    """
+    if request.user.has_usable_password():
+        return redirect("dashboard")
+
+    if request.method == "POST":
+        # Pass the user instance and POST data correctly
+        form = SetPasswordModelForm(data=request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            logout(request)
+            messages.success(request, "Your password has been set successfully. Please log in with your new password.")
+            return redirect("login")
+    else:
+        # Pass the user instance for a GET request
+        form = SetPasswordModelForm(instance=request.user)
+
+    return render(request, "accounts/set_password.html", {"form": form})
+
+
 # Helper functions for role-based access control
 def is_admin(user):
     return user.is_authenticated and user.is_staff
@@ -197,14 +220,8 @@ def dashboard(request):
     }
 
     if user.is_instructor:
-        # For instructors, fetch their courses.
-        # Pagination for instructor courses can be added here if needed.
         context['courses'] = Course.objects.filter(instructor=user).order_by('-created_at')
     elif user.is_student:
-        # --- Enrolled Courses Logic ---
-        # The progress_percentage, completed, has_certificate, certificate_obj,
-        # and can_claim_certificate are now properties on the Enrollment model.
-        # We just need to fetch the Enrollment objects.
         enrolled_courses_list = Enrollment.objects.filter(student=user).select_related('course').order_by('-enrolled_at')
         
         # Apply pagination for enrolled courses
@@ -2152,6 +2169,40 @@ def assign_course_page_view(request):
         'form': AssignCourseForm(),
     }
     return render(request, 'instructor/course_assign.html', context)
+
+
+@login_required 
+@user_passes_test(is_admin)
+def student_list_view(request):
+    """
+    A view to display a list of all students with pagination and search functionality,
+    accessible only to admin users.
+    """
+    # Get all users who are not superusers
+    all_students = User.objects.filter(is_student=True).order_by('date_joined')
+    
+    # Handle the search query
+    query = request.GET.get('q')
+    if query:
+        # Use Q objects for a comprehensive search across multiple fields
+        all_students = all_students.filter(
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(email__icontains=query)
+        ).distinct()
+
+    # Set up pagination
+    paginator = Paginator(all_students, 10) 
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'total_students': all_students.count(), # Count the total number of students
+        'query': query, # Pass the search query back to the template
+    }
+    
+    return render(request, 'admin/student_list.html', context)
 
 
 

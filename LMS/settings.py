@@ -39,6 +39,8 @@ INSTALLED_APPS = [
     'lmsApp',
     'crispy_forms',
     'crispy_tailwind',
+    'social_django',
+    
 ]
 
 MIDDLEWARE = [
@@ -132,9 +134,6 @@ AUTH_USER_MODEL = 'lmsApp.User'
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
 CRISPY_TEMPLATE_PACK = "tailwind"
 
-# LOGIN_REDIRECT_URL = 'dashboard'
-# LOGOUT_URL = 'login'
-
 EMAIL_BACKEND = config("EMAIL_BACKEND")
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool)
 EMAIL_HOST = config("EMAIL_HOST")
@@ -142,3 +141,30 @@ EMAIL_PORT = config("EMAIL_PORT", cast=int)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
+
+
+AUTHENTICATION_BACKENDS = (
+    'social_core.backends.azuread.AzureADOAuth2',  # Microsoft Entra OIDC backend
+    'django.contrib.auth.backends.ModelBackend',
+)
+
+# Microsoft Entra ID settings
+SOCIAL_AUTH_AZUREAD_OAUTH2_KEY = config('SOCIAL_AUTH_AZUREAD_OAUTH2_KEY')
+SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET = config('SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET')
+SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID = config('SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID')
+
+# Login URLs
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGIN_REDIRECT_URL = 'set_password' 
+
+SOCIAL_AUTH_AZUREAD_OAUTH2_REDIRECT_URI = "http://localhost:8000/auth/complete/azuread-oauth2/"
+
+# Optional security
+SECURE_SSL_REDIRECT = False # True in production
+
+
+
+
+
+

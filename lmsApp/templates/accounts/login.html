@@ -41,7 +41,7 @@
                 </div>
                 <div class="flex items-center space-x-3">
                     <i class="fa-solid fa-chalkboard-user text-2xl"></i>
-                    <p>Instructors can manage courses, grade assignments, and monitor performance.</p>
+                    <p>Instructors can manage courses, manage assessments, assign courses to students, etc.</p>
                 </div>
                 <div class="flex items-center space-x-3">
                     <i class="fa-solid fa-chart-line text-2xl"></i>
@@ -106,11 +106,28 @@
                 <!-- Submit -->
                 <button type="submit" 
                     class="w-full flex justify-center py-3 px-4 border border-transparent shadow-sm text-sm font-medium 
-                            text-white bg-blue-600 hover:bg-blue-700 focus:outline-none 
-                            focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition rounded">
+                                text-white bg-blue-600 hover:bg-blue-700 focus:outline-none 
+                                focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition rounded">
                     <i class="fa-solid fa-right-to-bracket mr-2"></i>Sign In
                 </button>
             </form>
+
+            <!-- OR separator -->
+            <div class="relative my-6">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="bg-white px-2 text-gray-500">Or continue with</span>
+                </div>
+            </div>
+
+            <!-- Microsoft Login Button -->
+            <a href="{% url 'social:begin' 'azuread-oauth2' %}" 
+               class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded shadow-sm bg-white hover:bg-gray-50 transition">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft" class="w-5 h-5 mr-2">
+                <span class="text-gray-700 font-medium">Sign in with Microsoft</span>
+            </a>
 
             <!-- Footer -->
             <div class="mt-6 text-center">

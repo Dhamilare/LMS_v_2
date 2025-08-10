@@ -13,6 +13,7 @@ urlpatterns = [
     path('password-reset/done/', auth_views.PasswordResetDoneView.as_view(template_name='accounts/password_reset_done.html'), name='password_reset_done'),
     path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(template_name='accounts/password_reset_confirm.html', form_class=CustomSetPasswordForm), name='password_reset_confirm'),
     path('reset/complete/', auth_views.PasswordResetCompleteView.as_view(template_name='accounts/password_reset_complete.html'), name='password_reset_complete'),
+    path('set-password/', views.set_password_after_microsoft_login, name='set_password'),
     path('', views.dashboard, name='dashboard'),
 
     # --- Admin Functionality ---
@@ -21,6 +22,7 @@ urlpatterns = [
     path('instructors/<int:pk>/edit/', views.instructor_update, name='instructor_update'),
     path('instructors/<int:pk>/delete/', views.instructor_delete, name='instructor_delete'), 
     path('audit-logs/', views.audit_logs, name='audit_logs'),
+    path('students/', views.student_list_view, name='student_list'),
 
     path('groups/', views.group_list_view, name='group_list'),
     path('groups/manage/new/', views.group_management_view, name='group_create'),
