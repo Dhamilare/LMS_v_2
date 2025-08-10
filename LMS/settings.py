@@ -145,6 +145,7 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
 
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.azuread.AzureADOAuth2',  # Microsoft Entra OIDC backend
+    'social_core.backends.google.GoogleOAuth2',    # Google 
     'django.contrib.auth.backends.ModelBackend',
 )
 
@@ -153,12 +154,15 @@ SOCIAL_AUTH_AZUREAD_OAUTH2_KEY = config('SOCIAL_AUTH_AZUREAD_OAUTH2_KEY')
 SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET = config('SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET')
 SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID = config('SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID')
 
+
+# Google Workspace settings
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = config('SOCIAL_AUTH_GOOGLE_OAUTH2_KEY')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = config('SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET')
+
 # Login URLs
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGIN_REDIRECT_URL = 'set_password' 
-
-SOCIAL_AUTH_AZUREAD_OAUTH2_REDIRECT_URI = "http://localhost:8000/auth/complete/azuread-oauth2/"
 
 # Optional security
 SECURE_SSL_REDIRECT = False # True in production

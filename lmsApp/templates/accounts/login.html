@@ -122,12 +122,22 @@
                 </div>
             </div>
 
-            <!-- Microsoft Login Button -->
-            <a href="{% url 'social:begin' 'azuread-oauth2' %}" 
-               class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded shadow-sm bg-white hover:bg-gray-50 transition">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft" class="w-5 h-5 mr-2">
-                <span class="text-gray-700 font-medium">Sign in with Microsoft</span>
-            </a>
+            <!-- Social Login Buttons Container -->
+            <div class="flex flex-col space-y-4">
+                <!-- Microsoft Login Button -->
+                <a href="{% url 'social:begin' 'azuread-oauth2' %}" 
+                   class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded shadow-sm bg-white hover:bg-gray-50 transition">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft" class="w-5 h-5 mr-2">
+                    <span class="text-gray-700 font-medium">Sign in with Microsoft</span>
+                </a>
+                
+                <!-- Google Login Button -->
+                <a href="{% url 'social:begin' 'google-oauth2' %}" 
+                   class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded shadow-sm bg-white hover:bg-gray-50 transition">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg" alt="Google" class="w-5 h-5 mr-2">
+                    <span class="text-gray-700 font-medium">Sign in with Google</span>
+                </a>
+            </div>
 
             <!-- Footer -->
             <div class="mt-6 text-center">
