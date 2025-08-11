@@ -367,7 +367,7 @@ class ContentForm(forms.ModelForm):
     """
     class Meta:
         model = Content
-        fields = ['title', 'content_type', 'file', 'text_content', 'video_url', 'order']
+        fields = ['title', 'content_type', 'file', 'text_content', 'video_url', 'duration', 'order']
         widgets = {
             'text_content': forms.Textarea(attrs={'rows': 5}),
         }
@@ -382,44 +382,41 @@ class ContentForm(forms.ModelForm):
             Field('file', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
             Field('text_content', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
             Field('video_url', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
+            Field('duration', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
             Field('order', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
             Submit('submit', 'Save Content', css_class='w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-4')
         )
 
-    def clean(self):
-        """
-        Custom cleaning to ensure only relevant content fields are populated
-        based on the selected content_type.
-        """
-        cleaned_data = super().clean()
-        content_type = cleaned_data.get('content_type')
-        file = cleaned_data.get('file')
-        text_content = cleaned_data.get('text_content')
-        video_url = cleaned_data.get('video_url')
+    # def clean(self):
+    #     cleaned_data = super().clean()
+    #     content_type = cleaned_data.get('content_type')
+    #     file = cleaned_data.get('file')
+    #     text_content = cleaned_data.get('text_content')
+    #     video_url = cleaned_data.get('video_url')
 
-        if content_type == 'video':
-            if not video_url and not file:
-                raise ValidationError("For video content, either a video URL or a file upload is required.")
-            # Clear other fields
-            cleaned_data['text_content'] = None
-        elif content_type == 'pdf' or content_type == 'slide':
-            if not file:
-                raise ValidationError(f"For {content_type} content, a file upload is required.")
-            # Clear other fields
-            cleaned_data['text_content'] = None
-            cleaned_data['video_url'] = None
-        elif content_type == 'text':
-            if not text_content:
-                raise ValidationError("For text content, the text field cannot be empty.")
-            # Clear other fields
-            cleaned_data['file'] = None
-            cleaned_data['video_url'] = None
-        elif content_type == 'quiz' or content_type == 'assignment':
-            cleaned_data['file'] = None
-            cleaned_data['text_content'] = None
-            cleaned_data['video_url'] = None
-        
-        return cleaned_data
+    #     if content_type == 'video':
+    #         if not video_url and not file and not (self.instance and self.instance.file):
+    #             raise ValidationError("For video content, either a video URL or a file upload is required.")
+    #         cleaned_data['text_content'] = None
+
+    #     elif content_type in ['pdf', 'slide']:
+    #         if not file and not (self.instance and self.instance.file):
+    #             raise ValidationError(f"For {content_type} content, a file upload is required.")
+    #         cleaned_data['text_content'] = None
+    #         cleaned_data['video_url'] = None
+
+    #     elif content_type == 'text':
+    #         if not text_content:
+    #             raise ValidationError("For text content, the text field cannot be empty.")
+    #         cleaned_data['file'] = None
+    #         cleaned_data['video_url'] = None
+
+    #     elif content_type in ['quiz', 'assignment']:
+    #         cleaned_data['file'] = None
+    #         cleaned_data['text_content'] = None
+    #         cleaned_data['video_url'] = None
+
+    #     return cleaned_data
     
 
 class QuizDetailsForm(forms.ModelForm):

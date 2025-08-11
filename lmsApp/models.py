@@ -35,6 +35,10 @@ class Course(models.Model):
         null=True,
         help_text="URL for the course thumbnail image."
     )
+    duration = models.PositiveIntegerField(
+        default=0, 
+        help_text="Total estimated duration of the course in minutes."
+    )
     slug = models.SlugField(unique=True, max_length=255, blank=True)
 
     def save(self, *args, **kwargs):
@@ -146,6 +150,10 @@ class Content(models.Model):
     video_url = models.URLField(max_length=500, blank=True, null=True, help_text="URL for external video (e.g., YouTube, Vimeo).")
     order = models.PositiveIntegerField(default=0, help_text="Order of the content within the lesson.")
     created_at = models.DateTimeField(auto_now_add=True)
+    duration = models.PositiveIntegerField(
+        default=0, 
+        help_text="Total estimated duration of the course in minutes."
+    )
 
     def __str__(self):
         return f"{self.lesson.title} - {self.title} ({self.get_content_type_display()})"

@@ -860,12 +860,12 @@ def content_create(request, course_slug, module_id, lesson_id):
 @login_required
 @user_passes_test(is_instructor)
 def content_update(request, course_slug, module_id, lesson_id, content_id):
-   
     course = get_object_or_404(Course, slug=course_slug, instructor=request.user)
     module = get_object_or_404(Module, id=module_id, course=course)
     lesson = get_object_or_404(Lesson, id=lesson_id, module=module)
     content = get_object_or_404(Content, id=content_id, lesson=lesson)
-    template_name = 'instructor/_content_form.html' if is_ajax(request) else 'instructor/_content_form.html'
+
+    template_name = 'instructor/_content_form.html'
 
     if request.method == 'POST':
         form = ContentForm(request.POST, request.FILES, instance=content)
@@ -877,12 +877,27 @@ def content_update(request, course_slug, module_id, lesson_id, content_id):
             return redirect('course_detail', slug=course.slug)
         else:
             if is_ajax(request):
-                form_html = render_to_string(template_name, {'form': form, 'lesson': lesson, 'module': module, 'course': course, 'page_title': f'Edit Content: {content.title}'}, request=request)
+                form_html = render_to_string(template_name, {
+                    'form': form,
+                    'lesson': lesson,
+                    'module': module,
+                    'course': course,
+                    'content': content, 
+                    'page_title': f'Edit Content: {content.title}'
+                }, request=request)
                 return JsonResponse({'success': False, 'form_html': form_html, 'error': 'Validation failed.'})
             messages.error(request, 'Failed to update content. Please correct the errors.')
     else:
         form = ContentForm(instance=content)
-    return render(request, template_name, {'form': form, 'lesson': lesson, 'module': module, 'course': course, 'page_title': f'Edit Content: {content.title}'})
+
+    return render(request, template_name, {
+        'form': form,
+        'lesson': lesson,
+        'module': module,
+        'course': course,
+        'content': content, 
+        'page_title': f'Edit Content: {content.title}'
+    })
 
 @login_required
 @user_passes_test(is_instructor)

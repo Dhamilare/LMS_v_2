@@ -131,7 +131,7 @@
                                         {% endif %}
                                     </li>
                                     {# Only show content list if module is accessible and student is enrolled #}
-                                    {% if lesson.contents and request.user.is_student and is_enrolled %}
+                                    {% if lesson.contents and request.user.is_student and is_enrolled or request.user.is_instructor and course.instructor == request.user %}
                                         <ul class="ml-8 mt-1 space-y-1 border-l-2 border-gray-200 pl-4">
                                             {% for content_item in lesson.contents %}
                                                 <li class="flex justify-between items-center text-sm text-gray-600 bg-gray-100 p-2 rounded-md hover:bg-gray-200 transition duration-150 ease-in-out">
@@ -143,8 +143,6 @@
                                                             {% elif content_item.content_type == 'pdf' %}<i class="fas fa-file-pdf mr-2 text-red-400"></i>
                                                             {% elif content_item.content_type == 'text' %}<i class="fas fa-file-alt mr-2 text-blue-400"></i>
                                                             {% elif content_item.content_type == 'slide' %}<i class="fas fa-file-powerpoint mr-2 text-orange-400"></i>
-                                                            {# Removed 'quiz' content type from here #}
-                                                            {% elif content_item.content_type == 'assignment' %}<i class="fas fa-tasks mr-2 text-purple-400"></i>
                                                             {% endif %}
                                                         {% endif %}
                                                         {{ content_item.title|default:"Untitled Content" }} ({{ content_item.get_content_type_display }})
@@ -186,7 +184,7 @@
                                 </div>
                             {% endif %}
                         {% endif %}
-                    {% else %} {# Module is NOT accessible #}
+                    {% else %}
                         <div class="text-center py-4 text-gray-500">
                             <i class="fas fa-lock fa-2x mb-2"></i>
                             <p class="font-semibold">Complete the previous module to unlock this one.</p>
@@ -207,7 +205,6 @@
         {% endif %}
     {% endif %}
 
-    {# Conditional Course-Level Quiz Button #}
     {% if request.user.is_student and is_enrolled %}
         <div class="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200 shadow-md flex flex-col sm:flex-row items-center justify-between">
             <div class="flex items-center mb-3 sm:mb-0">
@@ -256,9 +253,8 @@
                     <i class="fas fa-lock mr-2"></i> Complete all modules to unlock
                 </span>
             {% endif %}
-        
-        {% endif %}
-    </div>
+        </div>
+    {% endif %}
 
     <div class="mt-8 text-center">
         <a href="{% url 'dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
