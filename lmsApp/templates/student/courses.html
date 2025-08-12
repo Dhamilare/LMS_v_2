@@ -46,10 +46,19 @@
         {% if page_obj %}
             <!-- Course Cards Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for course in page_obj.object_list %}
-                    <!-- The entire card is now a clickable link -->
+                {% for course_data in page_obj %}
+                    {% with course=course_data.course %}
                     <a href="{% url 'course_detail' slug=course.slug %}" 
-                       class="block bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 transform hover:scale-105 transition duration-300 ease-in-out">
+                       class="block relative bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 transform hover:scale-105 transition duration-300 ease-in-out">
+                        
+                        {% if course_data.is_enrolled %}
+                            <div class="absolute top-4 left-4 z-10">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i> Enrolled
+                                </span>
+                            </div>
+                        {% endif %}
+
                         <img src="{{ course.thumbnail|default:'https://placehold.co/600x400/F0F4FF/4F46E5?text=Course+Thumbnail' }}" 
                              alt="{{ course.title }} Thumbnail" 
                              class="w-full h-48 object-cover">
@@ -64,12 +73,23 @@
                                 <i class="fas fa-tag text-purple-500 mr-2"></i>
                                 <span>Price: {% if course.price %}{{ course.price }}{% else %}Free{% endif %}</span>
                             </div>
-                            <!-- This is no longer a link, but a span that retains the button's visual style -->
-                            <span class="inline-flex items-center justify-center w-full px-4 py-3 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition duration-300 shadow-sm">
-                                View Course <i class="fas fa-arrow-right ml-2"></i>
+                            
+                            <!-- Dynamic button based on enrollment status -->
+                            <span class="inline-flex items-center justify-center w-full px-4 py-3 text-sm font-semibold text-white rounded-lg transition duration-300 shadow-sm
+                                {% if course_data.is_enrolled %}
+                                    bg-green-600 hover:bg-green-700
+                                {% else %}
+                                    bg-indigo-600 hover:bg-indigo-700
+                                {% endif %}">
+                                {% if course_data.is_enrolled %}
+                                    Continue Learning <i class="fas fa-arrow-right ml-2"></i>
+                                {% else %}
+                                    View Course <i class="fas fa-arrow-right ml-2"></i>
+                                {% endif %}
                             </span>
                         </div>
                     </a>
+                    {% endwith %}
                 {% endfor %}
             </div>
             

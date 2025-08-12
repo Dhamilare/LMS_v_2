@@ -1,4 +1,3 @@
-# instructor/views.py (Updated for AJAX Modals)
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -6,7 +5,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string, get_template
-from django.db.models import Q, Max, Count, Sum
+from django.db.models import Q, Max, Count, Subquery, OuterRef
 from django.db.models.functions import Coalesce
 from django.urls import reverse
 from .forms import *
@@ -32,6 +31,9 @@ from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from .utils import send_custom_password_reset_email
 from django.contrib.auth.forms import PasswordResetForm
+from django.db.models.functions import TruncMonth
+from datetime import timedelta
+from django.utils.safestring import mark_safe
 
 
 def send_enrollment_email_to_instructor(request, enrollment):
@@ -219,13 +221,101 @@ def dashboard(request):
         'is_student': user.is_student,
     }
 
-    if user.is_instructor:
-        context['courses'] = Course.objects.filter(instructor=user).order_by('-created_at')
+    # --- ADMIN DASHBOARD LOGIC ---
+    if user.is_staff:
+        avg_score_subquery = Subquery(
+            StudentQuizAttempt.objects.filter(
+                quiz__course=OuterRef('pk')
+            ).order_by()
+            .values('quiz__course')
+            .annotate(avg_score=Avg('score'))
+            .values('avg_score'),
+            output_field=models.DecimalField()
+        )
+        
+        # New query to get the total number of all enrollments
+        total_platform_enrollments = Enrollment.objects.count()
+
+        # Main annotated query to get course stats, ordered by popularity
+        courses_queryset = Course.objects.annotate(
+            total_enrollments=Count('enrollments', distinct=True),
+            completed_enrollments=Count(
+                'enrollments',
+                filter=Q(enrollments__completed=True),
+                distinct=True
+            ),
+            average_quiz_score=avg_score_subquery
+        ).order_by('-total_enrollments', 'title')
+
+        # Pagination for the course list
+        paginator = Paginator(courses_queryset, 4)
+        page_number = request.GET.get('page')
+        try:
+            courses_page_obj = paginator.get_page(page_number)
+        except (PageNotAnInteger, EmptyPage):
+            courses_page_obj = paginator.page(1)
+
+        # Build analytics per course for the paginated list
+        courses_with_analytics = []
+        six_months_ago = timezone.now() - timedelta(days=180)
+        for course in courses_page_obj:
+            completion_rate = (
+                course.completed_enrollments / course.total_enrollments * 100
+                if course.total_enrollments > 0 else 0
+            )
+
+        # Enrollment trends (last 6 months)
+            enrollment_trends = (
+                Enrollment.objects.filter(course=course, enrolled_at__gte=six_months_ago)
+                .annotate(month=TruncMonth('enrolled_at'))
+                .values('month')
+                .annotate(count=Count('id'))
+                .order_by('month')[:6]
+            )
+            trend_labels = [entry['month'].strftime('%b %Y') for entry in enrollment_trends]
+            trend_data = [entry['count'] for entry in enrollment_trends]
+
+            courses_with_analytics.append({
+                'course': course,
+                'total_enrollments': course.total_enrollments,
+                'completion_rate': round(completion_rate, 2),
+                'average_quiz_score': (
+                    round(course.average_quiz_score, 2)
+                    if course.average_quiz_score is not None else 'N/A'
+                ),
+                'enrollment_trends': {
+                    'labels': mark_safe(json.dumps(trend_labels)),
+                    'data': mark_safe(json.dumps(trend_data)),
+                },
+            })
+
+        # Global metric: Top 5 courses by average quiz score
+        performance_insights = (
+            StudentQuizAttempt.objects
+            .values('quiz__course__title')
+            .annotate(avg_score=Avg('score'))
+            .order_by('-avg_score')[:5]
+        )
+
+        context.update({
+            'total_platform_enrollments': total_platform_enrollments, # New context variable
+            'courses_with_analytics': courses_with_analytics,
+            'courses_page_obj': courses_page_obj,
+            'performance_insights': performance_insights,
+        })
+    
+    # --- INSTRUCTOR DASHBOARD LOGIC ---
+    elif user.is_instructor:
+        all_courses = Course.objects.filter(instructor=user).order_by('-created_at')
+        context['courses'] = all_courses[:6]
+        context['show_view_all_button'] = all_courses.count() > 6
+
+    # --- STUDENT DASHBOARD LOGIC ---
     elif user.is_student:
         enrolled_courses_list = Enrollment.objects.filter(student=user).select_related('course').order_by('-enrolled_at')
         
         # Apply pagination for enrolled courses
-        enrolled_paginator = Paginator(enrolled_courses_list, 6) # 6 items per page
+        enrolled_paginator = Paginator(enrolled_courses_list, 3) # 6 items per page
         enrolled_page_number = request.GET.get('enrolled_page') # Use 'enrolled_page' parameter for enrolled courses
 
         try:
@@ -260,6 +350,7 @@ def dashboard(request):
         context['available_courses'] = available_page_obj # Pass the paginated object
     
     return render(request, 'dashboard.html', context)
+
 
 # --- Admin Functionality ---
 
@@ -393,8 +484,10 @@ def course_list(request):
     """
     Lists courses managed by the logged-in instructor, with comprehensive search and pagination.
     """
-    # Start with courses created by the logged-in instructor
-    courses_list = Course.objects.filter(instructor=request.user).order_by('-created_at')
+    # Start with courses created by the logged-in instructor and annotate with enrollment count
+    courses_list = Course.objects.filter(instructor=request.user).annotate(
+        total_enrollments=Count('enrollments')
+    ).order_by('-created_at')
     
     search_query = request.GET.get('q', '')
 
@@ -402,7 +495,7 @@ def course_list(request):
         # Filter courses by title or description (case-insensitive)
         courses_list = courses_list.filter(
             Q(title__icontains=search_query) | Q(description__icontains=search_query)
-        ).distinct() # Use distinct to avoid duplicate results if a course matches both title and description
+        ).distinct()
 
     # Set up pagination with 6 courses per page
     paginator = Paginator(courses_list, 6) # 6 courses per page
@@ -427,17 +520,17 @@ def course_list(request):
 @login_required
 def all_courses(request):
     """
-    Displays a list of all published courses with comprehensive search and pagination.
+    Displays a list of all published courses with comprehensive search and pagination,
+    indicating the user's enrollment status for each course.
     """
     # Get the search query from the URL parameters
     search_query = request.GET.get('q', '')
 
     # Start with all published courses
-    courses_list = Course.objects.filter(is_published=True)
+    courses_list = Course.objects.filter(is_published=True).order_by('title')
 
     # Apply comprehensive search if a query exists
     if search_query:
-        # Use Q objects to perform a case-insensitive search across multiple fields
         courses_list = courses_list.filter(
             Q(title__icontains=search_query) |
             Q(description__icontains=search_query) |
@@ -445,8 +538,19 @@ def all_courses(request):
             Q(instructor__last_name__icontains=search_query)
         ).distinct()
 
-    # Set up pagination with 9 courses per page
-    paginator = Paginator(courses_list, 6)
+    # Get a set of all courses the current user is enrolled in for quick lookups
+    enrolled_course_ids = set(Enrollment.objects.filter(student=request.user).values_list('course__id', flat=True))
+
+    # Prepare a new list of course objects with an `is_enrolled` status
+    courses_with_status = []
+    for course in courses_list:
+        courses_with_status.append({
+            'course': course,
+            'is_enrolled': course.id in enrolled_course_ids
+        })
+
+    # Set up pagination with 6 courses per page
+    paginator = Paginator(courses_with_status, 6)
     page_number = request.GET.get('page')
 
     try:
@@ -455,7 +559,7 @@ def all_courses(request):
         # If page is not an integer, deliver first page.
         page_obj = paginator.page(1)
     except EmptyPage:
-        # If page is out of range (e.g. 9999), deliver last page of results.
+        # If page is out of range, deliver last page of results.
         page_obj = paginator.page(paginator.num_pages)
 
     context = {
@@ -463,6 +567,7 @@ def all_courses(request):
         'search_query': search_query,
     }
     return render(request, 'student/courses.html', context)
+
 
 @login_required
 @user_passes_test(is_instructor)
@@ -2097,7 +2202,7 @@ def assign_course_to_student_view(request):
 def assign_course_page_view(request):
     """
     Renders the main page for assigning courses with a list of all enrollments.
-    Includes search, pagination, and a stacked bar chart for progress per student.
+    Includes search, pagination, and a bar chart for progress per student across modules.
     """
     # Use select_related to pre-fetch 'student' and 'course' objects
     all_enrollments = Enrollment.objects.filter(
@@ -2113,57 +2218,65 @@ def assign_course_page_view(request):
             Q(course__title__icontains=search_query)
         )
 
-    # --- Data Generation for Stacked Bar Chart ---
+    # --- Data Generation for Bar Chart ---
     chart_labels = []
-    chart_datasets = {}
-    
+    chart_datasets = []
+
     def get_random_color():
         r = random.randint(0, 255)
         g = random.randint(0, 255)
         b = random.randint(0, 255)
         return f'rgba({r}, {g}, {b}, 0.8)'
-
-    unique_content_colors = {}
     
-    # Get all content items to establish the full list of labels for the chart legend
-    all_content_items = Content.objects.all().order_by('title')
-    for content in all_content_items:
-        if content.title not in unique_content_colors:
-            unique_content_colors[content.title] = get_random_color()
+    # Get a list of unique courses for which there are enrollments
+    enrolled_courses = {enrollment.course for enrollment in all_enrollments}
 
+    # Get all unique modules for these enrolled courses
+    all_modules = Module.objects.filter(
+        course__in=enrolled_courses
+    ).order_by('title').distinct()
+
+    # Create a map to store the total number of content items per module
+    module_content_counts = {
+        module.id: Content.objects.filter(lesson__module=module).count()
+        for module in all_modules
+    }
+    
+    # Populate chart labels with student names
     enrollment_list = list(all_enrollments)
     for enrollment in enrollment_list:
         student_name = enrollment.student.get_full_name() or enrollment.student.username
         chart_labels.append(student_name)
-        
-        course_content_items = Content.objects.filter(lesson__module__course=enrollment.course).order_by('title')
-        
-        for content_item in all_content_items:
-             if content_item.title not in chart_datasets:
-                chart_datasets[content_item.title] = {
-                    'label': content_item.title,
-                    'data': [0] * len(enrollment_list),
-                    'backgroundColor': unique_content_colors.get(content_item.title, 'rgba(156, 163, 175, 0.8)')
-                }
-        
-        # Populate progress for the current student
-        student_progress_data = StudentContentProgress.objects.filter(
-            student=enrollment.student,
-            content__in=course_content_items
-        )
 
-        for content_progress in student_progress_data:
-            content_title = content_progress.content.title
-            if content_title in chart_datasets:
-                student_index = chart_labels.index(student_name)
-                chart_datasets[content_title]['data'][student_index] = 100
-    
-    chart_data = {
-        'labels': chart_labels,
-        'datasets': list(chart_datasets.values())
-    }
-    
-    if not chart_data['labels']:
+    # Create a dataset for each unique module
+    for module in all_modules:
+        module_progress_data = []
+        total_content_in_module = module_content_counts.get(module.id, 0)
+        
+        # Calculate progress for each student for the current module
+        for enrollment in enrollment_list:
+            student_progress_count = None  # Use None for modules not in the student's course
+            
+            # Only calculate progress if the module belongs to the student's enrolled course
+            if module.course == enrollment.course:
+                if total_content_in_module > 0:
+                    completed_content_count = StudentContentProgress.objects.filter(
+                        student=enrollment.student,
+                        content__lesson__module=module
+                    ).count()
+                    student_progress_count = (completed_content_count / total_content_in_module) * 100
+                else:
+                    student_progress_count = 0
+            
+            module_progress_data.append(round(student_progress_count, 2) if student_progress_count is not None else None)
+
+        chart_datasets.append({
+            'label': module.title,
+            'data': module_progress_data,
+            'backgroundColor': get_random_color(),
+        })
+
+    if not chart_labels:
         chart_data = {
             'labels': ['No Students'],
             'datasets': [{
@@ -2172,7 +2285,12 @@ def assign_course_page_view(request):
                 'backgroundColor': ['#9CA3AF']
             }]
         }
-
+    else:
+        chart_data = {
+            'labels': chart_labels,
+            'datasets': chart_datasets
+        }
+    
     paginator = Paginator(all_enrollments, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)

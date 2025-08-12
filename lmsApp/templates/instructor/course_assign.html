@@ -19,10 +19,9 @@
         </button>
     </div>
 
-    <!-- Search and Statistics Section -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <!-- Search Form -->
-        <div class="col-span-1 md:col-span-2">
+    <!-- Search Form -->
+    <div class="grid grid-cols-1 mb-8">
+        <div class="col-span-1">
             <form method="GET" action="." class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
                 <div class="relative w-full">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -38,18 +37,9 @@
                 </button>
             </form>
         </div>
-
-        <!-- Stacked Bar Chart -->
-        <div class="col-span-1 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h3 class="text-xl font-semibold text-gray-800 mb-2">Student Progress by Module</h3>
-            <div class="w-full h-48 flex items-center justify-center">
-                <canvas id="enrollment-chart"></canvas>
-            </div>
-        </div>
     </div>
     
     <!-- Enrollment Cards Grid (Responsive) -->
-    <!-- The grid adjusts based on screen size: 1 column on mobile, 2 on medium screens, 3 on large screens -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for enrollment in page_obj %}
         <div class="bg-gray-50 rounded-lg shadow-md hover:shadow-lg transition duration-300 overflow-hidden">
@@ -119,6 +109,14 @@
     </nav>
     {% endif %}
 
+    <!-- Student Progress Bar Chart Section -->
+    <div class="mt-12 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Student Progress by Module</h3>
+        <div class="w-full h-80 flex items-center justify-center">
+            <canvas id="enrollment-chart"></canvas>
+        </div>
+    </div>
+
     <div class="mt-8 text-center">
         <a href="{% url 'dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
             <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
@@ -127,8 +125,6 @@
 </div>
 
 <!-- MODAL HTML STRUCTURES -->
-
-<!-- Modal for the Assign Course Form -->
 <div id="assign-modal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-50 hidden items-center justify-center">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
         <div class="flex items-center justify-between p-4 border-b">
@@ -143,7 +139,6 @@
     </div>
 </div>
 
-<!-- Modal for alerts and messages (REPLACES alert()) -->
 <div id="message-modal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-50 hidden items-center justify-center">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4">
         <div class="p-6 text-center">
@@ -155,7 +150,6 @@
     </div>
 </div>
 
-<!-- This is the corrected way to pass JSON data from Django to JavaScript -->
 {{ chart_data|json_script:"chart_data" }}
 
 {% endblock %}
@@ -164,11 +158,8 @@
 {{ block.super }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
 <script>
-    // --- Chart.js Initialization ---
     window.addEventListener('DOMContentLoaded', function () {
-        // Correctly parse JSON from the script tag
         const chartData = JSON.parse(document.getElementById('chart_data').textContent);
-
         const ctx = document.getElementById('enrollment-chart').getContext('2d');
 
         new Chart(ctx, {
@@ -179,34 +170,35 @@
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // Ensures the chart fills its container
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
                         position: 'bottom',
                     },
                     title: {
                         display: false,
-                        text: 'Student Progress by Module'
                     }
                 },
                 scales: {
                     x: {
-                        stacked: true,
                         ticks: {
                             maxRotation: 45,
                             minRotation: 45
                         }
                     },
                     y: {
-                        stacked: true,
                         beginAtZero: true,
-                        max: 100
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Progress (%)'
+                        }
                     }
                 }
             }
         });
 
-        // --- Modal Logic for Forms and Messages ---
+        // --- Modal Logic for Forms and Messages (remains unchanged) ---
         const assignModal = document.getElementById('assign-modal');
         const modalTitle = document.getElementById('modal-title');
         const modalBody = document.getElementById('modal-body');
@@ -220,7 +212,6 @@
         const messageIcon = document.getElementById('message-icon');
         const closeMessageBtn = document.getElementById('close-message-btn');
 
-        // Function to show a general message modal
         function showMessageModal(title, message, isSuccess = true) {
             messageTitle.textContent = title;
             messageBody.textContent = message;
@@ -232,13 +223,11 @@
             messageModal.classList.add('flex');
         }
 
-        // Function to close the general message modal
         function closeMessageModal() {
             messageModal.classList.add('hidden');
             messageModal.classList.remove('flex');
         }
 
-        // Function to close the assign form modal
         function closeAssignModal() {
             assignModal.classList.add('hidden');
             assignModal.classList.remove('flex');
@@ -294,13 +283,11 @@
                         if (data.success) {
                             closeAssignModal();
                             showMessageModal('Success!', data.message);
-                            // Reload the page after a successful submission
                             setTimeout(() => { window.location.reload(); }, 1500); 
                         } else {
-                            // If form validation fails, the server sends back the form HTML with errors
                             if (data.form_html) {
                                 modalBody.innerHTML = data.form_html;
-                                attachFormSubmissionHandler(); // Re-attach handler to the new form
+                                attachFormSubmissionHandler();
                             }
                             showMessageModal('Error', data.message, false);
                             submitButton.disabled = false;
