@@ -50,7 +50,7 @@
             </div>
 
             <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                <i class="fas fa-cogs mr-3 text-purple-600"></i> Course Management & Analytics
+                <i class="fas fa-cogs mr-3 text-purple-600"></i> Course Analytics
             </h3>
             
             {% if courses_with_analytics %}
@@ -80,19 +80,6 @@
                             </div>
                         </div>
 
-                        <div class="bg-gray-100 p-4 rounded-lg">
-                            <p class="text-md font-medium text-gray-800 mb-2">Enrollment Trends (Last 6 Months)</p>
-                            {% if course_data.enrollment_trends.labels|length > 0 %}
-                                <canvas id="enrollmentChart-{{ course_data.course.id }}" class="w-full"
-                                        data-labels='{{ course_data.enrollment_trends.labels|safe }}'
-                                        data-data='{{ course_data.enrollment_trends.data|safe }}'>
-                                </canvas>
-                            {% else %}
-                                <div class="text-center text-gray-500 py-8">
-                                    No enrollment data for the last 6 months.
-                                </div>
-                            {% endif %}
-                        </div>
                     </div>
                 {% endfor %}
                 </div>
@@ -300,6 +287,4 @@
         {% endif %}
     </div>
 </div>
-
 {% endblock %}
-

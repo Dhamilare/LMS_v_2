@@ -207,6 +207,7 @@ def user_logout(request):
     messages.info(request, "You have been logged out.")
     return redirect('login')
 
+
 @login_required
 def dashboard(request):
     """
@@ -232,8 +233,7 @@ def dashboard(request):
             .values('avg_score'),
             output_field=models.DecimalField()
         )
-        
-        # New query to get the total number of all enrollments
+
         total_platform_enrollments = Enrollment.objects.count()
 
         # Main annotated query to get course stats, ordered by popularity
@@ -257,37 +257,33 @@ def dashboard(request):
 
         # Build analytics per course for the paginated list
         courses_with_analytics = []
-        six_months_ago = timezone.now() - timedelta(days=180)
+
         for course in courses_page_obj:
-            completion_rate = (
-                course.completed_enrollments / course.total_enrollments * 100
-                if course.total_enrollments > 0 else 0
-            )
+            try:
+                completion_rate = (
+                    course.completed_enrollments / course.total_enrollments * 100
+                    if course.total_enrollments > 0 else 0
+                )
 
-        # Enrollment trends (last 6 months)
-            enrollment_trends = (
-                Enrollment.objects.filter(course=course, enrolled_at__gte=six_months_ago)
-                .annotate(month=TruncMonth('enrolled_at'))
-                .values('month')
-                .annotate(count=Count('id'))
-                .order_by('month')[:6]
-            )
-            trend_labels = [entry['month'].strftime('%b %Y') for entry in enrollment_trends]
-            trend_data = [entry['count'] for entry in enrollment_trends]
+                courses_with_analytics.append({
+                    'course': course,
+                    'total_enrollments': course.total_enrollments,
+                    'completion_rate': round(completion_rate, 2),
+                    'average_quiz_score': (
+                        round(course.average_quiz_score, 2)
+                        if course.average_quiz_score is not None else 'N/A'
+                    ),
+                })
+            except Exception as e:
+                # Log the error and skip this course to prevent a page crash
+                print(f"Error processing analytics for course ID {course.id}: {e}")
+                courses_with_analytics.append({
+                    'course': course,
+                    'total_enrollments': 'N/A',
+                    'completion_rate': 'N/A',
+                    'average_quiz_score': 'N/A',
+                })
 
-            courses_with_analytics.append({
-                'course': course,
-                'total_enrollments': course.total_enrollments,
-                'completion_rate': round(completion_rate, 2),
-                'average_quiz_score': (
-                    round(course.average_quiz_score, 2)
-                    if course.average_quiz_score is not None else 'N/A'
-                ),
-                'enrollment_trends': {
-                    'labels': mark_safe(json.dumps(trend_labels)),
-                    'data': mark_safe(json.dumps(trend_data)),
-                },
-            })
 
         # Global metric: Top 5 courses by average quiz score
         performance_insights = (
@@ -298,7 +294,7 @@ def dashboard(request):
         )
 
         context.update({
-            'total_platform_enrollments': total_platform_enrollments, # New context variable
+            'total_platform_enrollments': total_platform_enrollments,
             'courses_with_analytics': courses_with_analytics,
             'courses_page_obj': courses_page_obj,
             'performance_insights': performance_insights,
@@ -350,6 +346,7 @@ def dashboard(request):
         context['available_courses'] = available_page_obj # Pass the paginated object
     
     return render(request, 'dashboard.html', context)
+
 
 
 # --- Admin Functionality ---
