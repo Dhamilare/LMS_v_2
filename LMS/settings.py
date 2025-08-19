@@ -79,15 +79,16 @@ WSGI_APPLICATION = 'LMS.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 if config('DATABASE_URL', default=None):
-    # Production
+    # Production: Use Postgres
     DATABASES = {
         'default': dj_database_url.config(
             default=config('DATABASE_URL'),
-            conn_max_age=600
+            conn_max_age=600,
+            ssl_require=True
         )
     }
 else:
-    # Development
+    # Development: Use SQLite
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -130,7 +131,6 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
