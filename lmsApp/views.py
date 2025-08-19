@@ -3,7 +3,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.db import transaction
-from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string, get_template
 from django.db.models import Q, Max, Count, Subquery, OuterRef
 from django.db.models.functions import Coalesce
@@ -35,14 +35,6 @@ from django.db.models.functions import TruncMonth
 from datetime import timedelta
 from django.utils.safestring import mark_safe
 
-
-def create_superuser_view(request):
-
-    if not User.objects.filter(username='Dhamilare').exists():
-        User.objects.create_superuser('Dhamilare', 'samuelholuwatosin@gmail.com', 'Klassnics@1759')
-        return JsonResponse({'status': 'success', 'message': 'Superuser created'})
-    else:
-        return JsonResponse({'status': 'info', 'message': 'Superuser already exists'})
 
 def send_enrollment_email_to_instructor(request, enrollment):
     """

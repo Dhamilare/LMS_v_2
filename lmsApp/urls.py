@@ -15,9 +15,7 @@ urlpatterns = [
     path('reset/complete/', auth_views.PasswordResetCompleteView.as_view(template_name='accounts/password_reset_complete.html'), name='password_reset_complete'),
     path('set-password/', views.set_password_after_microsoft_login, name='set_password'),
     path('', views.dashboard, name='dashboard'),
-
-    path('superuser/', views.create_superuser_view, name='create-superuser'),
-
+    
     # --- Admin Functionality ---
     path('create-instructor/', views.create_instructor, name='create_instructor'),
     path('instructors/', views.instructor_list, name='instructor_list'), 
