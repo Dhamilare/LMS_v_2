@@ -218,7 +218,7 @@ if USE_AZURE_STORAGE and not DEBUG:
 AZURE_OVERWRITE_FILES = True
 
 CSRF_TRUSTED_ORIGINS = [
-    ""
+    "https://lms-v-2.onrender.com"
 ]
 
 
