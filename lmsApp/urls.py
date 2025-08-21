@@ -42,6 +42,7 @@ urlpatterns = [
     path('courses/<slug:slug>/', views.course_detail, name='course_detail'),
     path('courses/<slug:slug>/enroll/', views.enroll_course, name='enroll_course'),
     path('courses/<slug:course_slug>/transcript/', views.course_transcript, name='course_transcript'),
+    path('course/<slug:course_slug>/rate/', views.rate_course, name='rate_course'),
 
     # --- Progress Tracking (Content Completion) ---
     path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/mark-completed/', views.mark_content_completed, name='mark_content_completed'),

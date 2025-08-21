@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
+from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string, get_template
@@ -751,6 +752,12 @@ def course_detail(request, slug):
                 passed=True
             ).exists()
 
+    average_rating = Rating.objects.filter(course=course).aggregate(Avg('rating'))['rating__avg']
+    total_ratings = Rating.objects.filter(course=course).count()
+    user_rating = None
+    if request.user.is_student and is_enrolled:
+        user_rating = Rating.objects.filter(user=request.user, course=course).first()
+
     context = {
         'course': course,
         'modules': modules_data,
@@ -758,9 +765,40 @@ def course_detail(request, slug):
         'enrollment': enrollment,
         'course_quiz': course_quiz,
         'has_passed_final_quiz': has_passed_final_quiz,
+        'average_rating': average_rating,
+        'total_ratings': total_ratings,
+        'user_rating': user_rating,
     }
     return render(request, 'course_detail.html', context)
 
+
+
+@login_required
+@require_POST
+def rate_course(request, course_slug):
+    course = get_object_or_404(Course, slug=course_slug)
+    rating_value = request.POST.get('rating')
+    review_text = request.POST.get('review')
+
+    if not request.user.is_student:
+        messages.error(request, "Only students can rate courses.")
+        return redirect('course_detail', slug=course_slug)
+
+    if not Enrollment.objects.filter(student=request.user, course=course).exists():
+        messages.error(request, "You must be enrolled to rate this course.")
+        return redirect('course_detail', slug=course_slug)
+
+    if rating_value and review_text:
+        rating, created = Rating.objects.update_or_create(
+            user=request.user,
+            course=course,
+            defaults={'rating': rating_value, 'review': review_text}
+        )
+        messages.success(request, "Your rating has been submitted successfully!")
+    else:
+        messages.error(request, "Invalid rating or review.")
+
+    return redirect('course_detail', slug=course_slug)
 
 @login_required
 @user_passes_test(is_instructor)
@@ -1957,7 +1995,6 @@ def quiz_assign_to_course(request, quiz_id): # Renamed view
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return render(request, 'instructor/quiz_assign_form.html', context)
     return render(request, 'instructor/quiz_assign_form.html', context) # Fallback
-
 
 
 @user_passes_test(is_instructor)

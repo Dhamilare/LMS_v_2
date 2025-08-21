@@ -126,3 +126,10 @@ class CertificateAdmin(admin.ModelAdmin):
     search_fields = ('student__username', 'course__title', 'certificate_id')
     raw_id_fields = ('student', 'course')
 
+@admin.register(Rating)
+class RatingAdmin(admin.ModelAdmin):
+    list_display = ('course', 'user', 'rating', 'created_at')
+    list_filter = ('rating', 'course', 'user')
+    search_fields = ('course__title', 'user__username', 'review')
+    raw_id_fields = ('course', 'user')
+

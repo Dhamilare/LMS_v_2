@@ -50,7 +50,7 @@
         <img src="{{ course.thumbnail|default:'https://placehold.co/800x450/E0E7FF/4338CA?text=Course+Thumbnail' }}" alt="{{ course.title }} Thumbnail" class="w-full md:max-w-2xl mx-auto h-auto rounded-lg shadow-md object-cover">
     </div>
 
-    <h3 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+    <h3 class="text-2xl font-bold text-gray-800 mb-4 mt-8 flex items-center">
         <i class="fas fa-list-alt mr-3 text-indigo-600"></i> Course Content
         {% if request.user.is_instructor and course.instructor == request.user %}
             <button onclick="loadModalForm('{% url 'module_create' course_slug=course.slug %}')" class="ml-4 bg-indigo-500 text-white text-sm py-1 px-3 rounded-md hover:bg-indigo-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
@@ -205,6 +205,120 @@
                 </button>
             </div>
         {% endif %}
+    {% endif %}
+
+    {% if request.user.is_student and is_enrolled %}
+    <div class="mt-8">
+        <h5 class="text-2xl font-bold text-gray-800 mb-2 flex items-center"><i class="fas fa-star mr-3 text-yellow-500"></i>Ratings & Reviews</h5>
+         
+        <div class="flex items-center mb-4">
+            <span class="text-4xl font-bold text-gray-800 mr-2">{{ course.average_rating|floatformat:1 }}</span>
+            <div class="flex text-yellow-400 text-2xl">
+                {% for i in "12345"|make_list %}
+                    {% if forloop.counter <= course.average_rating %}
+                        <i class="fas fa-star"></i>
+                    {% elif forloop.counter|add:"-1" < course.average_rating and forloop.counter > course.average_rating %}
+                        <i class="fas fa-star-half-alt"></i>
+                    {% else %}
+                        <i class="far fa-star"></i>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <span class="ml-2 text-gray-500 text-sm">({{ course.total_ratings }}ratings)</span>
+        </div>
+
+        {% if user_rating %}
+            <div class="bg-indigo-50 p-6 rounded-lg border border-indigo-200">
+                <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
+                    Your Review
+                    <div class="flex text-yellow-400 text-xl ml-4">
+                        {% for i in "12345"|make_list %}
+                            {% if forloop.counter <= user_rating.rating %}
+                                <i class="fas fa-star"></i>
+                            {% else %}
+                                <i class="far fa-star"></i>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </h4>
+                <p class="text-gray-600 italic">"{{ user_rating.review }}"</p>
+                <p class="text-gray-500 text-xs mt-2">Submitted on {{ user_rating.created_at|date:"F j, Y" }}</p>
+            </div>
+        {% else %}
+            <div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                <h4 class="text-lg font-semibold text-gray-700 mb-4">Leave a Rating and Review</h4>
+                <form method="post" action="{% url 'rate_course' course_slug=course.slug %}">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Your Rating:</label>
+                        {# Updated this div to use flex-row-reverse for correct LTR rating behavior #}
+                        <div class="star-rating">
+                            <style>
+                                .star-rating {
+                                    display: flex;
+                                    direction: ltr; /* Ensure left-to-right flow */
+                                    font-size: 2rem;
+                                    color: #fbbf24; /* Tailwind yellow-400 */
+                                    gap: 0.25rem; /* Tailwind space-x-1 */
+                                }
+                                .star-rating input[type="radio"] {
+                                    display: none;
+                                }
+                                .star-rating label {
+                                    cursor: pointer;
+                                    /* This will create the hover effect */
+                                    transition: transform 0.2s ease-in-out;
+                                }
+                                .star-rating label:hover,
+                                .star-rating label:hover ~ label {
+                                    transform: scale(1.1); /* Slight zoom on hover */
+                                }
+                                /* Hide solid stars by default for hover effect */
+                                .star-rating .fas {
+                                    display: none;
+                                }
+                                /* Show solid stars when hovering over a label */
+                                .star-rating label:hover .fas,
+                                .star-rating label:hover ~ label .fas {
+                                    display: inline-block;
+                                }
+                                /* Hide outline stars when hovering */
+                                .star-rating label:hover .far,
+                                .star-rating label:hover ~ label .far {
+                                    display: none;
+                                }
+                                /* Checked state */
+                                .star-rating input:checked ~ label .fas,
+                                .star-rating input:checked ~ label .far {
+                                    display: inline-block;
+                                }
+                                .star-rating input:checked ~ label .fas {
+                                    display: inline-block;
+                                }
+                                .star-rating input:checked ~ label .far {
+                                    display: none;
+                                }
+                            </style>
+                            {% for i in "12345"|make_list %}
+                                <input type="radio" id="rating-{{ i }}" name="rating" value="{{ i }}">
+                                <label for="rating-{{ i }}">
+                                    <i class="fas fa-star"></i>
+                                    <i class="far fa-star"></i>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="review" class="block text-gray-700 text-sm font-bold mb-2">Your Review:</label>
+                        <textarea name="review" id="review" rows="4" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-indigo-500" placeholder="Share your thoughts on the course..." required></textarea>
+                    </div>
+                    <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+                        <i class="fas fa-paper-plane mr-2"></i> Submit Rating
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
     {% endif %}
 
     {% if request.user.is_student and is_enrolled %}

@@ -604,6 +604,29 @@ class SingleQuestionForm(forms.Form):
         )
 
 
+class RatingForm(forms.ModelForm):
+    """
+    A form for students to submit a course rating and review.
+    """
+    rating = forms.IntegerField(
+        widget=forms.HiddenInput(),
+        required=True,
+        min_value=1,
+        max_value=5
+    )
+    review = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Write your review here (optional)...',
+            'rows': 4,
+            'class': 'w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-shadow'
+        }),
+        required=False
+    )
+
+    class Meta:
+        model = Rating
+        fields = ['rating', 'review']
+
         
 class GroupPermissionForm(forms.ModelForm):
     """

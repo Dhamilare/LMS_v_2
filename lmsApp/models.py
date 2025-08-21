@@ -4,7 +4,8 @@ from django.utils import timezone
 from django.utils.text import slugify
 import uuid
 from django.urls import reverse
-from django.db.models import Sum, F, Count
+from django.db.models import Sum
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class User(AbstractUser):
     """
@@ -470,3 +471,24 @@ class Certificate(models.Model):
     
     def get_absolute_url(self):
         return reverse('view_certificate', kwargs={'certificate_id': self.certificate_id})
+
+class Rating(models.Model):
+    """
+    Model to store course ratings and reviews.
+    """
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='ratings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='course_ratings')
+    rating = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="A rating from 1 to 5 stars."
+    )
+    review = models.TextField(blank=True, null=True, help_text="Optional review text.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Ensures a user can only submit one rating per course.
+        unique_together = ('user', 'course')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Rating for {self.course.title} by {self.user.username}'
