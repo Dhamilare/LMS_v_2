@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string, get_template
-from django.db.models import Q, Max, Count, Subquery, OuterRef
+from django.db.models import Q, Max, Count, Subquery, OuterRef, DecimalField
 from django.db.models.functions import Coalesce
 from django.urls import reverse
 from .forms import *
@@ -235,6 +235,16 @@ def dashboard(request):
             output_field=models.DecimalField()
         )
 
+        avg_rating_subquery = Subquery(
+            Rating.objects.filter(
+                course=OuterRef('pk')
+            ).order_by()
+            .values('course')
+            .annotate(avg_rating=Avg('rating'))
+            .values('avg_rating'),
+            output_field=models.DecimalField()
+        )
+
         total_platform_enrollments = Enrollment.objects.count()
 
         # Main annotated query to get course stats, ordered by popularity
@@ -245,7 +255,8 @@ def dashboard(request):
                 filter=Q(enrollments__completed=True),
                 distinct=True
             ),
-            average_quiz_score=avg_score_subquery
+            average_quiz_score=avg_score_subquery,
+            average_rating=avg_rating_subquery
         ).order_by('-total_enrollments', 'title')
 
         # Pagination for the course list
@@ -274,6 +285,11 @@ def dashboard(request):
                         round(course.average_quiz_score, 2)
                         if course.average_quiz_score is not None else 'N/A'
                     ),
+
+                    'average_rating': (
+                        round(course.average_rating, 2)
+                        if course.average_rating is not None else 'N/A'
+                    ),
                 })
             except Exception as e:
                 # Log the error and skip this course to prevent a page crash
@@ -283,6 +299,7 @@ def dashboard(request):
                     'total_enrollments': 'N/A',
                     'completion_rate': 'N/A',
                     'average_quiz_score': 'N/A',
+                    'average_rating': 'N/A',
                 })
 
 
@@ -309,7 +326,15 @@ def dashboard(request):
 
     # --- STUDENT DASHBOARD LOGIC ---
     elif user.is_student:
-        enrolled_courses_list = Enrollment.objects.filter(student=user).select_related('course').order_by('-enrolled_at')
+
+        avg_rating_subquery = Subquery(
+            Rating.objects.filter(
+                course=OuterRef('course__pk')  # Links the subquery to the main queryset
+            ).values('course').annotate(avg_rating=Avg('rating')).values('avg_rating'),
+            output_field=DecimalField()
+        )
+
+        enrolled_courses_list = Enrollment.objects.filter(student=user).select_related('course').annotate(average_rating=avg_rating_subquery).order_by('-enrolled_at')
         
         # Apply pagination for enrolled courses
         enrolled_paginator = Paginator(enrolled_courses_list, 3) # 6 items per page
@@ -525,7 +550,7 @@ def all_courses(request):
     search_query = request.GET.get('q', '')
 
     # Start with all published courses
-    courses_list = Course.objects.filter(is_published=True).order_by('title')
+    courses_list = Course.objects.filter(is_published=True).annotate(average_rating=Avg('ratings__rating')).order_by('title')
 
     # Apply comprehensive search if a query exists
     if search_query:
@@ -539,12 +564,19 @@ def all_courses(request):
     # Get a set of all courses the current user is enrolled in for quick lookups
     enrolled_course_ids = set(Enrollment.objects.filter(student=request.user).values_list('course__id', flat=True))
 
+    completed_course_slugs = set(Enrollment.objects.filter(
+        student=request.user, 
+        completed=True
+    ).values_list('course__slug', flat=True))
+
     # Prepare a new list of course objects with an `is_enrolled` status
     courses_with_status = []
     for course in courses_list:
         courses_with_status.append({
             'course': course,
-            'is_enrolled': course.id in enrolled_course_ids
+            'is_enrolled': course.id in enrolled_course_ids,
+            'is_completed': course.slug in completed_course_slugs,
+            'average_rating': course.average_rating
         })
 
     # Set up pagination with 6 courses per page

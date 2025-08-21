@@ -1,5 +1,6 @@
 from django import template
 from django.utils.html import format_html
+import math
 
 register = template.Library()
 
@@ -49,3 +50,11 @@ def star_rating(value):
         html_output += '<i class="far fa-star text-gray-300"></i>'
 
     return format_html(html_output)
+
+@register.filter
+def round_up(value):
+    return math.ceil(value)
+
+@register.filter
+def round_down(value):
+    return math.floor(value)

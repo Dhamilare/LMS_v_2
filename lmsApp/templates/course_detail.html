@@ -251,63 +251,15 @@
                     {% csrf_token %}
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-bold mb-2">Your Rating:</label>
-                        {# Updated this div to use flex-row-reverse for correct LTR rating behavior #}
-                        <div class="star-rating">
-                            <style>
-                                .star-rating {
-                                    display: flex;
-                                    direction: ltr; /* Ensure left-to-right flow */
-                                    font-size: 2rem;
-                                    color: #fbbf24; /* Tailwind yellow-400 */
-                                    gap: 0.25rem; /* Tailwind space-x-1 */
-                                }
-                                .star-rating input[type="radio"] {
-                                    display: none;
-                                }
-                                .star-rating label {
-                                    cursor: pointer;
-                                    /* This will create the hover effect */
-                                    transition: transform 0.2s ease-in-out;
-                                }
-                                .star-rating label:hover,
-                                .star-rating label:hover ~ label {
-                                    transform: scale(1.1); /* Slight zoom on hover */
-                                }
-                                /* Hide solid stars by default for hover effect */
-                                .star-rating .fas {
-                                    display: none;
-                                }
-                                /* Show solid stars when hovering over a label */
-                                .star-rating label:hover .fas,
-                                .star-rating label:hover ~ label .fas {
-                                    display: inline-block;
-                                }
-                                /* Hide outline stars when hovering */
-                                .star-rating label:hover .far,
-                                .star-rating label:hover ~ label .far {
-                                    display: none;
-                                }
-                                /* Checked state */
-                                .star-rating input:checked ~ label .fas,
-                                .star-rating input:checked ~ label .far {
-                                    display: inline-block;
-                                }
-                                .star-rating input:checked ~ label .fas {
-                                    display: inline-block;
-                                }
-                                .star-rating input:checked ~ label .far {
-                                    display: none;
-                                }
-                            </style>
+
+                        <div class="star-rating" style="display: flex; gap: 0.25rem; font-size: 2rem; color: #fbbf24;">
                             {% for i in "12345"|make_list %}
-                                <input type="radio" id="rating-{{ i }}" name="rating" value="{{ i }}">
-                                <label for="rating-{{ i }}">
-                                    <i class="fas fa-star"></i>
-                                    <i class="far fa-star"></i>
-                                </label>
+                            <i class="far fa-star" data-value="{{ i }}" style="cursor: pointer;"></i>
                             {% endfor %}
+                            <input type="hidden" name="rating" id="rating-value" value="0">
                         </div>
                     </div>
+
                     <div class="mb-4">
                         <label for="review" class="block text-gray-700 text-sm font-bold mb-2">Your Review:</label>
                         <textarea name="review" id="review" rows="4" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-indigo-500" placeholder="Share your thoughts on the course..." required></textarea>
@@ -624,5 +576,45 @@
     function enrollCourse(url) {
         showConfirmationModal(url, 'Enroll in Course', 'Are you sure you want to enroll in this course?');
     }
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+    const stars = document.querySelectorAll('.star-rating i');
+    const ratingInput = document.getElementById('rating-value');
+    let selectedRating = 0;
+
+    stars.forEach(star => {
+        // Hover effect
+        star.addEventListener('mouseenter', () => {
+        const value = parseInt(star.getAttribute('data-value'));
+        highlightStars(value);
+        });
+
+        // Reset hover when leaving container
+        star.parentElement.addEventListener('mouseleave', () => {
+        highlightStars(selectedRating);
+        });
+
+        // Click to select rating
+        star.addEventListener('click', () => {
+        selectedRating = parseInt(star.getAttribute('data-value'));
+        ratingInput.value = selectedRating;
+        highlightStars(selectedRating);
+        });
+    });
+
+    function highlightStars(count) {
+        stars.forEach(star => {
+        if (parseInt(star.getAttribute('data-value')) <= count) {
+            star.classList.remove('far'); // Outline star
+            star.classList.add('fas');    // Solid star
+        } else {
+            star.classList.remove('fas');
+            star.classList.add('far');
+        }
+        });
+    }
+    });
+
 </script>
 {% endblock %}
