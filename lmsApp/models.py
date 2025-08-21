@@ -60,6 +60,17 @@ class Course(models.Model):
 
     def get_absolute_url(self):
         return reverse('course_detail', kwargs={'slug': self.slug})
+    
+    def update_duration(self):
+        """
+        Recalculates and updates the total course duration.
+        """
+        total_duration = self.modules.aggregate(
+            total_duration=Sum('lessons__contents__duration')
+        )['total_duration'] or 0
+
+        self.duration = total_duration
+        self.save(update_fields=['duration'])
 
 class Module(models.Model):
     """
@@ -152,7 +163,7 @@ class Content(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     duration = models.PositiveIntegerField(
         default=0, 
-        help_text="Total estimated duration of the course in minutes."
+        help_text="Total estimated duration of the content in minutes."
     )
 
     def __str__(self):
@@ -174,6 +185,16 @@ class Content(models.Model):
             content=self,
             completed=True
         ).exists()
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.lesson and self.lesson.module and self.lesson.module.course:
+            self.lesson.module.course.update_duration()
+
+    def delete(self, *args, **kwargs):
+        course = self.lesson.module.course
+        super().delete(*args, **kwargs)
+        course.update_duration()
 
 class Enrollment(models.Model):
     """

@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load course_extras %} 
 
 {% block title %}Manage My Courses{% endblock %}
 
@@ -19,8 +20,8 @@
         <form action="{% url 'course_list' %}" method="get" class="max-w-2xl mx-auto mb-10">
             <div class="flex items-stretch space-x-2 bg-white rounded-full shadow-lg border border-gray-200 p-2">
                 <input type="text" name="q" placeholder="Search your courses by title or description..."
-                       value="{{ search_query|default:'' }}"
-                       class="flex-grow p-3 bg-transparent border-none focus:ring-0 focus:outline-none text-gray-700 placeholder-gray-400 text-sm sm:text-base">
+                        value="{{ search_query|default:'' }}"
+                        class="flex-grow p-3 bg-transparent border-none focus:ring-0 focus:outline-none text-gray-700 placeholder-gray-400 text-sm sm:text-base">
                 <button type="submit" class="bg-indigo-600 text-white p-3 rounded-full hover:bg-indigo-700 transition duration-300 transform hover:scale-105 shadow-md">
                     <i class="fas fa-search"></i>
                 </button>
@@ -53,10 +54,10 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {% for course in page_obj %}
                     <a href="{% url 'course_detail' slug=course.slug %}" 
-                       class="block bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 transform hover:scale-105 transition duration-300 ease-in-out">
+                        class="block bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 transform hover:scale-105 transition duration-300 ease-in-out">
                         <img src="{{ course.thumbnail|default:'https://placehold.co/600x400/F0F4FF/4F46E5?text=Course+Thumbnail' }}" 
-                             alt="{{ course.title }} Thumbnail" 
-                             class="w-full h-48 object-cover">
+                                alt="{{ course.title }} Thumbnail" 
+                                class="w-full h-48 object-cover">
                         <div class="p-6">
                             <h3 class="text-xl font-bold text-gray-900 mb-2 truncate">{{ course.title }}</h3>
                             <p class="text-gray-500 text-sm mb-4 line-clamp-2">{{ course.description }}</p>
@@ -69,10 +70,15 @@
                                     <i class="fas fa-tag text-purple-500 mr-2"></i>
                                     <span>Price: {% if course.price %}{{ course.price }}{% else %}Free{% endif %}</span>
                                 </div>
-                                <!-- NEW: Display the number of enrolled students -->
+                                <!-- Display the number of enrolled students -->
                                 <div class="flex items-center font-semibold text-gray-600">
                                     <i class="fas fa-user-friends text-green-500 mr-2"></i>
                                     <span>{{ course.total_enrollments }} Students Enrolled</span>
+                                </div>
+                                <!-- Display the course duration with the new filter -->
+                                <div class="flex items-center font-semibold text-gray-600">
+                                    <i class="fas fa-clock text-blue-500 mr-2"></i>
+                                    <span>{{ course.duration|format_duration }}</span>
                                 </div>
                             </div>
                             <span class="px-3 py-1 text-xs font-semibold rounded-full flex items-center w-fit
@@ -94,7 +100,7 @@
                 <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                     {% if page_obj.has_previous %}
                         <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" 
-                           class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                             <span class="sr-only">Previous</span>
                             <i class="fas fa-chevron-left"></i>
                         </a>
@@ -108,12 +114,12 @@
                     {% for i in page_obj.paginator.page_range %}
                         {% if page_obj.number == i %}
                             <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}" aria-current="page"
-                               class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-indigo-600 text-white text-sm font-semibold">
+                                class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-indigo-600 text-white text-sm font-semibold">
                                 {{ i }}
                             </a>
                         {% else %}
                             <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}"
-                               class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
                                 {{ i }}
                             </a>
                         {% endif %}
@@ -121,7 +127,7 @@
 
                     {% if page_obj.has_next %}
                         <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}"
-                           class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                             <span class="sr-only">Next</span>
                             <i class="fas fa-chevron-right"></i>
                         </a>
