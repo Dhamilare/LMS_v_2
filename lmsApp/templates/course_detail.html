@@ -63,7 +63,7 @@
             {% for module in modules %}
                 {# Module Card #}
                 <div class="bg-gray-50 p-6 rounded-lg shadow-md border border-gray-200
-                             {% if module.is_accessible %}transform hover:scale-105 transition duration-300 ease-in-out{% else %}opacity-70 cursor-not-allowed{% endif %}">
+                             {% if not module.is_accessible %}opacity-70 cursor-not-allowed{% endif %}">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-3">
                         <h4 class="text-xl font-semibold text-gray-700 flex items-center mb-2 md:mb-0">
                             {% if module.is_accessible %}
@@ -189,7 +189,7 @@
                     {% else %}
                         <div class="text-center py-4 text-gray-500">
                             <i class="fas fa-lock fa-2x mb-2"></i>
-                            <p class="font-semibold">Complete the previous module to unlock this one.</p>
+                            <!-- <p class="font-semibold">Complete the previous module to unlock this one.</p> -->
                         </div>
                     {% endif %}
                 </div>
@@ -210,21 +210,21 @@
     {% if request.user.is_student and is_enrolled %}
     <div class="mt-8">
         <h5 class="text-2xl font-bold text-gray-800 mb-2 flex items-center"><i class="fas fa-star mr-3 text-yellow-500"></i>Ratings & Reviews</h5>
-         
+          
         <div class="flex items-center mb-4">
-            <span class="text-4xl font-bold text-gray-800 mr-2">{{ course.average_rating|floatformat:1 }}</span>
+            <span class="text-4xl font-bold text-gray-800 mr-2">{{ average_rating|floatformat:1 }}</span>
             <div class="flex text-yellow-400 text-2xl">
                 {% for i in "12345"|make_list %}
-                    {% if forloop.counter <= course.average_rating %}
+                    {% if forloop.counter <= average_rating %}
                         <i class="fas fa-star"></i>
-                    {% elif forloop.counter|add:"-1" < course.average_rating and forloop.counter > course.average_rating %}
+                    {% elif forloop.counter|add:"-1" < average_rating and forloop.counter > average_rating %}
                         <i class="fas fa-star-half-alt"></i>
                     {% else %}
                         <i class="far fa-star"></i>
                     {% endif %}
                 {% endfor %}
             </div>
-            <span class="ml-2 text-gray-500 text-sm">({{ course.total_ratings }}ratings)</span>
+            <span class="ml-2 text-gray-500 text-sm">({{ total_ratings }} ratings)</span>
         </div>
 
         {% if user_rating %}

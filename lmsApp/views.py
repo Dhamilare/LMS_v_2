@@ -710,22 +710,29 @@ def course_detail(request, slug):
     )
 
     modules_data = []
+    
+    # This flag tracks if the *previous* module was completed.
+    # It starts as True so the first module is always accessible.
     previous_module_completed = True 
 
     for module in modules_queryset:
         module_accessible = False
+        
         if request.user.is_instructor and course.instructor == request.user:
             module_accessible = True
         elif request.user.is_staff:
             module_accessible = True
         elif request.user.is_student and is_enrolled:
-            if module.order == 1 or previous_module_completed:
+            # For students, a module is accessible if the previous one was completed.
+            if previous_module_completed:
                 module_accessible = True
-            
-        current_module_is_completed = False
-        if request.user.is_student and is_enrolled:
-            current_module_is_completed = module.is_completed_by_student(request.user)
         
+        # Check if the current module is completed by the student.
+        # This only makes sense if the module is accessible to the student.
+        current_module_is_completed = False
+        if request.user.is_student and is_enrolled and module_accessible:
+            current_module_is_completed = module.is_completed_by_student(request.user)
+            
         lessons_data = []
         for lesson in module.lessons.all():
             contents_data = []
@@ -739,10 +746,6 @@ def course_detail(request, slug):
                     'title': content_item.title,
                     'content_type': content_item.content_type,
                     'is_completed': content_is_completed,
-                    'file': content_item.file,
-                    'text_content': content_item.text_content,
-                    'video_url': content_item.video_url,
-                    'order': content_item.order,
                     'get_content_type_display': content_item.get_content_type_display,
                 })
             
@@ -768,10 +771,10 @@ def course_detail(request, slug):
             'is_accessible': module_accessible,
             'is_completed': current_module_is_completed,
         })
+        
+        # After processing the current module, update the flag for the next one.
+        previous_module_completed = current_module_is_completed
 
-        if request.user.is_student and is_enrolled:
-            previous_module_completed = current_module_is_completed
-    
     # Check for a passing final quiz attempt
     has_passed_final_quiz = False
     course_quiz = None
