@@ -17,7 +17,7 @@
                     <i class="fas fa-chart-bar mr-3 text-green-600"></i> Platform Analytics Overview
                 </h3>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div class="bg-indigo-50 p-6 rounded-lg shadow-sm border border-indigo-200 flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-indigo-600">Total Courses</p>
@@ -32,8 +32,19 @@
                                 {{ total_platform_enrollments|default:0 }}
                             </p>
                         </div>
-                        <i class="fas fa-user-friends text-5xl text-green-300 opacity-75"></i>
+                        <i class="fas fa-clipboard-list text-5xl text-green-300 opacity-75"></i>
                     </div>
+                    <!-- Added Total Students Card -->
+                    <div class="bg-indigo-50 p-6 rounded-lg shadow-sm border border-indigo-200 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-indigo-600">Total Students</p>
+                            <p class="text-4xl font-bold text-indigo-900 mt-2">
+                                {{ total_students|default:0 }}
+                            </p>
+                        </div>
+                        <i class="fas fa-users text-5xl text-indigo-300 opacity-75"></i>
+                    </div>
+                    
                     <div class="bg-blue-50 p-6 rounded-lg shadow-sm border border-blue-200">
                         <p class="text-sm font-medium text-blue-600 mb-4">Top 5 Courses by Avg. Score</p>
                         <ul class="text-sm space-y-2">
@@ -65,7 +76,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                             <div class="bg-indigo-50 p-4 rounded-lg text-center">
                                 <p class="text-xs font-medium text-indigo-600">Enrollments</p>
                                 <p class="text-2xl font-bold text-indigo-900 mt-1">{{ course_data.total_enrollments }}</p>
@@ -76,7 +87,27 @@
                             </div>
                             <div class="bg-blue-50 p-4 rounded-lg text-center">
                                 <p class="text-xs font-medium text-blue-600">Avg. Score</p>
-                                <p class="text-2xl font-bold text-blue-900 mt-1">{{ course_data.average_quiz_score }}%</p>
+                                <p class="text-2xl font-bold text-blue-900 mt-1">{{ course_data.average_quiz_score|floatformat:1 }}%</p>
+                            </div>
+                            <!-- Added Avg. Rating to admin analytics -->
+                            <div class="bg-purple-50 p-4 rounded-lg text-center">
+                                <p class="text-xs font-medium text-purple-600">Avg. Rating</p>
+                                <div class="flex justify-center mt-1">
+                                    {% if course_data.average_rating != 'N/A' %}
+                                        {% for i in "12345"|make_list %}
+                                            {% if i|add:"0" <= course_data.average_rating %}
+                                                <i class="fas fa-star text-yellow-400 text-xl"></i>
+                                            {% else %}
+                                                <i class="far fa-star text-gray-300 text-xl"></i>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        {% for i in "12345"|make_list %}
+                                            <i class="far fa-star text-gray-300 text-xl"></i>
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
+
                             </div>
                         </div>
                     </div>

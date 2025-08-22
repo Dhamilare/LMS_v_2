@@ -245,6 +245,7 @@ def dashboard(request):
             output_field=models.DecimalField()
         )
 
+        total_students = User.objects.filter(is_student=True).count()
         total_platform_enrollments = Enrollment.objects.count()
 
         # Main annotated query to get course stats, ordered by popularity
@@ -316,6 +317,7 @@ def dashboard(request):
             'courses_with_analytics': courses_with_analytics,
             'courses_page_obj': courses_page_obj,
             'performance_insights': performance_insights,
+            'total_students': total_students
         })
     
     # --- INSTRUCTOR DASHBOARD LOGIC ---
