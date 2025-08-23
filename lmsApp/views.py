@@ -2446,7 +2446,7 @@ def submit_ticket(request):
                 }
                 send_templated_email(
                     'emails/admin_ticket_notification.html',
-                    f'NEW Support Request: from {request.user.get_full_name()} #{ticket.id}',
+                    f'NEW Support Request:#{ticket.id}',
                     admin_emails,
                     admin_context
                 )
