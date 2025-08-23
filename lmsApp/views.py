@@ -2429,7 +2429,7 @@ def submit_ticket(request):
             }
             send_templated_email(
                 'emails/ticket_confirmation.html',
-                f'Confirmation: Support Request #{ticket.id}',
+                f'Confirmation: Support Request #{ticket.ticket_id}',
                 [request.user.email],
                 student_context
             )
@@ -2446,12 +2446,12 @@ def submit_ticket(request):
                 }
                 send_templated_email(
                     'emails/admin_ticket_notification.html',
-                    f'NEW Support Request:#{ticket.id}',
+                    f'NEW Support Request:#{ticket.ticket_id}',
                     admin_emails,
                     admin_context
                 )
 
-            return redirect('ticket_detail', pk=ticket.pk)
+            return redirect('ticket_detail', ticket_id=ticket.ticket_id)
     else:
         form = SupportTicketForm()
     
@@ -2469,17 +2469,14 @@ def ticket_list(request):
     tickets = SupportTicket.objects.filter(student=request.user).order_by('-created_at')
     return render(request, 'student/ticket_list.html', {'tickets': tickets})
 
+
 @login_required
-def ticket_detail(request, pk):
-    """
-    View to display the details of a single support ticket.
-    Ensures the user can only view their own tickets.
-    """
+def ticket_detail(request, ticket_id):
     # Ensures only the student who owns the ticket can view it.
     if not is_student(request.user):
         return redirect('dashboard')
 
-    ticket = get_object_or_404(SupportTicket, pk=pk, student=request.user)
+    ticket = get_object_or_404(SupportTicket, ticket_id=ticket_id, student=request.user)
     return render(request, 'student/ticket_detail.html', {'ticket': ticket})
 
 
@@ -2496,17 +2493,22 @@ def admin_ticket_list(request):
 
 
 @login_required
-def resolve_ticket(request, pk):
+def resolve_ticket(request, ticket_id):
     """
     View for staff members to change the status of a ticket to 'closed'.
     """
     if not is_admin(request.user):
         return redirect('ticket_list')
 
-    ticket = get_object_or_404(SupportTicket, pk=pk)
+    ticket = get_object_or_404(SupportTicket, ticket_id=ticket_id)
 
     if request.method == 'POST':
+        # Get resolution note from the form
+        resolution_note = request.POST.get('resolution_note', '').strip()
+        
+        # Update ticket details
         ticket.status = 'closed'
+        ticket.resolution_note = resolution_note
         ticket.save()
 
         # --- Send email notification to student ---
@@ -2518,7 +2520,7 @@ def resolve_ticket(request, pk):
         try:
             send_templated_email(
                 'emails/ticket_resolved_notification.html',
-                f'Ticket #{ticket.id} Resolved',
+                f'Ticket {ticket.ticket_id} Resolved',
                 [ticket.student.email],
                 student_context
             )

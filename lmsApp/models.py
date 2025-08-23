@@ -6,6 +6,8 @@ import uuid
 from django.urls import reverse
 from django.db.models import Sum
 from django.core.validators import MinValueValidator, MaxValueValidator
+import random
+import string
 
 class User(AbstractUser):
     """
@@ -504,18 +506,43 @@ class SupportTicket(models.Model):
         ('closed', 'Closed'),
     ]
 
+    ticket_id = models.CharField(
+        max_length=8, 
+        unique=True, 
+        verbose_name="Ticket ID", 
+        help_text="A unique, automatically generated ticket identifier."
+    )
+
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='support_tickets')
     subject = models.CharField(max_length=200)
     description = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
-    resolution_note = models.TextField(blank=True, null=True, verbose_name="Resolution Note")
+    resolution_note = models.TextField(verbose_name="Resolution Note", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            self.ticket_id = self.generate_unique_ticket_id()
+        
+        super().save(*args, **kwargs)
+
+    def generate_unique_ticket_id(self):
+        """
+        Generates a unique ticket ID in the format 'HL-XXXXX'.
+        """
+        prefix = 'HL-'
+        length = 5
+        chars = string.ascii_uppercase + string.digits
+        while True:
+            random_part = ''.join(random.choice(chars) for _ in range(length))
+            new_ticket_id = f'{prefix}{random_part}'
+            if not SupportTicket.objects.filter(ticket_id=new_ticket_id).exists():
+                return new_ticket_id
 
     def __str__(self):
-        """String representation of the model instance."""
-        return f"Ticket #{self.id} - {self.subject} ({self.status})"
+        return f"Ticket {self.ticket_id} - {self.subject} ({self.status})"
     
     class Meta:
         ordering = ['-created_at']
+        
