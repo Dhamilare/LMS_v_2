@@ -4,21 +4,61 @@
 {% block title %}My Support Tickets{% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-lg p-8">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-3xl font-bold text-gray-800">My Support Tickets</h2>
-        <a href="{% url 'submit_ticket' %}" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+<div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-gray-100">
+    <!-- Header and Search/Filter Controls -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 space-y-4 md:space-y-0">
+        <h2 class="text-3xl font-extrabold text-gray-800 tracking-tight">
+            <i class="fa-solid fa-clipboard-list text-blue-600 mr-3"></i>My Support Tickets
+        </h2>
+        
+        <form method="get" class="w-full md:w-auto flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
+            <div class="relative">
+                <input type="text" name="q" placeholder="Search by subject or description..." 
+                       value="{{ query|default:'' }}"
+                       class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                       aria-label="Search tickets">
+                {% if query %}
+                <a href="?status={{ request.GET.status|default:'' }}" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer">
+                    <i class="fa-solid fa-times"></i>
+                </a>
+                {% else %}
+                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                {% endif %}
+            </div>
+            
+            <div class="relative">
+                <select name="status" class="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-xl appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="" {% if not request.GET.status %}selected{% endif %}>All Tickets</option>
+                    <option value="open" {% if request.GET.status == 'open' %}selected{% endif %}>Open</option>
+                    <option value="closed" {% if request.GET.status == 'closed' %}selected{% endif %}>Closed</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                    <i class="fa-solid fa-chevron-down"></i>
+                </div>
+            </div>
+            
+            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-blue-700 transition duration-200">
+                Filter
+            </button>
+        </form>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex justify-end items-center mb-6">
+        <a href="{% url 'submit_ticket' %}" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-xl hover:bg-green-700 transition-colors duration-200">
             <i class="fas fa-plus mr-2"></i>New Ticket
         </a>
     </div>
 
-    {% if tickets %}
-        <div class="space-y-4">
-            {% for ticket in tickets %}
-                <a href="{% url 'ticket_detail' ticket.pk %}" class="block bg-gray-50 rounded-lg p-6 border border-gray-200 hover:bg-gray-100 transition-colors duration-200">
+    {% if page_obj %}
+        <!-- Ticket List -->
+        <div class="space-y-6">
+            {% for ticket in page_obj %}
+                <a href="{% url 'ticket_detail' ticket.ticket_id %}" class="block bg-gray-50 rounded-lg p-6 border border-gray-200 hover:bg-gray-100 transition-colors duration-200">
                     <div class="flex items-center justify-between">
                         <h3 class="text-xl font-semibold text-gray-800">
                             {{ ticket.subject }}
+                            <span class="ml-2 text-sm text-gray-400 font-normal">#{{ ticket.ticket_id }}</span>
                         </h3>
                         <span class="px-3 py-1 text-sm font-semibold rounded-full 
                             {% if ticket.status == 'open' %}bg-red-100 text-red-600
@@ -30,6 +70,37 @@
                     <p class="text-sm text-gray-500 mt-2">Submitted on: {{ ticket.created_at|date:"F j, Y" }}</p>
                 </a>
             {% endfor %}
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="mt-8 flex items-center justify-between">
+            <nav class="relative z-0 inline-flex rounded-xl shadow-sm -space-x-px" aria-label="Pagination">
+                {% if page_obj.has_previous %}
+                    <a href="?page=1{% if query %}&q={{ query }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-l-xl border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        <span class="sr-only">First</span>
+                        <i class="fa-solid fa-angles-left"></i>
+                    </a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        <span class="sr-only">Previous</span>
+                        <i class="fa-solid fa-angle-left"></i>
+                    </a>
+                {% endif %}
+                
+                <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-gray-50 text-sm font-medium text-gray-700">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        <span class="sr-only">Next</span>
+                        <i class="fa-solid fa-angle-right"></i>
+                    </a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-r-xl border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        <span class="sr-only">Last</span>
+                        <i class="fa-solid fa-angles-right"></i>
+                    </a>
+                {% endif %}
+            </nav>
         </div>
     {% else %}
         <p class="text-gray-500 text-center text-lg mt-12">You have not submitted any support tickets yet.</p>

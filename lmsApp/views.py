@@ -2459,15 +2459,33 @@ def submit_ticket(request):
 
 @login_required
 def ticket_list(request):
-    """
-    View for students to see a list of their submitted support tickets.
-    """
-    # Ensure only students can view this page, even if they are logged in.
+
     if not is_student(request.user):
         return redirect('dashboard')
 
+    query = request.GET.get('q', '')
+    status_filter = request.GET.get('status')
     tickets = SupportTicket.objects.filter(student=request.user).order_by('-created_at')
-    return render(request, 'student/ticket_list.html', {'tickets': tickets})
+
+    if query:
+        tickets = tickets.filter(
+            Q(subject__icontains=query) |
+            Q(description__icontains=query)
+        ).distinct()
+
+    if status_filter:
+        tickets = tickets.filter(status=status_filter)
+
+    paginator = Paginator(tickets, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'query': query,
+    }
+    
+    return render(request, 'student/ticket_list.html', context)
 
 
 @login_required
@@ -2482,14 +2500,35 @@ def ticket_detail(request, ticket_id):
 
 @login_required
 def admin_ticket_list(request):
-    """
-    View for staff members (admins) to view all support tickets.
-    """
     if not is_admin(request.user):
         return redirect('dashboard')
 
+    query = request.GET.get('q')
+    status_filter = request.GET.get('status')
     tickets = SupportTicket.objects.all().order_by('-created_at')
-    return render(request, 'admin/ticket_list.html', {'tickets': tickets})
+
+    if query:
+        tickets = tickets.filter(
+            Q(subject__icontains=query) |
+            Q(description__icontains=query) |
+            Q(student__username__icontains=query) |
+            Q(ticket_id__icontains=query)
+        ).distinct()
+
+    if status_filter:
+        tickets = tickets.filter(status=status_filter)
+
+    paginator = Paginator(tickets, 10) 
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'tickets': page_obj.object_list,
+        'query': query,
+    }
+    
+    return render(request, 'admin/ticket_list.html', context)
 
 
 @login_required
