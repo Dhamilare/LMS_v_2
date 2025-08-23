@@ -1,0 +1,87 @@
+<!-- admin/ticket_list.html -->
+
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Admin - All Support Tickets{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-lg p-8">
+    <div class="flex items-center justify-between mb-8">
+        <h2 class="text-3xl font-bold text-gray-800">
+            <i class="fa-solid fa-list-check text-blue-600 mr-3"></i>All Support Tickets
+        </h2>
+    </div>
+
+    {% if tickets %}
+        <div class="space-y-6">
+            {% for ticket in tickets %}
+                <div class="bg-gray-50 rounded-lg p-6 border border-gray-200 shadow-sm transition-transform transform hover:scale-[1.01] hover:shadow-lg duration-200">
+                    <!-- Ticket Header and Status -->
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center flex-grow">
+                            <!-- Status Icon -->
+                            <i class="text-2xl mr-4
+                                {% if ticket.status == 'open' %}fa-solid fa-circle-exclamation text-red-500
+                                {% elif ticket.status == 'in_progress' %}fa-solid fa-hourglass-half text-yellow-500
+                                {% else %}fa-solid fa-circle-check text-green-500{% endif %}">
+                            </i>
+                            <div>
+                                <h3 class="text-2xl font-semibold text-gray-800 break-words">
+                                    {{ ticket.subject }}
+                                    <span class="ml-2 text-sm text-gray-400 font-normal">#{{ ticket.id }}</span>
+                                </h3>
+                                <p class="text-sm text-gray-500 mt-1">
+                                    Submitted by: <span class="font-medium text-gray-700">{{ ticket.student.get_full_name|default:ticket.student.username }}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <span class="px-3 py-1 text-sm font-semibold rounded-full min-w-[100px] text-center
+                            {% if ticket.status == 'open' %}bg-red-100 text-red-600
+                            {% elif ticket.status == 'in_progress' %}bg-yellow-100 text-yellow-600
+                            {% else %}bg-green-100 text-green-600{% endif %}">
+                            {{ ticket.get_status_display }}
+                        </span>
+                    </div>
+
+                    <!-- Description and Resolution Section -->
+                    <div class="mt-6 border-t border-gray-200 pt-6">
+                        <div class="mb-4">
+                            <p class="font-medium text-gray-500">Description:</p>
+                            <div class="bg-gray-100 rounded-lg p-4 mt-2 border border-gray-200">
+                                <p class="text-gray-800 whitespace-pre-wrap leading-relaxed">{{ ticket.description }}</p>
+                            </div>
+                        </div>
+
+                        {% if ticket.status == 'closed' %}
+                            <div class="bg-green-50 rounded-lg p-4 border border-green-200 mt-4">
+                                <h4 class="text-lg font-bold text-green-700 flex items-center mb-2">
+                                    <i class="fa-solid fa-clipboard-check mr-2"></i> Resolution
+                                </h4>
+                                <p class="text-gray-800 whitespace-pre-wrap leading-relaxed">{{ ticket.resolution_note }}</p>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-2">
+                                Resolved on: {{ ticket.updated_at|date:"F j, Y, g:i A" }}
+                            </p>
+                        {% else %}
+                            <!-- Form to Resolve the Ticket -->
+                            <form action="{% url 'resolve_ticket' ticket.pk %}" method="post" class="mt-6">
+                                {% csrf_token %}
+                                <div class="flex flex-col space-y-3">
+                                    <label for="id_resolution_note" class="block text-sm font-medium text-gray-700">Add a Resolution Note:</label>
+                                    <textarea name="resolution_note" id="id_resolution_note" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Enter details about the resolution..." required></textarea>
+                                    <button type="submit" class="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition duration-150 ease-in-out">
+                                        <i class="fa-solid fa-check-circle mr-2"></i>Mark as Closed
+                                    </button>
+                                </div>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-gray-500 text-center text-lg mt-12">There are no support tickets in the system.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -627,6 +627,25 @@ class RatingForm(forms.ModelForm):
         model = Rating
         fields = ['rating', 'review']
 
+
+class SupportTicketForm(forms.ModelForm):
+    """
+    Form for students to create a new support ticket.
+    """
+    class Meta:
+        model = SupportTicket
+        fields = ['subject', 'description']
+        widgets = {
+            'subject': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'placeholder': 'Enter a brief subject'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
+                'rows': 5,
+                'placeholder': 'Describe your issue in detail'
+            }),
+        }
         
 class GroupPermissionForm(forms.ModelForm):
     """

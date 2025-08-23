@@ -83,4 +83,12 @@ urlpatterns = [
     path('courses/<slug:course_slug>/take_quiz/', views.quiz_take, name='quiz_take'), 
     path('courses/<slug:course_slug>/submit_quiz/', views.quiz_submit, name='quiz_submit'), 
     path('courses/<slug:course_slug>/quiz_result/<int:attempt_id>/', views.quiz_result, name='quiz_result'),
+
+   
+    # --- Tickets
+    path('submit/', views.submit_ticket, name='submit_ticket'),
+    path('my-tickets/', views.ticket_list, name='ticket_list'),
+    path('my-tickets/<int:pk>/', views.ticket_detail, name='ticket_detail'),
+    path('tickets/', views.admin_ticket_list, name='admin_ticket_list'),
+    path('tickets/<int:pk>/resolve/', views.resolve_ticket, name='resolve_ticket'),
 ]

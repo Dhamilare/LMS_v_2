@@ -133,3 +133,26 @@ class RatingAdmin(admin.ModelAdmin):
     search_fields = ('course__title', 'user__username', 'review')
     raw_id_fields = ('course', 'user')
 
+
+@admin.register(SupportTicket)
+class SupportTicketAdmin(admin.ModelAdmin):
+    list_display = ('id', 'subject', 'student', 'status', 'resolution_note', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('subject', 'description', 'student__username', 'student__email')
+    readonly_fields = ('student', 'created_at', 'updated_at')
+    ordering = ('-created_at',)
+    fieldsets = (
+        (None, {
+            'fields': ('subject', 'description', 'status', 'resolution_note'),
+        }),
+        ('Student Information', {
+            'fields': ('student',),
+            'classes': ('collapse',),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
+
+

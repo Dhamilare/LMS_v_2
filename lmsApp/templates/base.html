@@ -124,6 +124,23 @@
                             <i class="fa-solid fa-certificate mr-3 text-lg"></i>
                             <span class="font-medium">Certificate</span>
                         </a>
+                       <div class="relative">
+                            <button id="support-dropdown-toggle" class="w-full flex justify-between items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200 focus:outline-none">
+                                <div class="flex items-center">
+                                    <i class="fa-solid fa-headset mr-3 text-lg"></i>
+                                    <span class="font-medium">Support</span>
+                                </div>
+                                <i class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
+                            </button>
+                            <div id="support-dropdown" class="ml-8 mt-1 space-y-1 hidden">
+                                <a href="{% url 'submit_ticket' %}" class="flex items-center p-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                                    <i class="fa-solid fa-plus-circle mr-2"></i> Submit Ticket
+                                </a>
+                                <a href="{% url 'ticket_list' %}" class="flex items-center p-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                                    <i class="fa-solid fa-eye mr-2"></i> View Requests
+                                </a>
+                            </div>
+                        </div>
                     {% elif user.is_staff %}
                          <a href="{% url 'student_list' %}" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
                             <i class="fa-solid fa-users mr-3 text-lg"></i>
@@ -137,10 +154,10 @@
                             <i class="fa-solid fa-chart-line mr-3 text-lg"></i>
                             <span class="font-medium">Report Analytics</span>
                         </a>
-                        <!-- <a href="{% url 'group_list' %}" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
-                            <i class="fa-solid fa-users-cog mr-3 text-lg"></i>
-                            <span class="font-medium">Manage Permission</span>
-                        </a> -->
+                        <a href="{% url 'admin_ticket_list' %}" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                            <i class="fa-solid fa-tasks mr-3 text-lg"></i>
+                            <span class="font-medium">Tickets</span>
+                        </a>
                     {% endif %}
                 {% else %}
                     <!-- Login/Register links for non-authenticated users -->
@@ -215,6 +232,17 @@
             coursesDropdownToggle.addEventListener('click', () => {
                 coursesDropdown.classList.toggle('hidden');
                 const chevron = coursesDropdownToggle.querySelector('.fa-chevron-down');
+                chevron.classList.toggle('rotate-180');
+            });
+        }
+
+        // Support Dropdown Toggle
+        const supportDropdownToggle = document.getElementById('support-dropdown-toggle');
+        const supportDropdown = document.getElementById('support-dropdown');
+        if (supportDropdownToggle) {
+            supportDropdownToggle.addEventListener('click', () => {
+                supportDropdown.classList.toggle('hidden');
+                const chevron = supportDropdownToggle.querySelector('.fa-chevron-down');
                 chevron.classList.toggle('rotate-180');
             });
         }

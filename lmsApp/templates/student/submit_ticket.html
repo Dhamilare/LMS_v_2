@@ -1,0 +1,66 @@
+<!-- support/submit_ticket.html -->
+
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Submit a Support Ticket{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto bg-white rounded-3xl shadow-2xl p-8 md:p-12 border border-gray-100">
+
+    <!-- Header Section with Icon -->
+    <div class="text-center mb-8">
+        <div class="inline-block p-4 rounded-full bg-blue-100 text-blue-600 mb-4">
+            <i class="fa-solid fa-headset text-4xl"></i>
+        </div>
+        <h2 class="text-4xl font-extrabold text-gray-800 tracking-tight">
+            We're here to help!
+        </h2>
+        <p class="text-md text-gray-500 mt-2">
+            Submit your request, and we'll get back to you as soon as possible.
+        </p>
+    </div>
+
+    <!-- The Form -->
+    <form method="post" action="{% url 'submit_ticket' %}" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Subject Field -->
+        <div>
+            <label for="{{ form.subject.id_for_label }}" class="block text-gray-700 font-semibold mb-2">
+                Subject
+            </label>
+            {{ form.subject }}
+            {% if form.subject.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ form.subject.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Description Field -->
+        <div>
+            <label for="{{ form.description.id_for_label }}" class="block text-gray-700 font-semibold mb-2">
+                Description
+            </label>
+            {{ form.description }}
+            {% if form.description.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ form.description.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Submit Button -->
+        <div>
+            <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:bg-blue-700 transition-colors duration-200 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                <i class="fa-solid fa-paper-plane mr-2"></i>
+                Submit Ticket
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Custom styles for form elements to override default Django widget styling -->
+<style>
+    .form-control {
+        @apply w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200;
+    }
+</style>
+{% endblock %}

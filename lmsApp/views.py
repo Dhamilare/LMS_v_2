@@ -2409,6 +2409,125 @@ def student_list_view(request):
     return render(request, 'admin/student_list.html', context)
 
 
+@login_required
+def submit_ticket(request):
+    """
+    View for students to submit a new support ticket.
+    """
+    if request.method == 'POST':
+        form = SupportTicketForm(request.POST)
+        if form.is_valid():
+            ticket = form.save(commit=False)
+            ticket.student = request.user
+            ticket.save()
+
+            # --- Send confirmation email to student ---
+            student_context = {
+                'ticket': ticket,
+                'username': request.user.get_full_name(),
+                'current_year': timezone.now().year,
+            }
+            send_templated_email(
+                'emails/ticket_confirmation.html',
+                f'Confirmation: Support Request #{ticket.id}',
+                [request.user.email],
+                student_context
+            )
+
+            # --- Send notification email to admin(s) ---
+            # Get all users who are staff members and collect their emails
+            admin_users = User.objects.filter(is_staff=True, is_active=True).values_list('email', flat=True)
+            admin_emails = [email for email in admin_users if email]
+            
+            if admin_emails:
+                admin_context = {
+                    'ticket': ticket,
+                    'current_year': timezone.now().year,
+                }
+                send_templated_email(
+                    'emails/admin_ticket_notification.html',
+                    f'NEW Support Request: from {request.user.get_full_name()} #{ticket.id}',
+                    admin_emails,
+                    admin_context
+                )
+
+            return redirect('ticket_detail', pk=ticket.pk)
+    else:
+        form = SupportTicketForm()
+    
+    return render(request, 'student/submit_ticket.html', {'form': form})
+
+@login_required
+def ticket_list(request):
+    """
+    View for students to see a list of their submitted support tickets.
+    """
+    # Ensure only students can view this page, even if they are logged in.
+    if not is_student(request.user):
+        return redirect('dashboard')
+
+    tickets = SupportTicket.objects.filter(student=request.user).order_by('-created_at')
+    return render(request, 'student/ticket_list.html', {'tickets': tickets})
+
+@login_required
+def ticket_detail(request, pk):
+    """
+    View to display the details of a single support ticket.
+    Ensures the user can only view their own tickets.
+    """
+    # Ensures only the student who owns the ticket can view it.
+    if not is_student(request.user):
+        return redirect('dashboard')
+
+    ticket = get_object_or_404(SupportTicket, pk=pk, student=request.user)
+    return render(request, 'student/ticket_detail.html', {'ticket': ticket})
+
+
+@login_required
+def admin_ticket_list(request):
+    """
+    View for staff members (admins) to view all support tickets.
+    """
+    if not is_admin(request.user):
+        return redirect('dashboard')
+
+    tickets = SupportTicket.objects.all().order_by('-created_at')
+    return render(request, 'admin/ticket_list.html', {'tickets': tickets})
+
+
+@login_required
+def resolve_ticket(request, pk):
+    """
+    View for staff members to change the status of a ticket to 'closed'.
+    """
+    if not is_admin(request.user):
+        return redirect('ticket_list')
+
+    ticket = get_object_or_404(SupportTicket, pk=pk)
+
+    if request.method == 'POST':
+        ticket.status = 'closed'
+        ticket.save()
+
+        # --- Send email notification to student ---
+        student_context = {
+            'ticket': ticket,
+            'username': ticket.student.get_full_name(),
+            'current_year': timezone.now().year,
+        }
+        try:
+            send_templated_email(
+                'emails/ticket_resolved_notification.html',
+                f'Ticket #{ticket.id} Resolved',
+                [ticket.student.email],
+                student_context
+            )
+        except Exception as e:
+            print(f"Error sending resolution email: {e}")
+
+    return redirect('admin_ticket_list')
+
+
 
 @user_passes_test(is_admin)
 def group_management_view(request, pk=None):

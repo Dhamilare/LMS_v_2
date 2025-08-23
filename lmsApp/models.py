@@ -492,3 +492,30 @@ class Rating(models.Model):
 
     def __str__(self):
         return f'Rating for {self.course.title} by {self.user.username}'
+    
+
+class SupportTicket(models.Model):
+    """
+    Model to represent a support ticket submitted by a student.
+    """
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('in_progress', 'In Progress'),
+        ('closed', 'Closed'),
+    ]
+
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='support_tickets')
+    subject = models.CharField(max_length=200)
+    description = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    resolution_note = models.TextField(blank=True, null=True, verbose_name="Resolution Note")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+    def __str__(self):
+        """String representation of the model instance."""
+        return f"Ticket #{self.id} - {self.subject} ({self.status})"
+    
+    class Meta:
+        ordering = ['-created_at']
