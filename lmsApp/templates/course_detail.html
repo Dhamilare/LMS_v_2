@@ -208,69 +208,69 @@
     {% endif %}
 
     {% if request.user.is_student and is_enrolled %}
-    <div class="mt-8">
-        <h5 class="text-2xl font-bold text-gray-800 mb-2 flex items-center"><i class="fas fa-star mr-3 text-yellow-500"></i>Ratings & Reviews</h5>
-          
-        <div class="flex items-center mb-4">
-            <span class="text-4xl font-bold text-gray-800 mr-2">{{ average_rating|floatformat:1 }}</span>
-            <div class="flex text-yellow-400 text-2xl">
-                {% for i in "12345"|make_list %}
-                    {% if forloop.counter <= average_rating %}
-                        <i class="fas fa-star"></i>
-                    {% elif forloop.counter|add:"-1" < average_rating and forloop.counter > average_rating %}
-                        <i class="fas fa-star-half-alt"></i>
-                    {% else %}
-                        <i class="far fa-star"></i>
-                    {% endif %}
-                {% endfor %}
+        <div class="mt-8">
+            <h5 class="text-2xl font-bold text-gray-800 mb-2 flex items-center"><i class="fas fa-star mr-3 text-yellow-500"></i>Ratings & Reviews</h5>
+                
+            <div class="flex items-center mb-4">
+                <span class="text-4xl font-bold text-gray-800 mr-2">{{ average_rating|floatformat:1 }}</span>
+                <div class="flex text-yellow-400 text-2xl">
+                    {% for i in "12345"|make_list %}
+                        {% if forloop.counter <= average_rating %}
+                            <i class="fas fa-star"></i>
+                        {% elif forloop.counter|add:"-1" < average_rating and forloop.counter > average_rating %}
+                            <i class="fas fa-star-half-alt"></i>
+                        {% else %}
+                            <i class="far fa-star"></i>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <span class="ml-2 text-gray-500 text-sm">({{ total_ratings }} ratings)</span>
             </div>
-            <span class="ml-2 text-gray-500 text-sm">({{ total_ratings }} ratings)</span>
-        </div>
 
-        {% if user_rating %}
-            <div class="bg-indigo-50 p-6 rounded-lg border border-indigo-200">
-                <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
-                    Your Review
-                    <div class="flex text-yellow-400 text-xl ml-4">
-                        {% for i in "12345"|make_list %}
-                            {% if forloop.counter <= user_rating.rating %}
-                                <i class="fas fa-star"></i>
-                            {% else %}
-                                <i class="far fa-star"></i>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                </h4>
-                <p class="text-gray-600 italic">"{{ user_rating.review }}"</p>
-                <p class="text-gray-500 text-xs mt-2">Submitted on {{ user_rating.created_at|date:"F j, Y" }}</p>
-            </div>
-        {% else %}
-            <div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h4 class="text-lg font-semibold text-gray-700 mb-4">Leave a Rating and Review</h4>
-                <form method="post" action="{% url 'rate_course' course_slug=course.slug %}">
-                    {% csrf_token %}
-                    <div class="mb-4">
-                        <label class="block text-gray-700 text-sm font-bold mb-2">Your Rating:</label>
-
-                        <div class="star-rating" style="display: flex; gap: 0.25rem; font-size: 2rem; color: #fbbf24;">
+            {% if user_rating %}
+                <div class="bg-indigo-50 p-6 rounded-lg border border-indigo-200">
+                    <h4 class="text-lg font-semibold text-gray-700 mb-2 flex items-center">
+                        Your Review
+                        <div class="flex text-yellow-400 text-xl ml-4">
                             {% for i in "12345"|make_list %}
-                            <i class="far fa-star" data-value="{{ i }}" style="cursor: pointer;"></i>
+                                {% if forloop.counter <= user_rating.rating %}
+                                    <i class="fas fa-star"></i>
+                                {% else %}
+                                    <i class="far fa-star"></i>
+                                {% endif %}
                             {% endfor %}
-                            <input type="hidden" name="rating" id="rating-value" value="0">
                         </div>
-                    </div>
+                    </h4>
+                    <p class="text-gray-600 italic">"{{ user_rating.review }}"</p>
+                    <p class="text-gray-500 text-xs mt-2">Submitted on {{ user_rating.created_at|date:"F j, Y" }}</p>
+                </div>
+            {% else %}
+                <div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                    <h4 class="text-lg font-semibold text-gray-700 mb-4">Leave a Rating and Review</h4>
+                    <form method="post" action="{% url 'rate_course' course_slug=course.slug %}">
+                        {% csrf_token %}
+                        <div class="mb-4">
+                            <label class="block text-gray-700 text-sm font-bold mb-2">Your Rating:</label>
 
-                    <div class="mb-4">
-                        <label for="review" class="block text-gray-700 text-sm font-bold mb-2">Your Review:</label>
-                        <textarea name="review" id="review" rows="4" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-indigo-500" placeholder="Share your thoughts on the course..." required></textarea>
-                    </div>
-                    <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
-                        <i class="fas fa-paper-plane mr-2"></i> Submit Rating
-                    </button>
-                </form>
-            </div>
-        {% endif %}
-    </div>
+                            <div class="star-rating" style="display: flex; gap: 0.25rem; font-size: 2rem; color: #fbbf24;">
+                                {% for i in "12345"|make_list %}
+                                <i class="far fa-star" data-value="{{ i }}" style="cursor: pointer;"></i>
+                                {% endfor %}
+                                <input type="hidden" name="rating" id="rating-value" value="0">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="review" class="block text-gray-700 text-sm font-bold mb-2">Your Review:</label>
+                            <textarea name="review" id="review" rows="4" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-indigo-500" placeholder="Share your thoughts on the course..." required></textarea>
+                        </div>
+                        <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+                            <i class="fas fa-paper-plane mr-2"></i> Submit Rating
+                        </button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
     {% endif %}
 
     {% if request.user.is_student and is_enrolled %}
@@ -288,17 +288,24 @@
                         <h3 class="text-xl font-bold text-gray-800">Transcript Available</h3>
                         <p class="text-gray-600 text-sm">You have successfully passed the final assessment.</p>
                     </div>
-                {% elif course_quiz %}
+                {% elif course_quiz and enrollment.is_content_completed %}
                     <i class="fas fa-graduation-cap text-3xl text-blue-600 mr-4"></i>
                     <div>
                         <h3 class="text-xl font-bold text-gray-800">Final Course Assessment</h3>
                         <p class="text-gray-600 text-sm">Pass this quiz to complete the course and earn your certification.</p>
                     </div>
+                {% elif not course_quiz and enrollment.is_content_completed %}
+                    {# NEW LOGIC: Card for claiming a certificate when all content is completed and there's no quiz #}
+                    <i class="fas fa-file-invoice text-3xl text-green-600 mr-4"></i>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800">Certificate Unlocked!</h3>
+                        <p class="text-gray-600 text-sm">You have completed all requirements for this course.</p>
+                    </div>
                 {% else %}
                     <i class="fas fa-info-circle text-3xl text-gray-500 mr-4"></i>
                     <div>
                         <h3 class="text-xl font-bold text-gray-800">No Final Assessment</h3>
-                        <p class="text-gray-600 text-sm">There is no final quiz assigned to this course.</p>
+                        <p class="text-gray-600 text-sm">There is no final quiz assigned to this course. Complete all modules to unlock.</p>
                     </div>
                 {% endif %}
             </div>
@@ -311,10 +318,15 @@
                    class="bg-blue-600 text-white py-2 px-5 rounded-md hover:bg-blue-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
                     <i class="fas fa-file-alt mr-2"></i> View Transcript
                 </a>
-            {% elif enrollment.is_content_completed %}
+            {% elif course_quiz and enrollment.is_content_completed %}
                 <a href="{% url 'quiz_take' course_slug=course.slug %}"
                    class="bg-indigo-600 text-white py-2 px-5 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
                     <i class="fas fa-play-circle mr-2"></i> Take Assessment
+                </a>
+            {% elif not course_quiz and enrollment.is_content_completed %}
+                <a href="{% url 'issue_certificate' course_slug=course.slug %}"
+                   class="bg-green-600 text-white py-2 px-5 rounded-md hover:bg-green-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
+                    <i class="fas fa-award mr-2"></i> Claim Certificate
                 </a>
             {% else %}
                 <span class="bg-gray-300 text-gray-700 py-2 px-5 rounded-md flex items-center justify-center cursor-not-allowed shadow-md w-full sm:w-auto">

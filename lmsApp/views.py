@@ -245,6 +245,7 @@ def dashboard(request):
             output_field=models.DecimalField()
         )
 
+        total_certificates = Certificate.objects.count()
         total_students = User.objects.filter(is_student=True).count()
         total_platform_enrollments = Enrollment.objects.count()
 
@@ -317,7 +318,8 @@ def dashboard(request):
             'courses_with_analytics': courses_with_analytics,
             'courses_page_obj': courses_page_obj,
             'performance_insights': performance_insights,
-            'total_students': total_students
+            'total_students': total_students,
+            'total_certificates': total_certificates
         })
     
     # --- INSTRUCTOR DASHBOARD LOGIC ---
@@ -507,40 +509,51 @@ def instructor_delete(request, pk):
 @user_passes_test(is_instructor)
 def course_list(request):
     """
-    Lists courses managed by the logged-in instructor, with comprehensive search and pagination.
+    Lists courses managed by the logged-in instructor, with comprehensive search,
+    category filtering, and pagination.
     """
-    # Start with courses created by the logged-in instructor and annotate with enrollment count
-    courses_list = Course.objects.filter(instructor=request.user).annotate(
+    # 1. Get search query and selected category from request
+    search_query = request.GET.get('q', '')
+    selected_category = request.GET.get('category', '')
+
+    # 2. Start with the base queryset for courses created by the instructor
+    courses = Course.objects.filter(instructor=request.user)
+
+    # 3. Apply the search filter if a query is present
+    if search_query:
+        courses = courses.filter(
+            Q(title__icontains=search_query) | Q(description__icontains=search_query)
+        )
+
+    # 4. Apply the category filter if a category is selected
+    if selected_category:
+        courses = courses.filter(category=selected_category)
+        
+    # 5. Annotate with enrollment count and order the final queryset
+    courses = courses.annotate(
         total_enrollments=Count('enrollments')
     ).order_by('-created_at')
-    
-    search_query = request.GET.get('q', '')
 
-    if search_query:
-        # Filter courses by title or description (case-insensitive)
-        courses_list = courses_list.filter(
-            Q(title__icontains=search_query) | Q(description__icontains=search_query)
-        ).distinct()
-
-    # Set up pagination with 6 courses per page
-    paginator = Paginator(courses_list, 6) # 6 courses per page
+    # 6. Set up pagination with 6 courses per page
+    paginator = Paginator(courses, 6)
     page_number = request.GET.get('page')
 
     try:
         page_obj = paginator.get_page(page_number)
     except PageNotAnInteger:
-        # If page is not an integer, deliver first page.
         page_obj = paginator.page(1)
     except EmptyPage:
-        # If page is out of range (e.g. 9999), deliver last page of results.
         page_obj = paginator.page(paginator.num_pages)
 
+    # 7. Pass all necessary data to the template context
     context = {
-        'page_obj': page_obj,  # Pass the page object to the template
-        'search_query': search_query, # Pass the search query back for the input field
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'selected_category': selected_category, # The currently selected category value
+        'categories': Course.CATEGORY_CHOICES, # The list of all categories
     }
-    return render(request, 'instructor/course_list.html', context)
 
+    return render(request, 'instructor/course_list.html', context)
 
 @login_required
 def all_courses(request):
@@ -1693,6 +1706,9 @@ def audit_logs(request):
     total_enrollments = Enrollment.objects.count()
     total_students = User.objects.filter(is_student=True).count()
     total_completed_enrollments = Enrollment.objects.filter(completed=True).count()
+    
+    # Count total certificates issued
+    total_certificates_issued = Certificate.objects.count()
 
     # --- Enrollment Distribution (by Course) ---
     enrollment_by_course_data = (
@@ -1716,6 +1732,45 @@ def audit_logs(request):
         completion_status_counts.get('completed_count', 0) or 0,
         completion_status_counts.get('in_progress_count', 0) or 0,
     ]
+    
+    # --- Assessment Performance (Passed, Failed, Not Attempted) ---
+    # We now get the latest quiz attempt for each student
+    latest_attempts = StudentQuizAttempt.objects.filter(
+        student_id=OuterRef('student_id'),
+        quiz_id=OuterRef('quiz_id')
+    ).order_by('-attempt_date').values('passed')[:1]
+
+    # Annotate students with their latest attempt result
+    students_with_attempts = StudentQuizAttempt.objects.annotate(
+        latest_passed=Subquery(latest_attempts)
+    ).values('student_id', 'latest_passed').distinct()
+
+    passed_students = 0
+    failed_students = 0
+    attempted_students_set = set()
+
+    for student_attempt in students_with_attempts:
+        student_id = student_attempt['student_id']
+        if student_id not in attempted_students_set:
+            attempted_students_set.add(student_id)
+            if student_attempt['latest_passed'] is True:
+                passed_students += 1
+            else:
+                failed_students += 1
+    
+    # Corrected method to get all students enrolled in any course with a quiz
+    courses_with_quizzes = Course.objects.filter(quiz__isnull=False)
+    all_enrolled_students_count = Enrollment.objects.filter(
+        course__in=courses_with_quizzes
+    ).values('student_id').distinct().count()
+
+    assessments_passed = passed_students
+    assessments_failed = failed_students
+    # The number of non-attempted students is total enrolled students minus those who have attempted
+    assessments_not_attempted = all_enrolled_students_count - (passed_students + failed_students)
+    
+    assessments_labels = ['Passed', 'Failed', 'Not Attempted']
+    assessments_data = [assessments_passed, assessments_failed, assessments_not_attempted]
 
     # --- Detailed Enrollment Logs ---
     all_enrollments = (
@@ -1728,7 +1783,6 @@ def audit_logs(request):
         # Determine certificate status/link
         certificate_status = "N/A"
         certificate_link = "#"
-
         if getattr(enrollment, "has_certificate", False):
             certificate_status = "Issued"
             if getattr(enrollment, "certificate_obj", None):
@@ -1738,6 +1792,21 @@ def audit_logs(request):
         elif enrollment.completed:
             certificate_status = "Completed (No Certificate)"
 
+        # Determine assessment status
+        assessment_status = "No Quiz"
+        if hasattr(enrollment.course, 'quiz'):
+            has_attempts = StudentQuizAttempt.objects.filter(
+                student=enrollment.student,
+                quiz=enrollment.course.quiz
+            ).exists()
+            if has_attempts:
+                if enrollment.is_quiz_passed:
+                    assessment_status = "Passed"
+                else:
+                    assessment_status = "Failed"
+            else:
+                assessment_status = "Not Attempted"
+        
         detailed_logs.append({
             'student_first_name': enrollment.student.first_name,
             'student_last_name': enrollment.student.last_name,
@@ -1745,30 +1814,29 @@ def audit_logs(request):
             'student_email': enrollment.student.email,
             'course_title': enrollment.course.title,
             'instructor_name': enrollment.course.instructor.get_full_name() or enrollment.course.instructor.username,
-            'enrolled_at': enrollment.enrolled_at,
-            'completed_at': enrollment.completed_at,
+            'enrolled_at': enrollment.enrolled_at.strftime("%b %d, %Y"), # Format for JS
+            'completed_at': enrollment.completed_at.strftime("%b %d, %Y") if enrollment.completed_at else 'N/A', # Format for JS
             'is_completed': enrollment.completed,
             'progress_percentage': enrollment.progress_percentage,
             'certificate_status': certificate_status,
             'certificate_link': certificate_link,
+            'assessment_status': assessment_status,
         })
-
-    # --- Context for template ---
+    
     context = {
-        # Summary stats
         'total_courses': total_courses,
         'total_students': total_students,
         'total_enrollments': total_enrollments,
         'total_completed_enrollments': total_completed_enrollments,
+        'total_certificates_issued': total_certificates_issued,
 
-        # Chart data (raw Python objects for json_script)
         'course_labels_json': course_labels,
         'enrollment_counts_json': enrollment_counts,
         'completion_labels_json': completion_labels,
         'completion_data_json': completion_data,
-
-        # Table logs
-        'detailed_logs': detailed_logs,
+        'assessments_labels_json': assessments_labels,
+        'assessments_data_json': assessments_data,
+        'detailed_logs_json': detailed_logs,
     }
 
     return render(request, 'admin/reporting.html', context)

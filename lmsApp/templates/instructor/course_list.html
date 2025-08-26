@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load course_extras %} 
+{% load course_extras %}
 
 {% block title %}Manage My Courses{% endblock %}
 
@@ -16,30 +16,50 @@
             </p>
         </div>
         
-        <!-- Search Form -->
-        <form action="{% url 'course_list' %}" method="get" class="max-w-2xl mx-auto mb-10">
-            <div class="flex items-stretch space-x-2 bg-white rounded-full shadow-lg border border-gray-200 p-2">
-                <input type="text" name="q" placeholder="Search your courses by title or description..."
+        <!-- Unified Search and Filter Form -->
+        <form action="{% url 'course_list' %}" method="get" class="max-w-4xl mx-auto mb-10">
+            <div class="relative flex items-center bg-white rounded-full shadow-lg border border-gray-200 p-2">
+                
+                <!-- Search Input -->
+                <input type="text" name="q" placeholder="Search by title or description..."
                         value="{{ search_query|default:'' }}"
-                        class="flex-grow p-3 bg-transparent border-none focus:ring-0 focus:outline-none text-gray-700 placeholder-gray-400 text-sm sm:text-base">
-                <button type="submit" class="bg-indigo-600 text-white p-3 rounded-full hover:bg-indigo-700 transition duration-300 transform hover:scale-105 shadow-md">
+                        class="flex-grow p-2 sm:p-3 bg-transparent border-none focus:ring-0 focus:outline-none text-gray-700 placeholder-gray-400 text-sm sm:text-base">
+                
+                <!-- Category Dropdown -->
+                <div class="relative inline-block ml-2">
+                    <select name="category" class="block w-full appearance-none bg-transparent p-2 pr-10 text-gray-700 text-sm sm:text-base focus:outline-none focus:ring-0">
+                        <option value="">All Categories</option>
+                        {% for key, value in categories %}
+                            <option value="{{ key }}" {% if key == selected_category %}selected{% endif %}>
+                                {{ value }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <i class="fas fa-chevron-down text-xs"></i>
+                    </div>
+                </div>
+
+                <!-- Search Button -->
+                <button type="submit" class="bg-indigo-600 text-white p-3 rounded-full hover:bg-indigo-700 transition duration-300 transform hover:scale-105 shadow-md ml-2">
                     <i class="fas fa-search"></i>
                 </button>
             </div>
-            {% if search_query %}
+            
+            {% if search_query or selected_category %}
                 <div class="text-center mt-4">
                     <a href="{% url 'course_list' %}" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 transition duration-300">
-                        <i class="fas fa-times-circle mr-2"></i> Clear Search
+                        <i class="fas fa-times-circle mr-2"></i> Clear Filters
                     </a>
                 </div>
             {% endif %}
         </form>
 
-        <div class="flex justify-between items-center mb-8">
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-8 space-y-4 sm:space-y-0">
             <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center">
                 <i class="fas fa-book-open mr-3 text-indigo-600"></i> 
-                {% if search_query %}
-                    Search Results for "{{ search_query }}"
+                {% if search_query or selected_category %}
+                    Filtered Courses
                 {% else %}
                     Your Courses
                 {% endif %}
@@ -99,7 +119,7 @@
             <div class="flex justify-center mt-12">
                 <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                     {% if page_obj.has_previous %}
-                        <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" 
+                        <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}" 
                             class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                             <span class="sr-only">Previous</span>
                             <i class="fas fa-chevron-left"></i>
@@ -113,12 +133,12 @@
 
                     {% for i in page_obj.paginator.page_range %}
                         {% if page_obj.number == i %}
-                            <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}" aria-current="page"
+                            <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}" aria-current="page"
                                 class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-indigo-600 text-white text-sm font-semibold">
                                 {{ i }}
                             </a>
                         {% else %}
-                            <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                            <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}"
                                 class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
                                 {{ i }}
                             </a>
@@ -126,7 +146,7 @@
                     {% endfor %}
 
                     {% if page_obj.has_next %}
-                        <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                        <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}"
                             class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                             <span class="sr-only">Next</span>
                             <i class="fas fa-chevron-right"></i>
@@ -145,13 +165,13 @@
             <div class="max-w-2xl mx-auto text-center py-12 bg-white rounded-xl shadow-lg border border-gray-200">
                 <i class="fas fa-info-circle text-5xl text-gray-400 mb-4"></i>
                 <p class="text-gray-600 text-lg mb-2">
-                    {% if search_query %}
-                        No courses found matching "{{ search_query }}".
+                    {% if search_query or selected_category %}
+                        No courses found matching your criteria.
                     {% else %}
                         You haven't created any courses yet.
                     {% endif %}
                 </p>
-                {% if not search_query %}
+                {% if not search_query and not selected_category %}
                     <p class="text-gray-500 text-md">Click "Create New Course" to get started!</p>
                 {% endif %}
             </div>

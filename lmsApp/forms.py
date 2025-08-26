@@ -303,7 +303,7 @@ class InstructorUpdateForm(UserChangeForm):
 class CourseForm(forms.ModelForm):
     class Meta:
         model = Course
-        fields = ['title', 'description', 'instructor', 'price', 'is_published', 'thumbnail']
+        fields = ['title', 'description', 'category', 'instructor', 'price', 'is_published', 'thumbnail']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
             'thumbnail': forms.URLInput(attrs={'placeholder': 'e.g., https://example.com/course_thumb.jpg'}),
@@ -313,8 +313,6 @@ class CourseForm(forms.ModelForm):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
-        # Filter the instructor field's queryset to only show users marked as instructors.
-        # This will be available for all instructors to choose from.
         self.fields['instructor'].queryset = User.objects.filter(is_instructor=True).order_by('username')
 
 

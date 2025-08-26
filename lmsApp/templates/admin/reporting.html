@@ -7,7 +7,6 @@
 <div class="bg-gray-50 min-h-screen font-inter text-gray-800 py-8">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
 
-        <!-- Header -->
         <header class="text-center mb-12">
             <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight mb-4">
                 <i class="fas fa-chart-pie text-indigo-600 mr-3"></i> Audit Logs & Reports
@@ -17,9 +16,8 @@
             </p>
         </header>
 
-        <!-- Summary Statistics Cards -->
+        <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            <!-- Total Courses -->
             <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                 <div class="p-3 bg-blue-100 rounded-full text-blue-600">
                     <i class="fas fa-book-open fa-2x"></i>
@@ -30,7 +28,6 @@
                 </div>
             </div>
 
-            <!-- Total Students -->
             <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                 <div class="p-3 bg-green-100 rounded-full text-green-600">
                     <i class="fas fa-users fa-2x"></i>
@@ -41,7 +38,6 @@
                 </div>
             </div>
 
-            <!-- Total Enrollments -->
             <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                 <div class="p-3 bg-purple-100 rounded-full text-purple-600">
                     <i class="fas fa-user-check fa-2x"></i>
@@ -52,7 +48,6 @@
                 </div>
             </div>
 
-            <!-- Completed Enrollments -->
             <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
                 <div class="p-3 bg-yellow-100 rounded-full text-yellow-600">
                     <i class="fas fa-check-double fa-2x"></i>
@@ -62,14 +57,24 @@
                     <p class="text-2xl font-bold text-gray-900">{{ total_completed_enrollments }}</p>
                 </div>
             </div>
+            
+            <!-- New card for total certificates issued -->
+            <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-4 border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
+                <div class="p-3 bg-red-100 rounded-full text-red-600">
+                    <i class="fas fa-medal fa-2x"></i>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Certificates Issued</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ total_certificates_issued }}</p>
+                </div>
+            </div>
+            <!-- End of new card -->
         </div>
 
-        <!-- Charts Section -->
         <h2 class="text-3xl font-bold text-gray-900 mb-6 flex items-center">
             <i class="fas fa-chart-bar text-indigo-600 mr-3"></i> Visual Reports
         </h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-            <!-- Enrollment Distribution -->
             <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                     <i class="fas fa-graduation-cap mr-2 text-blue-500"></i> Course Enrollment Distribution
@@ -82,7 +87,6 @@
                 </p>
             </div>
 
-            <!-- Completion Status -->
             <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                     <i class="fas fa-tasks mr-2 text-green-500"></i> Overall Enrollment Completion Status
@@ -96,15 +100,22 @@
             </div>
         </div>
 
-        <!-- Detailed Logs -->
         <h2 class="text-3xl font-bold text-gray-900 mb-6 flex items-center mt-12">
             <i class="fas fa-list-alt text-indigo-600 mr-3"></i> Detailed Enrollment Logs
         </h2>
+        
+        <!-- Search Input -->
+        <div class="mb-4">
+            <input type="text" id="log-search" placeholder="Search logs..." class="w-full sm:w-1/3 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <!-- End of Search Input -->
+
         <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S/N</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instructor</th>
@@ -112,61 +123,35 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed On</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <!-- New table header for assessment status -->
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessment</th>
+                            <!-- New table header for certificate status -->
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Certificate</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for log in detailed_logs %}
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">
-                                    {% if log.student_first_name or log.student_last_name %}
-                                        {{ log.student_first_name }} {{ log.student_last_name }}
-                                    {% else %}
-                                        {{ log.student_username }}
-                                    {% endif %}
-                                </div>
-                                <div class="text-sm text-gray-500">{{ log.student_email }}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ log.course_title }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ log.instructor_name }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.enrolled_at|date:"M d, Y" }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {% if log.completed_at %}{{ log.completed_at|date:"M d, Y" }}{% else %}N/A{% endif %}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <div class="w-24 bg-gray-200 rounded-full h-2.5">
-                                    <div class="bg-indigo-600 h-2.5 rounded-full" style="width: {{ log.progress_percentage }}%;"></div>
-                                </div>
-                                <span class="text-xs text-gray-500 mt-1 block">{{ log.progress_percentage }}%</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                    {% if log.is_completed %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
-                                    {% if log.is_completed %}Completed{% else %}In Progress{% endif %}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {% if log.certificate_link and log.certificate_link != '#' %}
-                                    <a href="#" class="text-indigo-600 hover:underline flex items-center">
-                                        {{ log.certificate_status }} <i class="fas fa-external-link-alt ml-1 text-xs"></i>
-                                    </a>
-                                {% else %}
-                                    {{ log.certificate_status }}
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="8" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                                No enrollment data available.
-                            </td>
-                        </tr>
-                        {% endfor %}
+                    <tbody id="detailed-logs-body" class="bg-white divide-y divide-gray-200">
+                        <!-- Table rows will be dynamically generated by JavaScript -->
                     </tbody>
                 </table>
             </div>
         </div>
+
+        <!-- Pagination Controls -->
+        <div id="pagination-container" class="mt-6 flex justify-center">
+            <div class="flex items-center space-x-2">
+                <button id="prev-page" class="px-4 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-arrow-left"></i> Previous
+                </button>
+                <div id="page-numbers" class="flex items-center space-x-1">
+                    <!-- Page number buttons will be injected here -->
+                </div>
+                <button id="next-page" class="px-4 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Next <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+        <!-- End of Pagination Controls -->
+
     </div>
 </div>
 {% endblock %}
@@ -174,14 +159,16 @@
 {% block extra_scripts %}
 {{ block.super }}
 
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- JSON Data -->
+<!-- The JSON script tags are now updated to pass all log data for JS -->
 {{ course_labels_json|json_script:"course-labels" }}
 {{ enrollment_counts_json|json_script:"enrollment-counts" }}
 {{ completion_labels_json|json_script:"completion-labels" }}
 {{ completion_data_json|json_script:"completion-data" }}
+{{ assessments_labels_json|json_script:"assessments-labels" }}
+{{ assessments_data_json|json_script:"assessments-data" }}
+{{ detailed_logs_json|json_script:"detailed-logs" }}
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -201,6 +188,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const enrollmentCounts = getJsonData('enrollment-counts');
     const completionLabels = getJsonData('completion-labels');
     const completionData = getJsonData('completion-data');
+    
+    
+    // Get all detailed logs from the JSON script
+    const allDetailedLogs = getJsonData('detailed-logs');
 
     // Enrollment Chart
     const enrollmentCtx = document.getElementById('enrollmentDistributionChart');
@@ -239,6 +230,192 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+   
+    // --- JavaScript Pagination & Search Logic ---
+    const tableBody = document.getElementById('detailed-logs-body');
+    const searchInput = document.getElementById('log-search');
+    const rowsPerPage = 10;
+    let currentPage = 1;
+    let filteredLogs = allDetailedLogs;
+
+    const prevButton = document.getElementById('prev-page');
+    const nextButton = document.getElementById('next-page');
+    const pageNumbersContainer = document.getElementById('page-numbers');
+
+    // Function to render the table rows from the filtered data
+    function renderTable() {
+        tableBody.innerHTML = '';
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        const paginatedLogs = filteredLogs.slice(start, end);
+
+        if (paginatedLogs.length === 0) {
+            const noDataRow = document.createElement('tr');
+            noDataRow.innerHTML = `<td colspan="10" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                No enrollment data available.
+            </td>`;
+            tableBody.appendChild(noDataRow);
+        } else {
+            paginatedLogs.forEach((log, index) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                
+                // Get the appropriate status colors based on log data
+                const statusColor = log.is_completed ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
+                const statusText = log.is_completed ? 'Completed' : 'In Progress';
+                
+                let assessmentColor;
+                if (log.assessment_status === "Passed") {
+                    assessmentColor = 'bg-green-100 text-green-800';
+                } else if (log.assessment_status === "Failed") {
+                    assessmentColor = 'bg-red-100 text-red-800';
+                } else {
+                    assessmentColor = 'bg-gray-100 text-gray-800';
+                }
+
+                // Dynamically build the table row HTML
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${start + index + 1}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">
+                            ${log.student_first_name || log.student_last_name ? log.student_first_name + ' ' + log.student_last_name : log.student_username}
+                        </div>
+                        <div class="text-sm text-gray-500">${log.student_email}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${log.course_title}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${log.instructor_name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${log.enrolled_at}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${log.completed_at}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div class="w-24 bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-indigo-600 h-2.5 rounded-full" style="width: ${log.progress_percentage}%;"></div>
+                        </div>
+                        <span class="text-xs text-gray-500 mt-1 block">${log.progress_percentage}%</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">
+                            ${statusText}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${assessmentColor}">
+                            ${log.assessment_status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${log.certificate_link && log.certificate_link !== '#' ? 
+                            `<a href="#" class="text-indigo-600 hover:underline flex items-center">${log.certificate_status} <i class="fas fa-external-link-alt ml-1 text-xs"></i></a>` :
+                            `${log.certificate_status}`
+                        }
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+    }
+
+    // Function to handle the search
+    function handleSearch() {
+        const query = searchInput.value.toLowerCase();
+        if (query === '') {
+            filteredLogs = allDetailedLogs;
+        } else {
+            filteredLogs = allDetailedLogs.filter(log => {
+                const studentName = (log.student_first_name + ' ' + log.student_last_name + ' ' + log.student_username).toLowerCase();
+                const courseTitle = log.course_title.toLowerCase();
+                const instructorName = log.instructor_name.toLowerCase();
+                const assessmentStatus = log.assessment_status.toLowerCase();
+
+                return studentName.includes(query) || 
+                       courseTitle.includes(query) || 
+                       instructorName.includes(query) ||
+                       assessmentStatus.includes(query);
+            });
+        }
+        currentPage = 1; // Reset to the first page for new search results
+        renderTable();
+        setupPagination();
+    }
+
+    // Function to update the disabled state of pagination buttons
+    function updateButtonState() {
+        const totalPages = Math.ceil(filteredLogs.length / rowsPerPage);
+        if (prevButton) {
+            prevButton.disabled = currentPage === 1;
+        }
+        if (nextButton) {
+            nextButton.disabled = currentPage === totalPages;
+        }
+    }
+
+    // Function to dynamically create and manage page number buttons
+    function setupPagination() {
+        if (!pageNumbersContainer) return;
+        pageNumbersContainer.innerHTML = '';
+        const totalPages = Math.ceil(filteredLogs.length / rowsPerPage);
+
+        for (let i = 1; i <= totalPages; i++) {
+            const pageButton = document.createElement('button');
+            pageButton.innerText = i;
+            pageButton.className = 'px-3 py-2 text-sm font-medium rounded-md shadow-sm transition-colors duration-200';
+            
+            pageButton.addEventListener('click', () => {
+                currentPage = i;
+                renderTable();
+                updateActivePageButton();
+            });
+            pageNumbersContainer.appendChild(pageButton);
+        }
+        updateActivePageButton();
+        updateButtonState();
+    }
+
+    // Function to highlight the current active page button
+    function updateActivePageButton() {
+        if (!pageNumbersContainer) return;
+        const pageButtons = pageNumbersContainer.querySelectorAll('button');
+        pageButtons.forEach((button, index) => {
+            if (index + 1 === currentPage) {
+                button.classList.add('bg-indigo-600', 'text-white', 'hover:bg-indigo-700');
+                button.classList.remove('text-gray-700', 'bg-white', 'hover:bg-gray-50');
+            } else {
+                button.classList.remove('bg-indigo-600', 'text-white', 'hover:bg-indigo-700');
+                button.classList.add('text-gray-700', 'bg-white', 'hover:bg-gray-50');
+            }
+        });
+    }
+
+    // Event listener for the "Previous" button
+    if (prevButton) {
+        prevButton.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable();
+                updateActivePageButton();
+            }
+        });
+    }
+
+    // Event listener for the "Next" button
+    if (nextButton) {
+        nextButton.addEventListener('click', () => {
+            const totalPages = Math.ceil(filteredLogs.length / rowsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderTable();
+                updateActivePageButton();
+            }
+        });
+    }
+    
+    // Event listener for the search input
+    searchInput.addEventListener('input', handleSearch);
+
+    // Initial setup on page load
+    renderTable();
+    setupPagination();
+
 });
 </script>
 {% endblock %}

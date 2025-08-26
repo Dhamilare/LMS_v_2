@@ -22,11 +22,16 @@ class User(AbstractUser):
     
 
 class Course(models.Model):
-    """
-    Represents a course in the LMS.
-    """
+    
+    CATEGORY_CHOICES = [
+        ('beginner', 'Beginner'),
+        ('expert', 'Expert'),
+        ('professional', 'Professional'),
+    ]
+
     title = models.CharField(max_length=200)
     description = models.TextField()
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='beginner')
     instructor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='courses_taught', limit_choices_to={'is_instructor': True})
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_published = models.BooleanField(default=False)

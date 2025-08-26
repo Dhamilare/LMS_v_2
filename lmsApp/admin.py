@@ -52,9 +52,9 @@ class QuizAdmin(admin.ModelAdmin):
 # Admin for Course model
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ('title', 'instructor', 'price', 'is_published', 'created_at')
+    list_display = ('title', 'category', 'instructor', 'price', 'is_published', 'created_at')
     list_filter = ('is_published', 'instructor')
-    search_fields = ('title', 'description', 'instructor__username')
+    search_fields = ('title', 'category', 'description', 'instructor__username')
     prepopulated_fields = {'slug': ('title',)}
 
 # Inline for Lessons within a Module
