@@ -5,85 +5,89 @@
 
 {% block content %}
 <div class="bg-gray-100 min-h-screen py-10 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all duration-300 hover:shadow-2xl">
-        <div class="p-8 sm:p-10">
+    <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="p-6 sm:p-8">
             <!-- Header Section -->
-            <div class="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
-                <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 flex items-center leading-tight">
-                    <i class="fas fa-question-circle mr-4 text-green-600"></i>
+            <div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center leading-tight">
+                    <i class="fas fa-question-circle mr-3 text-green-600"></i>
                     {{ quiz.title }}
                 </h1>
-                <p class="text-xl font-bold text-gray-500">
-                    <span class="text-green-600">{{ page_obj.number }}</span> / {{ page_obj.paginator.num_pages }}
+                <p class="text-lg font-semibold text-gray-600">
+                    Question <span class="text-green-600">{{ page_obj.number }}</span> of {{ page_obj.paginator.num_pages }}
                 </p>
             </div>
 
-            <!-- Quiz Details Card -->
-            <div class="space-y-6">
+            <!-- Instructions & Attempts Info -->
+            <div class="space-y-4 mb-8">
                 {% if quiz.description %}
-                <div class="bg-blue-50 p-6 rounded-xl border border-blue-200 text-blue-800 transition duration-300 ease-in-out hover:shadow-lg">
-                    <p class="font-semibold text-lg mb-2 flex items-center"><i class="fas fa-info-circle mr-3"></i> Quiz Instructions</p>
-                    <p class="text-sm leading-relaxed">{{ quiz.description|safe }}</p>
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <p class="font-semibold text-blue-800 mb-1 flex items-center">
+                        <i class="fas fa-info-circle mr-2"></i> Quiz Instructions
+                    </p>
+                    <p class="text-sm text-blue-700 leading-relaxed">{{ quiz.description|safe }}</p>
                 </div>
                 {% endif %}
 
-                <div class="bg-purple-50 p-6 rounded-xl border border-purple-200 text-purple-800 transition duration-300 ease-in-out hover:shadow-lg">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <i class="fas fa-redo-alt mr-3 text-xl"></i>
-                            <p class="font-bold">
-                                Attempt {{ current_attempts_count|add:1 }} of {{ max_attempts }}
-                            </p>
-                        </div>
-                        <p class="font-semibold">
-                            {% if attempts_remaining > 0 %}
-                                <span class="text-green-700">{{ attempts_remaining }}</span> attempts remaining
-                            {% else %}
-                                <span class="text-red-700">No attempts remaining</span>
-                            {% endif %}
-                        </p>
-                    </div>
+                <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                    <p class="text-purple-800 text-sm flex items-center">
+                        <i class="fas fa-redo-alt mr-2"></i> Attempt {{ current_attempts_count|add:1 }} of {{ max_attempts }}
+                        {% if attempts_remaining > 0 %}
+                            <span class="ml-auto text-green-700 font-semibold">{{ attempts_remaining }} attempts remaining</span>
+                        {% else %}
+                            <span class="ml-auto text-red-700 font-semibold">No attempts remaining</span>
+                        {% endif %}
+                    </p>
                 </div>
             </div>
 
             <!-- Quiz Form Section -->
-            <form method="post" action="{% url 'quiz_take' course_slug=course.slug %}?page={{ page_obj.number }}" class="mt-8 space-y-8">
+            <form method="post" action="{% url 'quiz_take' course_slug=course.slug %}?page={{ page_obj.number }}">
                 {% csrf_token %}
                 <input type="hidden" name="enrollment_id" value="{{ enrollment_id }}">
                 
-                <div class="bg-gray-50 p-8 rounded-xl border border-gray-200">
-                    <div class="crispy-form space-y-6">
-                        {% for field in form %}
-                            <div class="form-group border-b border-gray-200 pb-6 last:border-b-0 last:pb-0">
-                                <label for="{{ field.id_for_label }}" class="text-xl font-semibold text-gray-800 mb-4 block">
-                                    {{ field.label }}
-                                </label>
-                                <div class="space-y-3">
-                                    {% for option in field %}
-                                        <div class="flex items-center p-4 bg-white rounded-lg shadow-sm border border-gray-300 cursor-pointer hover:bg-gray-100 transition duration-200 ease-in-out">
-                                            {{ option.tag }}
-                                            <label for="{{ option.id_for_label }}" class="ml-4 text-gray-700 text-base font-medium flex-grow cursor-pointer">
-                                                {{ option.choice_label }}
-                                            </label>
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                                {% if field.errors %}
-                                    {% for error in field.errors %}
-                                        <p class="text-red-500 text-sm mt-2">{{ error }}</p>
-                                    {% endfor %}
+                <div class="space-y-6">
+                    {% for field in form %}
+                        <div class="form-group p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <label for="{{ field.id_for_label }}" class="text-lg font-semibold text-gray-800 mb-2 block">
+                                {{ field.label|safe }}
+
+                                {% comment %}
+                                    Access the data_multiple attribute directly from the widget attrs dictionary.
+                                {% endcomment %}
+                                {% if field.field.widget.attrs.data_multiple == 'true' %}
+                                    <span class="text-sm text-gray-500 font-normal italic">(Select all that apply)</span>
+                                {% else %}
+                                    <span class="text-sm text-gray-500 font-normal italic">(Select one)</span>
                                 {% endif %}
+                            </label>
+                            
+                            <div class="space-y-3 mt-4">
+                                {% for option in field %}
+                                    <div class="relative flex items-center p-3 bg-white rounded-lg shadow-sm border border-gray-300 cursor-pointer hover:bg-gray-100 transition duration-200 ease-in-out">
+                                        {{ option.tag }}
+                                        <label for="{{ option.id_for_label }}" class="ml-4 text-gray-700 text-base font-medium flex-grow cursor-pointer">
+                                            {{ option.choice_label }}
+                                        </label>
+                                    </div>
+                                {% endfor %}
                             </div>
-                        {% endfor %}
-                    </div>
+
+                            {% if field.errors %}
+                                {% for error in field.errors %}
+                                    <p class="text-red-500 text-sm mt-2">{{ error }}</p>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    {% endfor %}
                 </div>
 
                 <!-- Navigation Buttons -->
                 <div class="flex justify-between items-center mt-8">
                     {% if page_obj.has_previous %}
                         <a href="{% url 'quiz_take' course_slug=course.slug %}?page={{ page_obj.previous_page_number }}"
-                           class="inline-flex items-center px-6 py-3 border border-transparent text-base font-bold rounded-full shadow-lg text-gray-800 bg-gray-200 hover:bg-gray-300 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transform hover:-translate-y-1">
-                            <i class="fas fa-arrow-left mr-3"></i> Previous
+                           class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-md shadow-sm text-gray-800 bg-gray-200 hover:bg-gray-300 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
+                            <i class="fas fa-arrow-left mr-2"></i> Previous
                         </a>
                     {% else %}
                         <div></div>
@@ -91,13 +95,13 @@
     
                     {% if page_obj.has_next %}
                         <button type="submit"
-                                class="inline-flex items-center px-8 py-3 border border-transparent text-base font-bold rounded-full shadow-lg text-white bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transform hover:-translate-y-1">
-                            Next <i class="fas fa-arrow-right ml-3"></i>
+                                class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Next <i class="fas fa-arrow-right ml-2"></i>
                         </button>
                     {% else %}
                         <button type="submit"
-                                class="inline-flex items-center px-8 py-3 border border-transparent text-base font-bold rounded-full shadow-lg text-white bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transform hover:-translate-y-1">
-                            <i class="fas fa-paper-plane mr-3"></i> Submit Assessment
+                                class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            <i class="fas fa-paper-plane mr-2"></i> Submit
                         </button>
                     {% endif %}
                 </div>
@@ -105,8 +109,8 @@
         </div>
     </div>
     
-    <div class="mt-10 text-center">
-        <a href="{% url 'course_detail' slug=course.slug %}" class="inline-flex items-center px-6 py-3 text-sm font-medium rounded-full shadow-sm text-gray-700 bg-white hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 transform hover:-translate-y-1">
+    <div class="mt-8 text-center">
+        <a href="{% url 'course_detail' slug=course.slug %}" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300">
             <i class="fas fa-arrow-left mr-2"></i> Back to Course
         </a>
     </div>

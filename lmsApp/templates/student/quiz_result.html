@@ -24,14 +24,11 @@
         <p class="text-sm text-gray-700 mt-2">Attempt Date: {{ attempt.attempt_date|date:"M d, Y H:i" }}</p>
         <p class="text-sm text-gray-700 mt-2">
             Attempt {{ current_attempts_count }} of {{ max_attempts }}
-            {# --- CHANGE START --- #}
-            {# Use the new attempts_remaining variable #}
             {% if attempts_remaining > 0 %}
                 (<span class="text-green-700">{{ attempts_remaining }}</span> attempts remaining)
             {% else %}
                 (<span class="text-red-700">No attempts remaining</span>)
             {% endif %}
-            {# --- CHANGE END --- #}
         </p>
     </div>
 
@@ -49,28 +46,29 @@
                     {% for option in qa.options %}
                         <li class="p-3 rounded-md border
                              {# Check if this option was chosen by the user #}
-                             {% if option.id in qa.chosen_option_ids %}
-                                 {% if option.is_correct %}
-                                     bg-green-100 border-green-400 text-green-800 font-medium
-                                 {% else %}
-                                     bg-red-100 border-red-400 text-red-800 font-medium
-                                 {% endif %}
+                             {% if option.id == qa.chosen_option_id %}
+                                {# If chosen, check if it's correct #}
+                                {% if qa.is_correct %}
+                                    bg-green-100 border-green-400 text-green-800 font-medium
+                                {% else %}
+                                    bg-red-100 border-red-400 text-red-800 font-medium
+                                {% endif %}
                              {# If not chosen, but it's a correct answer, highlight it #}
-                             {% elif option.is_correct %}
-                                 bg-blue-100 border-blue-400 text-blue-800 font-medium
+                             {% elif option in qa.correct_options %}
+                                bg-blue-100 border-blue-400 text-blue-800 font-medium
                              {% else %}
-                                 bg-white border-gray-200 text-gray-700
+                                bg-white border-gray-200 text-gray-700
                              {% endif %}
                              flex items-center">
                             
                             {# Icon logic based on chosen/correct status #}
-                            {% if option.id in qa.chosen_option_ids %}
-                                {% if option.is_correct %}
+                            {% if option.id == qa.chosen_option_id %}
+                                {% if qa.is_correct %}
                                     <i class="fas fa-check-circle mr-3 text-green-600"></i>
                                 {% else %}
                                     <i class="fas fa-times-circle mr-3 text-red-600"></i>
                                 {% endif %}
-                            {% elif option.is_correct %}
+                            {% elif option in qa.correct_options %}
                                 <i class="fas fa-check mr-3 text-blue-600"></i>
                             {% else %}
                                 <i class="far fa-circle mr-3 text-gray-500"></i>
@@ -79,16 +77,14 @@
                         </li>
                     {% endfor %}
                 </ul>
-                {# New logic for multi-select questions to show overall correctness #}
-                {% if qa.is_correct %}
-                    <p class="text-sm text-green-600 mt-3 flex items-center">
+                <p class="text-sm mt-3 flex items-center
+                   {% if qa.is_correct %}text-green-600{% else %}text-red-600{% endif %}">
+                    {% if qa.is_correct %}
                         <i class="fas fa-check-circle mr-2"></i> You answered this question correctly!
-                    </p>
-                {% else %}
-                    <p class="text-sm text-red-600 mt-3 flex items-center">
+                    {% else %}
                         <i class="fas fa-times-circle mr-2"></i> Your answer was incorrect.
-                    </p>
-                {% endif %}
+                    {% endif %}
+                </p>
             </div>
         {% endfor %}
     </div>

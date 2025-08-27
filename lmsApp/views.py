@@ -18,9 +18,8 @@ import os
 import traceback
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .utils import send_templated_email
-import json
 from django.db.models import Prefetch
-import csv, io
+import csv
 from django.db.models import Avg
 from django.contrib.auth.models import Group
 import random
@@ -32,9 +31,7 @@ from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from .utils import send_custom_password_reset_email
 from django.contrib.auth.forms import PasswordResetForm
-from django.db.models.functions import TruncMonth
-from datetime import timedelta
-from django.utils.safestring import mark_safe
+from itertools import chain
 
 
 def send_enrollment_email_to_instructor(request, enrollment):
@@ -1283,14 +1280,15 @@ def mark_content_completed(request, course_slug, module_id, lesson_id, content_i
 @user_passes_test(is_student)
 def quiz_take(request, course_slug):
     """
-    Allows a student to take a course-level quiz, paginating through questions.
+    Allows a student to take a course-level quiz, paginating through questions
+    in a consistent, randomized order.
     """
     course = get_object_or_404(Course, slug=course_slug)
     quiz = get_object_or_404(Quiz, course=course)
     enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
 
     if not course.is_published:
-        messages.error(request, "You are not authorized to take this quiz.")
+        messages.error(request, "This quiz is not currently available.")
         return redirect('course_detail', slug=course.slug)
 
     if not enrollment.is_content_completed:
@@ -1301,6 +1299,7 @@ def quiz_take(request, course_slug):
         messages.info(request, "This quiz has no questions yet.")
         return redirect('course_detail', slug=course.slug)
 
+    # Check for max attempts
     current_attempts_count = StudentQuizAttempt.objects.filter(
         student=request.user,
         quiz=quiz
@@ -1324,8 +1323,27 @@ def quiz_take(request, course_slug):
         else:
             return redirect('course_detail', slug=course.slug)
 
-    # --- Pagination Logic ---
-    questions = quiz.questions.all().order_by('order')
+    # --- Randomization and Pagination Logic ---
+    # Check if a random order has been stored in the session
+    quiz_order_session_key = f'quiz_questions_order_{quiz.id}'
+    
+    # If this is the first time taking the quiz, or we need a new attempt,
+    # generate a random order and store it.
+    if quiz_order_session_key not in request.session:
+        # Generate a new random order of question IDs
+        random_question_ids = list(quiz.questions.all().values_list('id', flat=True).order_by('?'))
+        request.session[quiz_order_session_key] = random_question_ids
+        request.session.modified = True
+    
+    # Retrieve the ordered list of question IDs from the session
+    ordered_question_ids = request.session[quiz_order_session_key]
+    
+    # Fetch questions based on the stored order.
+    questions = list(Question.objects.filter(id__in=ordered_question_ids))
+    # Sort them in the exact order as the list from the session
+    questions.sort(key=lambda x: ordered_question_ids.index(x.id))
+
+    # Setup Paginator with the consistently ordered questions
     paginator = Paginator(questions, 1)
     
     page_number = request.GET.get('page', 1)
@@ -1336,14 +1354,16 @@ def quiz_take(request, course_slug):
         request.session['quiz_answers'] = {}
     
     if request.method == 'POST':
-        form = SingleQuestionForm(current_question, request.POST)
+        # Retrieve the correct form based on question type
+        form_class = SingleQuestionForm # Assuming a SingleQuestionForm is provided by the user
+        form = form_class(current_question, request.POST)
+        
         if form.is_valid():
             chosen_option_id = form.cleaned_data.get(f'question_{current_question.id}')
             request.session['quiz_answers'][str(current_question.id)] = chosen_option_id
             request.session.modified = True
 
             if page_obj.has_next():
-                # Correct way to call the method and build the URL
                 next_page_url = f'{reverse("quiz_take", args=[course.slug])}?page={page_obj.next_page_number()}'
                 return redirect(next_page_url)
             else:
@@ -1370,7 +1390,6 @@ def quiz_take(request, course_slug):
     return render(request, 'student/quiz_take.html', context)
 
 
-
 @login_required
 @user_passes_test(is_student)
 def quiz_submit(request, course_slug):
@@ -1379,9 +1398,10 @@ def quiz_submit(request, course_slug):
     using answers stored in the session.
     """
     course = get_object_or_404(Course, slug=course_slug)
-    quiz = get_object_or_404(Quiz, course=course) 
+    quiz = get_object_or_404(Quiz, course=course)
     enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
 
+    # Authorization and enrollment checks
     if not course.is_published:
         messages.error(request, "You are not authorized to submit this quiz.")
         return redirect('course_detail', slug=course.slug)
@@ -1390,6 +1410,7 @@ def quiz_submit(request, course_slug):
         messages.error(request, "You must complete all course content before submitting this assessment.")
         return redirect('course_detail', slug=course.slug)
 
+    # Check for max attempts
     current_attempts_count = StudentQuizAttempt.objects.filter(
         student=request.user,
         quiz=quiz
@@ -1403,6 +1424,7 @@ def quiz_submit(request, course_slug):
         else:
             return redirect('course_detail', slug=course.slug)
 
+    # Get answers from session
     quiz_answers = request.session.get('quiz_answers', {})
     
     if not quiz_answers:
@@ -1423,27 +1445,57 @@ def quiz_submit(request, course_slug):
         )
 
         for question in quiz.questions.all():
-            chosen_option_id = quiz_answers.get(str(question.id))
-            chosen_option = None
-            if chosen_option_id:
-                try:
-                    chosen_option = Option.objects.get(id=chosen_option_id, question=question)
-                except Option.DoesNotExist:
-                    pass
-
-            student_answers_to_save.append(
-                StudentAnswer(
-                    attempt=attempt,
-                    question=question,
-                    chosen_option=chosen_option
-                )
+            question_key = str(question.id)
+            chosen_option_ids_list = quiz_answers.get(question_key)
+            
+            # This is the single StudentAnswer object we will save for this question
+            student_answer = StudentAnswer(
+                attempt=attempt,
+                question=question,
+                chosen_option=None # Will be updated below
             )
 
-            if chosen_option and chosen_option.is_correct:
+            is_correct_for_question = False
+
+            # Retrieve the correct options for the current question
+            correct_options = question.options.filter(is_correct=True)
+
+            # Case 1: Multiple choice or single choice as a list
+            if isinstance(chosen_option_ids_list, list) and chosen_option_ids_list:
+                # Compare the set of chosen IDs to the set of correct IDs
+                chosen_options_ids_set = set(chosen_option_ids_list)
+                correct_options_ids_set = set(correct_options.values_list('id', flat=True))
+
+                if chosen_options_ids_set == correct_options_ids_set:
+                    is_correct_for_question = True
+            
+            # Case 2: Single choice (single ID)
+            elif isinstance(chosen_option_ids_list, str) or isinstance(chosen_option_ids_list, int):
+                try:
+                    chosen_option = Option.objects.get(id=chosen_option_ids_list, question=question)
+                    if chosen_option.is_correct:
+                        is_correct_for_question = True
+                except Option.DoesNotExist:
+                    pass
+            
+            # Update the score
+            if is_correct_for_question:
                 correct_answers_count += 1
-        
+            
+            # Save the student's chosen option. Since StudentAnswer model has unique_together on attempt and question,
+            # we only save the first chosen option to a single record for simplicity, but the grading logic is based on all answers.
+            if chosen_option_ids_list:
+                chosen_options = Option.objects.filter(id__in=chosen_option_ids_list, question=question)
+                if chosen_options.exists():
+                    student_answer.chosen_option = chosen_options.first()
+            
+            student_answers_to_save.append(student_answer)
+
+
+        # Save all student answers in a single database call
         StudentAnswer.objects.bulk_create(student_answers_to_save)
 
+        # Calculate and save the score
         score_percentage = 0
         if total_questions > 0:
             score_percentage = (correct_answers_count / total_questions) * 100
@@ -1452,11 +1504,11 @@ def quiz_submit(request, course_slug):
         attempt.passed = (score_percentage >= quiz.pass_percentage)
         attempt.save()
 
-        if 'quiz_answers' in request.session:
-            del request.session['quiz_answers']
-        
-        messages.success(request, f'Quiz "{quiz.title}" submitted! Your score: {attempt.score:.2f}%')
-        return redirect('quiz_result', course_slug=course.slug, attempt_id=attempt.id)
+    if 'quiz_answers' in request.session:
+        del request.session['quiz_answers']
+    
+    messages.success(request, f'Quiz "{quiz.title}" submitted! Your score: {attempt.score:.2f}%')
+    return redirect('quiz_result', course_slug=course.slug, attempt_id=attempt.id)
 
 
 @login_required
@@ -1467,8 +1519,8 @@ def quiz_result(request, course_slug, attempt_id):
     """
     course = get_object_or_404(Course, slug=course_slug)
     quiz = get_object_or_404(Quiz, course=course)
-    attempt = get_object_or_404(StudentQuizAttempt, id=attempt_id, student=request.user, quiz=quiz)
-
+    # The 'answers' related_name is now used here
+    attempt = get_object_or_404(StudentQuizAttempt.objects.prefetch_related('answers'), id=attempt_id, student=request.user, quiz=quiz)
     enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
 
     if not course.is_published:
@@ -1476,31 +1528,39 @@ def quiz_result(request, course_slug, attempt_id):
         return redirect('course_detail', slug=course.slug)
 
     questions_with_answers = []
+    
+    # Get all student answers for this attempt using the 'answers' related name
+    student_answers_map = {sa.question_id: sa for sa in attempt.answers.all()}
+    
     for question in quiz.questions.all().order_by('order'):
         options = list(question.options.all())
-        student_answer = StudentAnswer.objects.filter(attempt=attempt, question=question).first()
+        student_answer = student_answers_map.get(question.id)
         
+        # Get all correct options for this question
+        correct_options = question.options.filter(is_correct=True)
+        correct_option_ids = set(correct_options.values_list('id', flat=True))
+
         chosen_option_id = student_answer.chosen_option.id if student_answer and student_answer.chosen_option else None
         
+        # Determine the correctness of the chosen option
+        is_correct_question = (chosen_option_id is not None) and (chosen_option_id in correct_option_ids)
+
         questions_with_answers.append({
             'question': question,
             'options': options,
             'chosen_option_id': chosen_option_id,
-            'is_correct': student_answer.chosen_option.is_correct if student_answer and student_answer.chosen_option else False,
-            'correct_option': next((opt for opt in options if opt.is_correct), None)
+            'is_correct': is_correct_question,
+            'correct_options': correct_options,
         })
 
-    can_retake = False
+    # Remaining attempts logic
     current_attempts_count = StudentQuizAttempt.objects.filter(
         student=request.user,
         quiz=quiz
     ).count()
 
-    # --- CHANGE START ---
-    # Calculate the remaining attempts in the view
     attempts_remaining = quiz.max_attempts - current_attempts_count
-    # --- CHANGE END ---
-
+    can_retake = False
     if not attempt.passed and current_attempts_count < quiz.max_attempts:
         can_retake = True
 
@@ -1513,9 +1573,7 @@ def quiz_result(request, course_slug, attempt_id):
         'current_attempts_count': current_attempts_count,
         'max_attempts': quiz.max_attempts,
         'enrollment': enrollment,
-        # --- CHANGE START ---
         'attempts_remaining': attempts_remaining,
-        # --- CHANGE END ---
     }
     return render(request, 'student/quiz_result.html', context)
 

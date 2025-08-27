@@ -23,7 +23,6 @@ class OptionInline(admin.TabularInline):
 # Inline for Questions within a Quiz
 class QuestionInline(admin.StackedInline):
     model = Question
-    inlines = [OptionInline] # Nest OptionInline within QuestionInline
     extra = 1 # Display 1 empty question form
     min_num = 1 # Ensure at least one question
     can_delete = True # Allow deleting questions
@@ -37,6 +36,7 @@ class QuizAdmin(admin.ModelAdmin):
     search_fields = ('title', 'description', 'course__title')
     inlines = [QuestionInline]
 
+
     def course_link(self, obj):
         if obj.course:
             return obj.course.title
@@ -48,6 +48,11 @@ class QuizAdmin(admin.ModelAdmin):
             'fields': ('title', 'description', 'course', 'pass_percentage', 'max_attempts','allow_multiple_correct')
         }),
     )
+
+@admin.register(Question)
+class QuestionAdmin(admin.ModelAdmin):
+    list_display = ('text', 'quiz')
+    inlines = [OptionInline]
 
 # Admin for Course model
 @admin.register(Course)

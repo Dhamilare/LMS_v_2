@@ -533,10 +533,6 @@ class CSVUploadForm(forms.Form):
 
 # Student-facing Quiz Taking Form
 class TakeQuizForm(forms.Form):
-    """
-    A dynamic form for taking a quiz.
-    It generates fields based on the questions associated with a given Quiz instance.
-    """
     def __init__(self, *args, **kwargs):
         self.quiz = kwargs.pop('quiz', None)
         super().__init__(*args, **kwargs)
@@ -546,52 +542,87 @@ class TakeQuizForm(forms.Form):
 
         for question in self.quiz.questions.all().order_by('order'):
             choices = [(option.id, option.text) for option in question.options.all()]
-            
-            if self.quiz.allow_multiple_correct or question.options.filter(is_correct=True).count() > 1:
-                # Multiple correct answers → checkboxes
-                self.fields[f'question_{question.id}'] = forms.MultipleChoiceField(
+            correct_count = question.options.filter(is_correct=True).count()
+
+            allow_multiple = (
+                (self.quiz.allow_multiple_correct and correct_count > 1)
+                or correct_count > 1
+            )
+
+            field_name = f'question_{question.id}'
+
+            if allow_multiple:
+                attrs = {
+                    'class': 'form-checkbox h-4 w-4 text-indigo-600',
+                    # HTML-friendly data attribute for JS
+                    'data-multiple': 'true',
+                    # Template-friendly key (no hyphen) for Django template checks
+                    'data_multiple': 'true',
+                }
+                self.fields[field_name] = forms.MultipleChoiceField(
                     label=f"{question.order}. {question.text}",
                     choices=choices,
-                    widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-checkbox h-4 w-4 text-indigo-600'}),
+                    widget=forms.CheckboxSelectMultiple(attrs=attrs),
                     required=True,
                 )
             else:
-                # Single correct answer → radio buttons
-                self.fields[f'question_{question.id}'] = forms.ChoiceField(
+                attrs = {
+                    'class': 'form-radio h-4 w-4 text-indigo-600',
+                    'data-multiple': 'false',
+                    'data_multiple': 'false',
+                }
+                self.fields[field_name] = forms.ChoiceField(
                     label=f"{question.order}. {question.text}",
                     choices=choices,
-                    widget=forms.RadioSelect(attrs={'class': 'form-radio h-4 w-4 text-indigo-600'}),
+                    widget=forms.RadioSelect(attrs=attrs),
                     required=True,
                 )
-                self.fields[f'question_{question.id}'].widget.attrs['data-question-id'] = question.id
+
+            # keep a stable data-question-id for JS if needed
+            self.fields[field_name].widget.attrs['data-question-id'] = str(question.id)
+
 
 class SingleQuestionForm(forms.Form):
-    """
-    A form for displaying and handling a single question.
-    This is the ideal form to use for a paginated quiz.
-    """
     def __init__(self, question, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        # Get all options for the current question
+
         options = question.options.all()
-
-        # Create a list of tuples for the choices, using only the option text as the label
         choices = [(option.id, option.text) for option in options]
+        correct_count = question.options.filter(is_correct=True).count()
 
-        if question.options.filter(is_correct=True).count() > 1 or question.quiz.allow_multiple_correct:
+        allow_multiple = (
+            (question.quiz.allow_multiple_correct and correct_count > 1)
+            or correct_count > 1
+        )
+
+        field_name = f'question_{question.id}'
+
+        if allow_multiple:
+            widget_attrs = {
+                'class': 'form-checkbox h-4 w-4 text-indigo-600',
+                'data-multiple': 'true',
+                'data_multiple': 'true',
+            }
             field_class = forms.MultipleChoiceField
-            widget_class = forms.CheckboxSelectMultiple(attrs={'class': 'form-checkbox h-4 w-4 text-indigo-600'})
+            widget = forms.CheckboxSelectMultiple(attrs=widget_attrs)
         else:
+            widget_attrs = {
+                'class': 'form-radio h-4 w-4 text-indigo-600',
+                'data-multiple': 'false',
+                'data_multiple': 'false',
+            }
             field_class = forms.ChoiceField
-            widget_class = forms.RadioSelect(attrs={'class': 'form-radio h-4 w-4 text-indigo-600'})
+            widget = forms.RadioSelect(attrs=widget_attrs)
 
-        self.fields[f'question_{question.id}'] = field_class(
+        self.fields[field_name] = field_class(
             choices=choices,
-            widget=widget_class,
+            widget=widget,
             label=question.text,
             required=True
         )
+
+        self.fields[field_name].widget.attrs['data-question-id'] = str(question.id)
+
 
 
 class RatingForm(forms.ModelForm):

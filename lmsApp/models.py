@@ -405,6 +405,8 @@ class Option(models.Model):
     class Meta:
         unique_together = ('question', 'text')
 
+        
+
 class StudentQuizAttempt(models.Model):
     """
     Tracks a student's attempt on a specific quiz.
