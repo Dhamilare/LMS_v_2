@@ -274,66 +274,67 @@
     {% endif %}
 
     {% if request.user.is_student and is_enrolled %}
-        <div class="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200 shadow-md flex flex-col sm:flex-row items-center justify-between">
-            <div class="flex items-center mb-3 sm:mb-0">
+        {% if course_quiz %}
+            <div class="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200 shadow-md flex flex-col sm:flex-row items-center justify-between">
+                <div class="flex items-center mb-3 sm:mb-0">
+                    {% if course.is_completed %}
+                        <i class="fas fa-medal text-3xl text-green-600 mr-4"></i>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800">Course Completed!</h3>
+                            <p class="text-gray-600 text-sm">Congratulations! You have completed all course requirements.</p>
+                        </div>
+                    {% elif has_passed_final_quiz %}
+                        <i class="fas fa-award text-3xl text-purple-600 mr-4"></i>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800">Transcript Available</h3>
+                            <p class="text-gray-600 text-sm">You have successfully passed the final assessment.</p>
+                        </div>
+                    {% elif enrollment.is_content_completed %}
+                        <i class="fas fa-graduation-cap text-3xl text-blue-600 mr-4"></i>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800">Final Course Assessment</h3>
+                            <p class="text-gray-600 text-sm">Pass this quiz to complete the course and earn your certification.</p>
+                        </div>
+                    {% else %}
+                        <i class="fas fa-lock text-3xl text-gray-500 mr-4"></i>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800">Final Assessment Locked</h3>
+                            <p class="text-gray-600 text-sm">Complete all modules to unlock this assessment.</p>
+                        </div>
+                    {% endif %}
+                </div>
                 {% if course.is_completed %}
-                    <i class="fas fa-medal text-3xl text-green-600 mr-4"></i>
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-800">Course Completed!</h3>
-                        <p class="text-gray-600 text-sm">Congratulations! You have completed all course requirements.</p>
-                    </div>
+                    <span class="bg-green-500 text-white py-2 px-5 rounded-md flex items-center justify-center shadow-md w-full sm:w-auto">
+                        <i class="fas fa-check-circle mr-2"></i> Certificate Earned
+                    </span>
                 {% elif has_passed_final_quiz %}
-                    <i class="fas fa-award text-3xl text-purple-600 mr-4"></i>
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-800">Transcript Available</h3>
-                        <p class="text-gray-600 text-sm">You have successfully passed the final assessment.</p>
-                    </div>
-                {% elif course_quiz and enrollment.is_content_completed %}
-                    <i class="fas fa-graduation-cap text-3xl text-blue-600 mr-4"></i>
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-800">Final Course Assessment</h3>
-                        <p class="text-gray-600 text-sm">Pass this quiz to complete the course and earn your certification.</p>
-                    </div>
-                {% elif not course_quiz and enrollment.is_content_completed %}
-                    {# NEW LOGIC: Card for claiming a certificate when all content is completed and there's no quiz #}
+                    <a href="{% url 'course_transcript' course_slug=course.slug %}" class="bg-blue-600 text-white py-2 px-5 rounded-md hover:bg-blue-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
+                        <i class="fas fa-file-alt mr-2"></i> View Transcript
+                    </a>
+                {% elif enrollment.is_content_completed %}
+                    <a href="{% url 'quiz_take' course_slug=course.slug %}" class="bg-indigo-600 text-white py-2 px-5 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
+                        <i class="fas fa-play-circle mr-2"></i> Take Assessment
+                    </a>
+                {% else %}
+                    <span class="bg-gray-300 text-gray-700 py-2 px-5 rounded-md flex items-center justify-center cursor-not-allowed shadow-md w-full sm:w-auto">
+                        <i class="fas fa-lock mr-2"></i> Complete all modules to unlock
+                    </span>
+                {% endif %}
+            </div>
+        {% elif not course_quiz and enrollment.is_content_completed %}
+            <div class="mt-8 p-6 bg-green-50 rounded-lg border border-green-200 shadow-md flex flex-col sm:flex-row items-center justify-between">
+                <div class="flex items-center mb-3 sm:mb-0">
                     <i class="fas fa-file-invoice text-3xl text-green-600 mr-4"></i>
                     <div>
                         <h3 class="text-xl font-bold text-gray-800">Certificate Unlocked!</h3>
                         <p class="text-gray-600 text-sm">You have completed all requirements for this course.</p>
                     </div>
-                {% else %}
-                    <i class="fas fa-info-circle text-3xl text-gray-500 mr-4"></i>
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-800">No Final Assessment</h3>
-                        <p class="text-gray-600 text-sm">There is no final quiz assigned to this course. Complete all modules to unlock.</p>
-                    </div>
-                {% endif %}
-            </div>
-            {% if course.is_completed %}
-                <span class="bg-green-500 text-white py-2 px-5 rounded-md flex items-center justify-center shadow-md w-full sm:w-auto">
-                    <i class="fas fa-check-circle mr-2"></i> Certificate Earned
-                </span>
-            {% elif has_passed_final_quiz %}
-                <a href="{% url 'course_transcript' course_slug=course.slug %}"
-                   class="bg-blue-600 text-white py-2 px-5 rounded-md hover:bg-blue-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
-                    <i class="fas fa-file-alt mr-2"></i> View Transcript
-                </a>
-            {% elif course_quiz and enrollment.is_content_completed %}
-                <a href="{% url 'quiz_take' course_slug=course.slug %}"
-                   class="bg-indigo-600 text-white py-2 px-5 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
-                    <i class="fas fa-play-circle mr-2"></i> Take Assessment
-                </a>
-            {% elif not course_quiz and enrollment.is_content_completed %}
-                <a href="{% url 'issue_certificate' course_slug=course.slug %}"
-                   class="bg-green-600 text-white py-2 px-5 rounded-md hover:bg-green-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
+                </div>
+                <a href="{% url 'issue_certificate' course_slug=course.slug %}" class="bg-green-600 text-white py-2 px-5 rounded-md hover:bg-green-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
                     <i class="fas fa-award mr-2"></i> Claim Certificate
                 </a>
-            {% else %}
-                <span class="bg-gray-300 text-gray-700 py-2 px-5 rounded-md flex items-center justify-center cursor-not-allowed shadow-md w-full sm:w-auto">
-                    <i class="fas fa-lock mr-2"></i> Complete all modules to unlock
-                </span>
-            {% endif %}
-        </div>
+            </div>
+        {% endif %}
     {% endif %}
 
     <div class="mt-8 text-center">

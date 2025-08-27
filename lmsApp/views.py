@@ -1401,7 +1401,6 @@ def quiz_submit(request, course_slug):
     quiz = get_object_or_404(Quiz, course=course)
     enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
 
-    # Authorization and enrollment checks
     if not course.is_published:
         messages.error(request, "You are not authorized to submit this quiz.")
         return redirect('course_detail', slug=course.slug)
@@ -1433,9 +1432,10 @@ def quiz_submit(request, course_slug):
 
     total_questions = quiz.questions.count()
     correct_answers_count = 0
-    student_answers_to_save = []
+    student_answers_to_create = []
 
     with transaction.atomic():
+        # Step 1: Create the QuizAttempt object
         attempt = StudentQuizAttempt.objects.create(
             student=request.user,
             quiz=quiz,
@@ -1444,58 +1444,53 @@ def quiz_submit(request, course_slug):
             passed=False
         )
 
-        for question in quiz.questions.all():
-            question_key = str(question.id)
-            chosen_option_ids_list = quiz_answers.get(question_key)
+        # Step 2: Prepare StudentAnswer objects for bulk creation
+        # We save the questions' `is_multi_select` status to avoid extra queries later
+        questions_map = {q.id: q.is_multi_select for q in quiz.questions.all()}
+        
+        for question_key, chosen_option_ids_list in quiz_answers.items():
+            question_id = int(question_key)
+            question = get_object_or_404(Question, id=question_id, quiz=quiz)
             
-            # This is the single StudentAnswer object we will save for this question
-            student_answer = StudentAnswer(
-                attempt=attempt,
-                question=question,
-                chosen_option=None # Will be updated below
-            )
-
             is_correct_for_question = False
-
-            # Retrieve the correct options for the current question
+            
             correct_options = question.options.filter(is_correct=True)
+            correct_options_ids_set = set(correct_options.values_list('id', flat=True))
 
-            # Case 1: Multiple choice or single choice as a list
             if isinstance(chosen_option_ids_list, list) and chosen_option_ids_list:
-                # Compare the set of chosen IDs to the set of correct IDs
-                chosen_options_ids_set = set(chosen_option_ids_list)
-                correct_options_ids_set = set(correct_options.values_list('id', flat=True))
-
+                chosen_options_ids_set = set(int(id) for id in chosen_option_ids_list)
                 if chosen_options_ids_set == correct_options_ids_set:
                     is_correct_for_question = True
             
-            # Case 2: Single choice (single ID)
-            elif isinstance(chosen_option_ids_list, str) or isinstance(chosen_option_ids_list, int):
-                try:
-                    chosen_option = Option.objects.get(id=chosen_option_ids_list, question=question)
-                    if chosen_option.is_correct:
-                        is_correct_for_question = True
-                except Option.DoesNotExist:
-                    pass
-            
-            # Update the score
             if is_correct_for_question:
                 correct_answers_count += 1
             
-            # Save the student's chosen option. Since StudentAnswer model has unique_together on attempt and question,
-            # we only save the first chosen option to a single record for simplicity, but the grading logic is based on all answers.
+            # Create StudentAnswer object without setting the M2M field yet
+            student_answer = StudentAnswer(
+                attempt=attempt,
+                question=question
+            )
+            student_answers_to_create.append(student_answer)
+
+        # Bulk create the StudentAnswer objects
+        # This gives each object an ID so we can set the ManyToManyField
+        StudentAnswer.objects.bulk_create(student_answers_to_create)
+
+        # Step 3: Now that StudentAnswers exist, set their chosen_options M2M field
+        for question_key, chosen_option_ids_list in quiz_answers.items():
             if chosen_option_ids_list:
-                chosen_options = Option.objects.filter(id__in=chosen_option_ids_list, question=question)
-                if chosen_options.exists():
-                    student_answer.chosen_option = chosen_options.first()
-            
-            student_answers_to_save.append(student_answer)
-
-
-        # Save all student answers in a single database call
-        StudentAnswer.objects.bulk_create(student_answers_to_save)
-
-        # Calculate and save the score
+                question_id = int(question_key)
+                
+                # Fetch the StudentAnswer object that was just created
+                student_answer = get_object_or_404(StudentAnswer, attempt=attempt, question_id=question_id)
+                
+                # Filter for the chosen options
+                chosen_options = Option.objects.filter(id__in=chosen_option_ids_list, question_id=question_id)
+                
+                # Set the ManyToManyField
+                student_answer.chosen_options.set(chosen_options)
+        
+        # Step 4: Calculate and save the final score
         score_percentage = 0
         if total_questions > 0:
             score_percentage = (correct_answers_count / total_questions) * 100
@@ -1504,6 +1499,7 @@ def quiz_submit(request, course_slug):
         attempt.passed = (score_percentage >= quiz.pass_percentage)
         attempt.save()
 
+    # Clear the session data
     if 'quiz_answers' in request.session:
         del request.session['quiz_answers']
     
@@ -1519,38 +1515,53 @@ def quiz_result(request, course_slug, attempt_id):
     """
     course = get_object_or_404(Course, slug=course_slug)
     quiz = get_object_or_404(Quiz, course=course)
-    # The 'answers' related_name is now used here
-    attempt = get_object_or_404(StudentQuizAttempt.objects.prefetch_related('answers'), id=attempt_id, student=request.user, quiz=quiz)
-    enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
-
-    if not course.is_published:
-        messages.error(request, "You are not authorized to view this quiz result.")
-        return redirect('course_detail', slug=course.slug)
+    
+    # We use Prefetch to fetch all related options and student answers efficiently
+    attempt = get_object_or_404(
+        StudentQuizAttempt.objects.prefetch_related(
+            Prefetch(
+                'answers',
+                queryset=StudentAnswer.objects.select_related('question').prefetch_related('chosen_options', 'question__options')
+            )
+        ),
+        id=attempt_id,
+        student=request.user,
+        quiz=quiz
+    )
 
     questions_with_answers = []
     
-    # Get all student answers for this attempt using the 'answers' related name
+    # Map student answers by question ID for easy lookup
     student_answers_map = {sa.question_id: sa for sa in attempt.answers.all()}
     
     for question in quiz.questions.all().order_by('order'):
-        options = list(question.options.all())
         student_answer = student_answers_map.get(question.id)
         
-        # Get all correct options for this question
-        correct_options = question.options.filter(is_correct=True)
-        correct_option_ids = set(correct_options.values_list('id', flat=True))
+        # Get all correct option IDs for this question
+        correct_options_ids = set(question.options.filter(is_correct=True).values_list('id', flat=True))
 
-        chosen_option_id = student_answer.chosen_option.id if student_answer and student_answer.chosen_option else None
+        # Get all chosen option IDs from the ManyToManyField
+        chosen_option_ids = set()
+        if student_answer:
+            chosen_option_ids = set(student_answer.chosen_options.values_list('id', flat=True))
+
+        # Determine the correctness of the chosen options by comparing sets
+        is_correct_question = (chosen_option_ids == correct_options_ids)
         
-        # Determine the correctness of the chosen option
-        is_correct_question = (chosen_option_id is not None) and (chosen_option_id in correct_option_ids)
-
+        # Prepare the options for the template
+        options_data = []
+        for option in question.options.all():
+            options_data.append({
+                'text': option.text,
+                'id': option.id,
+                'is_correct': option.is_correct,
+                'is_chosen': option.id in chosen_option_ids,
+            })
+            
         questions_with_answers.append({
             'question': question,
-            'options': options,
-            'chosen_option_id': chosen_option_id,
+            'options': options_data,
             'is_correct': is_correct_question,
-            'correct_options': correct_options,
         })
 
     # Remaining attempts logic
@@ -1563,7 +1574,7 @@ def quiz_result(request, course_slug, attempt_id):
     can_retake = False
     if not attempt.passed and current_attempts_count < quiz.max_attempts:
         can_retake = True
-
+        
     context = {
         'course': course,
         'quiz': quiz,
@@ -1572,11 +1583,9 @@ def quiz_result(request, course_slug, attempt_id):
         'can_retake': can_retake,
         'current_attempts_count': current_attempts_count,
         'max_attempts': quiz.max_attempts,
-        'enrollment': enrollment,
         'attempts_remaining': attempts_remaining,
     }
     return render(request, 'student/quiz_result.html', context)
-
 
 @login_required
 @user_passes_test(is_student)

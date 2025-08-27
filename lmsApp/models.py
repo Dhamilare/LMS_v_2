@@ -381,6 +381,7 @@ class Question(models.Model):
     """
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='questions')
     text = models.TextField()
+    is_multi_select = models.BooleanField(default=False, help_text="Check if this question allows multiple correct answers.")
     order = models.PositiveIntegerField(default=0)
 
     def __str__(self):
@@ -454,7 +455,7 @@ class StudentAnswer(models.Model):
     """
     attempt = models.ForeignKey(StudentQuizAttempt, on_delete=models.CASCADE, related_name='answers')
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='student_answers')
-    chosen_option = models.ForeignKey(Option, on_delete=models.CASCADE, null=True, blank=True, related_name='chosen_by_students')
+    chosen_options = models.ManyToManyField(Option, related_name='chosen_by_students', blank=True)
 
     def __str__(self):
         return f"{self.attempt.student.username}'s answer for {self.question.text[:30]}..."

@@ -44,31 +44,27 @@
                 </p>
                 <ul class="space-y-2">
                     {% for option in qa.options %}
-                        <li class="p-3 rounded-md border
-                             {# Check if this option was chosen by the user #}
-                             {% if option.id == qa.chosen_option_id %}
-                                {# If chosen, check if it's correct #}
-                                {% if qa.is_correct %}
-                                    bg-green-100 border-green-400 text-green-800 font-medium
-                                {% else %}
-                                    bg-red-100 border-red-400 text-red-800 font-medium
-                                {% endif %}
-                             {# If not chosen, but it's a correct answer, highlight it #}
-                             {% elif option in qa.correct_options %}
+                        <li class="p-3 rounded-md border flex items-center
+                            {# Correctly chosen option #}
+                            {% if option.is_chosen and option.is_correct %}
+                                bg-green-100 border-green-400 text-green-800 font-medium
+                            {# Incorrectly chosen option #}
+                            {% elif option.is_chosen and not option.is_correct %}
+                                bg-red-100 border-red-400 text-red-800 font-medium
+                            {# Unchosen but correct option #}
+                            {% elif not option.is_chosen and option.is_correct %}
                                 bg-blue-100 border-blue-400 text-blue-800 font-medium
-                             {% else %}
+                            {# Default style for unchosen incorrect options #}
+                            {% else %}
                                 bg-white border-gray-200 text-gray-700
-                             {% endif %}
-                             flex items-center">
-                            
+                            {% endif %}">
+
                             {# Icon logic based on chosen/correct status #}
-                            {% if option.id == qa.chosen_option_id %}
-                                {% if qa.is_correct %}
-                                    <i class="fas fa-check-circle mr-3 text-green-600"></i>
-                                {% else %}
-                                    <i class="fas fa-times-circle mr-3 text-red-600"></i>
-                                {% endif %}
-                            {% elif option in qa.correct_options %}
+                            {% if option.is_chosen and option.is_correct %}
+                                <i class="fas fa-check-circle mr-3 text-green-600"></i>
+                            {% elif option.is_chosen and not option.is_correct %}
+                                <i class="fas fa-times-circle mr-3 text-red-600"></i>
+                            {% elif not option.is_chosen and option.is_correct %}
                                 <i class="fas fa-check mr-3 text-blue-600"></i>
                             {% else %}
                                 <i class="far fa-circle mr-3 text-gray-500"></i>
@@ -78,7 +74,7 @@
                     {% endfor %}
                 </ul>
                 <p class="text-sm mt-3 flex items-center
-                   {% if qa.is_correct %}text-green-600{% else %}text-red-600{% endif %}">
+                    {% if qa.is_correct %}text-green-600{% else %}text-red-600{% endif %}">
                     {% if qa.is_correct %}
                         <i class="fas fa-check-circle mr-2"></i> You answered this question correctly!
                     {% else %}

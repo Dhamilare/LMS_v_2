@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
+{% load static %}
 
 {% block title %}Take Quiz: {{ quiz.title }}{% endblock %}
 
@@ -49,27 +50,25 @@
                 <div class="space-y-6">
                     {% for field in form %}
                         <div class="form-group p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <label for="{{ field.id_for_label }}" class="text-lg font-semibold text-gray-800 mb-2 block">
+                            <p class="text-lg font-semibold text-gray-800 mb-2 block">
                                 {{ field.label|safe }}
-
-                                {% comment %}
-                                    Access the data_multiple attribute directly from the widget attrs dictionary.
-                                {% endcomment %}
                                 {% if field.field.widget.attrs.data_multiple == 'true' %}
                                     <span class="text-sm text-gray-500 font-normal italic">(Select all that apply)</span>
                                 {% else %}
                                     <span class="text-sm text-gray-500 font-normal italic">(Select one)</span>
                                 {% endif %}
-                            </label>
+                            </p>
                             
                             <div class="space-y-3 mt-4">
                                 {% for option in field %}
-                                    <div class="relative flex items-center p-3 bg-white rounded-lg shadow-sm border border-gray-300 cursor-pointer hover:bg-gray-100 transition duration-200 ease-in-out">
-                                        {{ option.tag }}
-                                        <label for="{{ option.id_for_label }}" class="ml-4 text-gray-700 text-base font-medium flex-grow cursor-pointer">
-                                            {{ option.choice_label }}
-                                        </label>
-                                    </div>
+                                    <label for="{{ option.id_for_label }}" class="block">
+                                        <div class="relative flex items-center p-4 bg-white rounded-lg border border-gray-300 shadow-sm cursor-pointer hover:bg-gray-100 transition duration-200 ease-in-out">
+                                            {{ option.tag }}
+                                            <span class="ml-4 text-gray-700 text-base font-medium flex-grow cursor-pointer">
+                                                {{ option.choice_label }}
+                                            </span>
+                                        </div>
+                                    </label>
                                 {% endfor %}
                             </div>
 

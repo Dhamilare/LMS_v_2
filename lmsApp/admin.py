@@ -115,13 +115,19 @@ class StudentQuizAttemptAdmin(admin.ModelAdmin):
     search_fields = ('student__username', 'quiz__title', 'enrollment__course__title')
     raw_id_fields = ('student', 'quiz', 'enrollment')
 
-# Admin for StudentAnswer model
 @admin.register(StudentAnswer)
 class StudentAnswerAdmin(admin.ModelAdmin):
-    list_display = ('attempt', 'question', 'chosen_option')
+    list_display = ('attempt', 'question', 'display_chosen_options')
     list_filter = ('attempt__quiz', 'question__quiz')
-    search_fields = ('attempt__student__username', 'question__text', 'chosen_option__text')
-    raw_id_fields = ('attempt', 'question', 'chosen_option')
+    search_fields = ('attempt__student__username', 'question__text')
+
+    raw_id_fields = ('attempt', 'question')
+
+    def display_chosen_options(self, obj):
+
+        return ", ".join([option.text for option in obj.chosen_options.all()])
+
+    display_chosen_options.short_description = "Chosen Options"
 
 # Admin for Certificate model
 @admin.register(Certificate)
