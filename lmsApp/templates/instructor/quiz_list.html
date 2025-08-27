@@ -27,9 +27,8 @@
                     <div class="text-gray-500 text-xs mb-3">
                         <p><i class="fas fa-percent mr-1"></i> Pass Percentage: {{ quiz.pass_percentage }}%</p>
                         <p><i class="fas fa-redo-alt mr-1"></i> Max Attempts: {{ quiz.max_attempts }}</p>
-                        <!-- <p><i class="fas fa-clock mr-1"></i> Duration: {{ quiz.duration_minutes }} mins (Informational)</p> -->
                     </div>
-                    
+
                     {% if quiz.course %}
                         <p class="text-sm text-green-700 flex items-center mb-3">
                             <i class="fas fa-link mr-2"></i> Assigned to Course: {{ quiz.course.title }}
@@ -49,9 +48,13 @@
                                 class="bg-purple-600 text-white py-2 px-3 rounded-md hover:bg-purple-700 transition duration-300 flex items-center text-sm shadow-sm">
                             <i class="fas fa-link mr-2"></i> Assign To Course
                         </button>
-                        <button onclick="loadModalForm('{% url 'quiz_create' %}?quiz_id={{ quiz.id }}', 'Edit Quiz: {{ quiz.title }}')"
+                        <button onclick="loadModalForm('{% url 'quiz_edit' quiz_id=quiz.id %}', 'Edit Quiz: {{ quiz.title }}')"
                                 class="bg-gray-600 text-white py-2 px-3 rounded-md hover:bg-gray-700 transition duration-300 flex items-center text-sm shadow-sm">
                             <i class="fas fa-edit mr-2"></i> Edit Quiz Details
+                        </button>
+                        <button onclick="confirmDelete('{% url 'quiz_delete' quiz_id=quiz.id %}', '{{ quiz.title }}')"
+                                class="bg-red-600 text-white py-2 px-3 rounded-md hover:bg-red-700 transition duration-300 flex items-center text-sm shadow-sm">
+                            <i class="fas fa-trash-alt mr-2"></i> Delete
                         </button>
                     </div>
                 </div>
@@ -79,115 +82,276 @@
 {% include 'partials/modal_base.html' %}
 {% include 'partials/confirmation_modal.html' %}
 
+<!-- Custom Delete Confirmation Modal -->
+<div id="delete-modal" class="hidden fixed inset-0 z-50 overflow-auto bg-gray-900 bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-2xl font-bold text-gray-800">Confirm Deletion</h3>
+            <button onclick="hideModal('delete-modal')" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times fa-lg"></i>
+            </button>
+        </div>
+        <div class="mb-6">
+            <p class="text-gray-700" id="delete-message"></p>
+        </div>
+        <div class="flex justify-end space-x-4">
+            <button onclick="hideModal('delete-modal')" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400 transition duration-300">
+                Cancel
+            </button>
+            <button id="confirm-delete-button" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition duration-300">
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Toast Notification Container -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-[60] flex flex-col items-end space-y-2"></div>
 {% endblock %}
+
 
 {% block extra_scripts %}
 {{ block.super }}
+{% csrf_token %}
 <script>
-    // Get modal elements
-    const modal = document.getElementById('quiz-modal');
-    const modalTitle = document.getElementById('modal-title');
-    const modalBody = document.getElementById('modal-body');
+    // Wait for the entire document to be ready before running the script
+    document.addEventListener('DOMContentLoaded', function() {
+        // ================================
+        // Toast Notification System
+        // ================================
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) return;
 
-    // Function to close the main modal
-    function closeModal() {
-        if (modal) {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            modalBody.innerHTML = ''; // Clear content on close
-        }
-    }
+            const toast = document.createElement('div');
+            let bgColor, icon;
 
-    // Function to load a form into the main modal via AJAX
-    function loadModalForm(url, title) {
-        if (modalTitle) modalTitle.textContent = title;
-        if (modalBody) modalBody.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin text-indigo-600 fa-2x"></i></div>';
-        
-        fetch(url, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.text().then(text => { throw new Error(text) });
+            switch (type) {
+                case 'success':
+                    bgColor = 'bg-green-500';
+                    icon = '<i class="fas fa-check-circle mr-2"></i>';
+                    break;
+                case 'error':
+                    bgColor = 'bg-red-500';
+                    icon = '<i class="fas fa-exclamation-circle mr-2"></i>';
+                    break;
+                default:
+                    bgColor = 'bg-gray-700';
+                    icon = '<i class="fas fa-info-circle mr-2"></i>';
             }
-            return response.text();
-        })
-        .then(html => {
-            if (modalBody) modalBody.innerHTML = html;
+
+            toast.className = `flex items-center px-4 py-3 rounded-lg text-white shadow-md transform transition-transform duration-300 ease-out translate-x-full ${bgColor}`;
+            toast.innerHTML = `${icon}<span>${message}</span>`;
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.transform = 'translateX(0)';
+            }, 100);
+
+            setTimeout(() => {
+                toast.style.transform = 'translateX(120%)';
+                toast.addEventListener('transitionend', () => {
+                    toast.remove();
+                });
+            }, 5000);
+        }
+
+        // ================================
+        // Modal Elements
+        // ================================
+        const mainModal = document.getElementById('quiz-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
+
+        const deleteModal = document.getElementById('delete-modal');
+        const deleteMessage = document.getElementById('delete-message');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-button');
+
+        function hideModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        // ================================
+        // Utility Functions
+        // ================================
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
             if (modal) {
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
             }
-            attachFormSubmissionHandler();
-        })
-        .catch(error => {
-            console.error('Error fetching form:', error);
-            if (modalBody) modalBody.innerHTML = '<p class="text-red-500">Failed to load the form. Please try again.</p>';
-        });
-    }
+        }
 
-    // Function to handle the AJAX form submission
-    function attachFormSubmissionHandler() {
-        const form = document.querySelector('#quiz-modal form');
-        if (form) {
-            form.addEventListener('submit', function(event) {
-                event.preventDefault();
-                
-                const formData = new FormData(form);
-                const submitButton = form.querySelector('button[type="submit"]');
+        function hideModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
 
-                if (submitButton) {
-                    submitButton.disabled = true;
-                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
+        window.hideModal = hideModal;
+        window.showModal = showModal;
+
+        // ================================
+        // Main Quiz Modal Functions
+        // ================================
+        function closeMainModal() {
+            if (mainModal) {
+                hideModal('quiz-modal');
+                modalBody.innerHTML = '';
+            }
+        }
+
+        function loadModalForm(url, title) {
+            if (modalTitle) modalTitle.textContent = title;
+            if (modalBody) modalBody.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin text-indigo-600 fa-2x"></i></div>';
+
+            fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text) });
                 }
+                return response.text();
+            })
+            .then(html => {
+                if (modalBody) modalBody.innerHTML = html;
+                showModal('quiz-modal');
+                attachFormSubmissionHandler();
+            })
+            .catch(error => {
+                console.error('Error fetching form:', error);
+                if (modalBody) modalBody.innerHTML = '<p class="text-red-500">Failed to load the form. Please try again.</p>';
+            });
+        }
 
-                fetch(form.action, {
+        function attachFormSubmissionHandler() {
+            const form = document.querySelector('#quiz-modal form');
+            if (form) {
+                form.addEventListener('submit', function(event) {
+                    event.preventDefault();
+
+                    const formData = new FormData(form);
+                    const submitButton = form.querySelector('button[type="submit"]');
+
+                    if (submitButton) {
+                        submitButton.disabled = true;
+                        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
+                    }
+
+                    fetch(form.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.text().then(text => { throw new Error(text) });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            showToast(data.message, 'success');
+                            window.location.reload();
+                        } else {
+                            if (modalBody) modalBody.innerHTML = data.form_html;
+                            attachFormSubmissionHandler();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error during form submission:', error);
+                        showToast('An error occurred. Please try again.', 'error');
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Save Quiz';
+                        }
+                    });
+                });
+            }
+        }
+
+        if (mainModal) {
+            mainModal.addEventListener('click', function(e) {
+                if (e.target.id === 'quiz-modal') {
+                    closeMainModal();
+                }
+            });
+        }
+
+        // ================================
+        // Delete Confirmation Modal
+        // ================================
+        window.confirmDelete = (url, quizTitle) => {
+            console.log("Confirming delete for:", quizTitle);
+            if (deleteMessage) {
+                deleteMessage.textContent = `Are you sure you want to delete the quiz "${quizTitle}"? This action cannot be undone.`;
+            }
+            showModal('delete-modal');
+
+            confirmDeleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                console.log("Attempting to delete quiz. URL:", url);
+
+                const csrftokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
+                if (!csrftokenElement) {
+                    console.error("CRITICAL: CSRF token element not found! Cannot proceed with deletion.");
+                    showToast("CSRF token not found. Cannot delete.", 'error');
+                    hideModal('delete-modal');
+                    return;
+                }
+                const csrftoken = csrftokenElement.value;
+                console.log("CSRF token found:", csrftoken);
+
+                fetch(url, {
                     method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 })
                 .then(response => {
+                    console.log("Fetch response received. Status:", response.status);
                     if (!response.ok) {
+                        if (response.status === 403) {
+                            console.error("Permission or CSRF error (403). Possible issues: incorrect CSRF token, or user is not the quiz owner.");
+                            throw new Error("You don't have permission to delete this quiz, or the CSRF token is invalid.");
+                        }
                         return response.text().then(text => { throw new Error(text) });
                     }
                     return response.json();
                 })
                 .then(data => {
                     if (data.success) {
-                        // Success: The quiz was created.
-                        alert(data.message);
-                        
-                        // THIS IS THE KEY CHANGE:
-                        // Instead of redirecting, we simply reload the page.
-                        // This forces the Django view to re-render the page
-                        // with the new quiz data.
+                        showToast(data.message, 'success');
                         window.location.reload();
-
                     } else {
-                        // Failure: Validation errors. Update the modal with the new form HTML.
-                        if (modalBody) modalBody.innerHTML = data.form_html;
-                        attachFormSubmissionHandler();
+                        console.error("Deletion failed:", data.message);
+                        showToast(data.message, 'error');
+                        hideModal('delete-modal');
                     }
                 })
                 .catch(error => {
-                    console.error('Error during form submission:', error);
-                    alert('An error occurred. Please try again.');
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Save Quiz';
-                    }
+                    console.error('Error during deletion:', error);
+                    showToast(`An error occurred: ${error.message}`, 'error');
+                    hideModal('delete-modal');
                 });
+            };
+        };
+
+        if (deleteModal) {
+            deleteModal.addEventListener('click', function(e) {
+                if (e.target.id === 'delete-modal') {
+                    hideModal('delete-modal');
+                }
             });
         }
-    }
-
-    // Event listener to close the modal when clicking outside
-    if (modal) {
-        modal.addEventListener('click', function(e) {
-            if (e.target.id === 'quiz-modal') {
-                closeModal();
-            }
-        });
-    }
+    }); // End of DOMContentLoaded
 </script>
 {% endblock %}

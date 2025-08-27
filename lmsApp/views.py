@@ -1873,6 +1873,59 @@ def quiz_list_instructor(request):
 
 @login_required
 @user_passes_test(is_instructor)
+def quiz_edit(request, quiz_id):
+    """
+    Allows an instructor to edit the details of an existing quiz.
+    This view is designed to handle both GET (for modal content) and
+    POST (for AJAX form submission) requests.
+    """
+    quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user)
+
+    if request.method == 'POST':
+        form = QuizDetailsForm(request.POST, instance=quiz)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({
+                'success': True,
+                'message': f'Quiz "{quiz.title}" has been updated successfully!'
+            })
+        else:
+            form_html = render_to_string(
+                'instructor/partials/quiz_details_form.html',
+                {'form': form, 'quiz': quiz},
+                request=request
+            )
+            return JsonResponse({
+                'success': False,
+                'form_html': form_html
+            }, status=400)
+    else:
+        form = QuizDetailsForm(instance=quiz)
+        return render(request, 'instructor/partials/quiz_details_form.html', {'form': form, 'quiz': quiz})
+
+@require_POST
+@login_required
+@user_passes_test(is_instructor)
+def quiz_delete(request, quiz_id):
+    """
+    Deletes a quiz via an AJAX POST request.
+    """
+    try:
+        quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user)
+        quiz_title = quiz.title
+        quiz.delete()
+        return JsonResponse({
+            'success': True,
+            'message': f'Quiz "{quiz_title}" and all its questions have been deleted successfully.'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'An error occurred while trying to delete the quiz: {str(e)}'
+        }, status=400)
+
+@login_required
+@user_passes_test(is_instructor)
 def quiz_create(request):
     """
     Handles creation of a new quiz via AJAX modal.
@@ -2102,120 +2155,145 @@ def quiz_assign_to_course(request, quiz_id): # Renamed view
     return render(request, 'instructor/quiz_assign_form.html', context) # Fallback
 
 
+@login_required
 @user_passes_test(is_instructor)
 def quiz_upload_csv(request, quiz_id):
     """
     Handles uploading questions for a quiz via CSV.
-    CSV format: question_text,option1,is_correct1,option2,is_correct2,option3,is_correct3,option4,is_correct4
-    is_correct values should be 'True' or 'False'.
+    Expected CSV format:
+    question_text,option1,is_correct1,option2,is_correct2,option3,is_correct3,option4,is_correct4
+    - is_correct values: True or False (case-insensitive)
+    - Each question must have at least one correct option
+    - If quiz.allow_multiple_correct is False → exactly one correct option required
     """
     quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user)
 
     if request.method == 'POST':
         form = CSVUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            csv_file = request.FILES['csv_file']
-            if not csv_file.name.endswith('.csv'):
-                return JsonResponse({'success': False, 'error': 'File is not a CSV.'}, status=400)
-            
-            # This is the single list that will hold all choices to be bulk-created
-            options_to_create = []
-            questions_to_create = []
 
-            try:
-                # Wrap the entire file processing in a single atomic transaction
-                with transaction.atomic():
-                    # Get the starting order for new questions
-                    max_order = quiz.questions.aggregate(models.Max('order'))['order__max'] or 0
-
-                    # Use io.TextIOWrapper to handle file decoding
-                    file_data = io.TextIOWrapper(csv_file.file, encoding='utf-8')
-                    reader = csv.reader(file_data)
-                    next(reader, None) # Skip header row
-
-                    # Process the file in a single pass
-                    for i, row in enumerate(reader):
-                        # Validate row length
-                        if len(row) != 9:
-                            raise ValueError(f'Row {i+2}: Incorrect number of columns. Expected 9, got {len(row)}.')
-
-                        question_text = row[0].strip()
-                        if not question_text:
-                            raise ValueError(f'Row {i+2}: Question text cannot be empty.')
-                        
-                        # Create the Question object
-                        new_question = Question(quiz=quiz, text=question_text, order=max_order + i + 1)
-                        questions_to_create.append(new_question)
-
-                        correct_options_in_row = 0
-                        # Iterate through option text and is_correct pairs
-                        for j in range(1, 9, 2):
-                            option_text = row[j].strip()
-                            is_correct_str = row[j+1].strip().lower()
-                            is_correct = is_correct_str == 'true'
-
-                            if not option_text:
-                                raise ValueError(f'Row {i+2}, Option {((j-1)//2)+1}: Option text cannot be empty.')
-
-                            if is_correct:
-                                correct_options_in_row += 1
-
-                            # Append to options list, but we can't link it to the question yet as it has no ID
-                            options_to_create.append({
-                                'question_index': i,
-                                'text': option_text,
-                                'is_correct': is_correct
-                            })
-                        
-                        if correct_options_in_row != 1:
-                            raise ValueError(f'Row {i+2}: Each question must have exactly one correct option.')
-
-                    # Now, bulk create questions to get their IDs
-                    Question.objects.bulk_create(questions_to_create)
-
-                    # Now that questions have IDs, we can link them to the options and bulk create
-                    final_options = []
-                    for option_data in options_to_create:
-                        question = questions_to_create[option_data['question_index']]
-                        final_options.append(
-                            Option(question=question, text=option_data['text'], is_correct=option_data['is_correct'])
-                        )
-                    
-                    Option.objects.bulk_create(final_options)
-            
-            except ValueError as e:
-                # Catch specific validation errors during processing
-                return JsonResponse({'success': False, 'error': str(e)}, status=400)
-            except Exception as e:
-                # Catch any other unexpected errors
-                return JsonResponse({'success': False, 'error': f'An unexpected error occurred during file processing: {str(e)}'}, status=500)
-
-            # If all goes well, return a success response
-            return JsonResponse({'success': True, 'message': f'{len(questions_to_create)} questions uploaded successfully!'})
-        
-        else:
+        if not form.is_valid():
             html_form = render_to_string('instructor/quiz_upload_csv.html', {'form': form, 'quiz': quiz}, request=request)
-            return JsonResponse({'success': False, 'error': 'Validation failed.', 'form_html': html_form}, status=400)
-    else:
-        form = CSVUploadForm()
-    
-    context = {'form': form, 'quiz': quiz}
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        return render(request, 'instructor/quiz_upload_csv.html', context)
-    return render(request, 'instructor/quiz_upload_csv.html', context)
+            return JsonResponse({
+                'success': False,
+                'error': 'Validation failed.',
+                'form_errors': form.errors.as_json(),
+                'form_html': html_form
+            }, status=400)
 
+        csv_file = request.FILES.get('csv_file')
+        if not csv_file:
+            return JsonResponse({'success': False, 'error': 'No file was uploaded.'}, status=400)
+
+        if not csv_file.name.lower().endswith('.csv'):
+            return JsonResponse({'success': False, 'error': 'File is not a CSV.'}, status=400)
+
+        questions_buffer = []
+        options_buffer = []
+
+        try:
+            with transaction.atomic():
+                # Get the starting order for new questions
+                max_order = quiz.questions.aggregate(models.Max('order'))['order__max'] or 0
+
+                # Decode the uploaded file safely
+                try:
+                    file_data = csv_file.read().decode('utf-8').splitlines()
+                except UnicodeDecodeError:
+                    return JsonResponse({'success': False, 'error': 'Unable to decode the CSV file. Ensure it is UTF-8 encoded.'}, status=400)
+
+                reader = csv.reader(file_data)
+                header = next(reader, None)  # Skip header
+
+                if header is None:
+                    raise ValueError('The CSV file is empty.')
+
+                for i, row in enumerate(reader):
+                    row_number = i + 2  # Account for header row
+                    if len(row) != 9:
+                        raise ValueError(f'Row {row_number}: Expected 9 columns, got {len(row)}.')
+
+                    question_text = row[0].strip()
+                    if not question_text:
+                        raise ValueError(f'Row {row_number}: Question text cannot be empty.')
+
+                    new_question = Question(quiz=quiz, text=question_text, order=max_order + i + 1)
+                    questions_buffer.append(new_question)
+
+                    correct_options_count = 0
+
+                    # Parse 4 options
+                    for j in range(1, 9, 2):
+                        option_text = row[j].strip()
+                        is_correct_str = row[j + 1].strip().lower()
+                        is_correct = is_correct_str in ['true', '1', 'yes']
+
+                        if not option_text:
+                            raise ValueError(f'Row {row_number}, Option {(j // 2) + 1}: Option text cannot be empty.')
+
+                        if is_correct:
+                            correct_options_count += 1
+
+                        options_buffer.append({
+                            'question_index': i,
+                            'text': option_text,
+                            'is_correct': is_correct
+                        })
+
+                    # Validate correct option count
+                    if correct_options_count == 0:
+                        raise ValueError(f'Row {row_number}: Each question must have at least one correct option.')
+
+                    if not quiz.allow_multiple_correct and correct_options_count > 1:
+                        raise ValueError(f'Row {row_number}: This quiz allows only one correct option, but {correct_options_count} were found.')
+
+                # Bulk create questions (IDs are populated on Django 3.2+ for most DBs)
+                questions_buffer = Question.objects.bulk_create(questions_buffer)
+
+                # Prepare options with linked questions
+                final_options = [
+                    Option(
+                        question=questions_buffer[opt['question_index']],
+                        text=opt['text'],
+                        is_correct=opt['is_correct']
+                    ) for opt in options_buffer
+                ]
+
+                Option.objects.bulk_create(final_options)
+
+        except ValueError as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'An unexpected error occurred: {str(e)}'}, status=500)
+
+        return JsonResponse({'success': True, 'message': f'{len(questions_buffer)} questions uploaded successfully!'})
+
+    # For GET request → render form
+    form = CSVUploadForm()
+    context = {'form': form, 'quiz': quiz}
+    return render(request, 'instructor/quiz_upload_csv.html', context)
 
 
 @login_required
 @user_passes_test(is_instructor)
-def quiz_download_csv_template(request):
+def quiz_download_csv_template(request, quiz_id):
     """
-    Provides a sample CSV template for quiz question uploads.
+    Provides a sample CSV template for quiz question uploads,
+    reflecting quiz rules (single or multiple correct answers allowed).
+    Format:
+    question_text, option1, is_correct1, option2, is_correct2, option3, is_correct3, option4, is_correct4
     """
+    quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user)
+
+    # Create response object with CSV headers
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="quiz_questions_template.csv"'
+    response['Content-Disposition'] = f'attachment; filename="quiz_{quiz_id}_questions_template.csv"'
+
+    # Add BOM for Excel compatibility
+    response.write('\ufeff'.encode('utf-8'))
 
     writer = csv.writer(response)
+
+    # Header row
     writer.writerow([
         'question_text',
         'option1', 'is_correct1',
@@ -2223,7 +2301,35 @@ def quiz_download_csv_template(request):
         'option3', 'is_correct3',
         'option4', 'is_correct4'
     ])
+
+    # Instruction row
+    if quiz.allow_multiple_correct:
+        note = "Example: Multiple correct answers allowed (use True/False, case-insensitive)"
+        sample_question = [
+            'Which of the following are programming languages?',
+            'Python', 'True',
+            'HTML', 'False',
+            'Java', 'True',
+            'CSS', 'False'
+        ]
+    else:
+        note = "Example: Only one correct answer allowed (use True for correct, False for others)"
+        sample_question = [
+            'What is the capital of France?',
+            'Paris', 'True',
+            'London', 'False',
+            'Berlin', 'False',
+            'Rome', 'False'
+        ]
+
+    # Write the note as a comment row
+    writer.writerow([note] + [''] * 7)
+
+    # Write sample row
+    writer.writerow(sample_question)
+
     return response
+
 
 @login_required
 @user_passes_test(is_student)

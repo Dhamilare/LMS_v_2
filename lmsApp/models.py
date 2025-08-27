@@ -357,6 +357,7 @@ class Quiz(models.Model):
     course = models.OneToOneField(Course, on_delete=models.CASCADE, related_name='quiz', null=True, blank=True,
                                   help_text="The course this quiz is the main assessment for.")
     title = models.CharField(max_length=255)
+    allow_multiple_correct = models.BooleanField(default=False)
     description = models.TextField(blank=True, null=True)
     pass_percentage = models.PositiveIntegerField(default=70)
     max_attempts = models.PositiveIntegerField(default=3, help_text="Maximum number of attempts allowed for this quiz.")
@@ -388,6 +389,7 @@ class Question(models.Model):
     class Meta:
         ordering = ['order']
         unique_together = ('quiz', 'order')
+
 
 class Option(models.Model):
     """

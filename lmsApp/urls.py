@@ -69,7 +69,9 @@ urlpatterns = [
     path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/', views.content_detail, name='content_detail'), 
    
     # --- Instructor Quiz Management ---
-    path('instructor/quizzes/', views.quiz_list_instructor, name='quiz_list_instructor'), 
+    path('instructor/quizzes/', views.quiz_list_instructor, name='quiz_list_instructor'),
+    path('instructor/quizzes/<int:quiz_id>/edit/', views.quiz_edit, name='quiz_edit'),
+    path('quizzes/<int:quiz_id>/delete/', views.quiz_delete, name='quiz_delete'),
     path('instructor/quizzes/create/', views.quiz_create, name='quiz_create'), 
     path('instructor/quizzes/<int:quiz_id>/manage/', views.quiz_detail_manage, name='quiz_detail_manage'), 
     path('instructor/quizzes/<int:quiz_id>/questions/create/', views.question_create, name='question_create'), 

@@ -32,8 +32,8 @@ class QuestionInline(admin.StackedInline):
 # Admin for Quiz model
 @admin.register(Quiz)
 class QuizAdmin(admin.ModelAdmin):
-    list_display = ('title', 'course_link', 'pass_percentage', 'max_attempts', 'created_at')
-    list_filter = ('course__title', 'pass_percentage', 'max_attempts')
+    list_display = ('title', 'course_link', 'pass_percentage', 'max_attempts', 'allow_multiple_correct', 'created_at')
+    list_filter = ('course__title', 'pass_percentage', 'max_attempts', 'allow_multiple_correct')
     search_fields = ('title', 'description', 'course__title')
     inlines = [QuestionInline]
 
@@ -45,7 +45,7 @@ class QuizAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {
-            'fields': ('title', 'description', 'course', 'pass_percentage', 'max_attempts')
+            'fields': ('title', 'description', 'course', 'pass_percentage', 'max_attempts','allow_multiple_correct')
         }),
     )
 

@@ -6,7 +6,15 @@
     {# Render the main QuestionForm fields (e.g., text, order) #}
     {{ form|crispy }}
 
-    <h4 class="text-lg font-semibold text-gray-700 mt-6 mb-3">Options (Select exactly one correct)</h4>
+    <h4 class="text-lg font-semibold text-gray-700 mt-6 mb-3">
+        Options
+        {% if quiz.allow_multiple_correct %}
+            <span class="text-gray-500 font-normal text-sm block md:inline-block mt-1 md:mt-0">(Select one or more correct answers)</span>
+        {% else %}
+            <span class="text-red-500 font-normal text-sm block md:inline-block mt-1 md:mt-0">(Only one correct answer is allowed)</span>
+        {% endif %}
+    </h4>
+    
     <div class="space-y-3">
         {# Management form for the OptionFormSet is crucial for Django to process the inline forms #}
         {{ form.option_formset.management_form }} 

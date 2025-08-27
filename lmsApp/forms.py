@@ -384,43 +384,19 @@ class ContentForm(forms.ModelForm):
             Field('order', css_class='rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'),
             Submit('submit', 'Save Content', css_class='w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-4')
         )
-
-    # def clean(self):
-    #     cleaned_data = super().clean()
-    #     content_type = cleaned_data.get('content_type')
-    #     file = cleaned_data.get('file')
-    #     text_content = cleaned_data.get('text_content')
-    #     video_url = cleaned_data.get('video_url')
-
-    #     if content_type == 'video':
-    #         if not video_url and not file and not (self.instance and self.instance.file):
-    #             raise ValidationError("For video content, either a video URL or a file upload is required.")
-    #         cleaned_data['text_content'] = None
-
-    #     elif content_type in ['pdf', 'slide']:
-    #         if not file and not (self.instance and self.instance.file):
-    #             raise ValidationError(f"For {content_type} content, a file upload is required.")
-    #         cleaned_data['text_content'] = None
-    #         cleaned_data['video_url'] = None
-
-    #     elif content_type == 'text':
-    #         if not text_content:
-    #             raise ValidationError("For text content, the text field cannot be empty.")
-    #         cleaned_data['file'] = None
-    #         cleaned_data['video_url'] = None
-
-    #     elif content_type in ['quiz', 'assignment']:
-    #         cleaned_data['file'] = None
-    #         cleaned_data['text_content'] = None
-    #         cleaned_data['video_url'] = None
-
-    #     return cleaned_data
-    
+   
 
 class QuizDetailsForm(forms.ModelForm):
+    allow_multiple_correct = forms.BooleanField(
+        label="Allow multiple correct answers per question?",
+        required=False,
+        widget=forms.CheckboxInput(
+            attrs={'class': 'form-checkbox h-5 w-5 text-indigo-600'}
+        )
+    )
     class Meta:
         model = Quiz
-        fields = ['title', 'description', 'pass_percentage', 'max_attempts']
+        fields = ['title', 'description', 'pass_percentage', 'max_attempts', 'allow_multiple_correct']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
         }
@@ -451,8 +427,9 @@ class BaseOptionFormSet(BaseInlineFormSet):
                 if form.cleaned_data.get('is_correct'):
                     correct_options_count += 1
         
-        if correct_options_count != 1:
-            raise forms.ValidationError("Each question must have exactly one correct option.")
+        if correct_options_count < 1:
+            raise forms.ValidationError("Each question must have at least one correct option.")
+
 
 # Inline formset for Options (exactly 4 options per question, one correct)
 OptionFormSet = inlineformset_factory(
@@ -570,13 +547,23 @@ class TakeQuizForm(forms.Form):
         for question in self.quiz.questions.all().order_by('order'):
             choices = [(option.id, option.text) for option in question.options.all()]
             
-            self.fields[f'question_{question.id}'] = forms.ChoiceField(
-                label=f"{question.order}. {question.text}",
-                choices=choices,
-                widget=forms.RadioSelect(attrs={'class': 'form-radio h-4 w-4 text-indigo-600'}),
-                required=True,
-            )
-            self.fields[f'question_{question.id}'].widget.attrs['data-question-id'] = question.id
+            if self.quiz.allow_multiple_correct or question.options.filter(is_correct=True).count() > 1:
+                # Multiple correct answers → checkboxes
+                self.fields[f'question_{question.id}'] = forms.MultipleChoiceField(
+                    label=f"{question.order}. {question.text}",
+                    choices=choices,
+                    widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-checkbox h-4 w-4 text-indigo-600'}),
+                    required=True,
+                )
+            else:
+                # Single correct answer → radio buttons
+                self.fields[f'question_{question.id}'] = forms.ChoiceField(
+                    label=f"{question.order}. {question.text}",
+                    choices=choices,
+                    widget=forms.RadioSelect(attrs={'class': 'form-radio h-4 w-4 text-indigo-600'}),
+                    required=True,
+                )
+                self.fields[f'question_{question.id}'].widget.attrs['data-question-id'] = question.id
 
 class SingleQuestionForm(forms.Form):
     """
@@ -592,11 +579,16 @@ class SingleQuestionForm(forms.Form):
         # Create a list of tuples for the choices, using only the option text as the label
         choices = [(option.id, option.text) for option in options]
 
-        # Create a single field for this question
-        # We use ChoiceField to have full control over the displayed labels
-        self.fields[f'question_{question.id}'] = forms.ChoiceField(
+        if question.options.filter(is_correct=True).count() > 1 or question.quiz.allow_multiple_correct:
+            field_class = forms.MultipleChoiceField
+            widget_class = forms.CheckboxSelectMultiple(attrs={'class': 'form-checkbox h-4 w-4 text-indigo-600'})
+        else:
+            field_class = forms.ChoiceField
+            widget_class = forms.RadioSelect(attrs={'class': 'form-radio h-4 w-4 text-indigo-600'})
+
+        self.fields[f'question_{question.id}'] = field_class(
             choices=choices,
-            widget=forms.RadioSelect(attrs={'class': 'form-radio h-4 w-4 text-indigo-600'}),
+            widget=widget_class,
             label=question.text,
             required=True
         )
