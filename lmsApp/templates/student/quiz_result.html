@@ -43,60 +43,32 @@
                     Q{{ forloop.counter }}. {{ qa.question.text }}
                 </p>
 
-                {% if qa.options|length > 1 %}
-                    {# Logic for multiple-choice questions #}
-                    <ul class="space-y-2">
-                        {% for option in qa.options %}
-                            <li class="p-3 rounded-md border flex items-center
-                                {% if option.is_chosen and option.is_correct %}
-                                    bg-green-100 border-green-400 text-green-800 font-medium
-                                {% elif option.is_chosen and not option.is_correct %}
-                                    bg-red-100 border-red-400 text-red-800 font-medium
-                                {% elif not option.is_chosen and option.is_correct %}
-                                    bg-blue-100 border-blue-400 text-blue-800 font-medium
-                                {% else %}
-                                    bg-white border-gray-200 text-gray-700
-                                {% endif %}">
-                                {% if option.is_chosen and option.is_correct %}
-                                    <i class="fas fa-check-circle mr-3 text-green-600"></i>
-                                {% elif option.is_chosen and not option.is_correct %}
-                                    <i class="fas fa-times-circle mr-3 text-red-600"></i>
-                                {% elif not option.is_chosen and option.is_correct %}
-                                    <i class="fas fa-check mr-3 text-blue-600"></i>
-                                {% else %}
-                                    <i class="far fa-circle mr-3 text-gray-500"></i>
-                                {% endif %}
-                                {{ option.text }}
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    {# Logic for single-option questions (e.g., True/False, Fill-in-the-Blank) #}
-                    <div class="space-y-2">
-                        {# Display the user's answer first #}
-                        <div class="p-3 rounded-md border flex items-center
-                            {% if qa.is_correct %}
+                {# The single logic block now handles both single and multiple-choice questions #}
+                <ul class="space-y-2">
+                    {% for option in qa.options %}
+                        <li class="p-3 rounded-md border flex items-center
+                            {% if option.is_chosen and option.is_correct %}
                                 bg-green-100 border-green-400 text-green-800 font-medium
-                            {% else %}
+                            {% elif option.is_chosen and not option.is_correct %}
                                 bg-red-100 border-red-400 text-red-800 font-medium
-                            {% endif %}">
-                            {% if qa.is_correct %}
-                                <i class="fas fa-check-circle mr-3 text-green-600"></i>
+                            {% elif not option.is_chosen and option.is_correct %}
+                                bg-blue-100 border-blue-400 text-blue-800 font-medium
                             {% else %}
+                                bg-white border-gray-200 text-gray-700
+                            {% endif %}">
+                            {% if option.is_chosen and option.is_correct %}
+                                <i class="fas fa-check-circle mr-3 text-green-600"></i>
+                            {% elif option.is_chosen and not option.is_correct %}
                                 <i class="fas fa-times-circle mr-3 text-red-600"></i>
-                            {% endif %}
-                            Your Answer: {{ qa.user_answer }}
-                        </div>
-                        
-                        {# Display the correct answer, highlighted in blue if the user was wrong #}
-                        {% if not qa.is_correct %}
-                            <div class="p-3 rounded-md border bg-blue-100 border-blue-400 text-blue-800 font-medium flex items-center">
+                            {% elif not option.is_chosen and option.is_correct %}
                                 <i class="fas fa-check mr-3 text-blue-600"></i>
-                                Correct Answer: {{ qa.correct_answer }}
-                            </div>
-                        {% endif %}
-                    </div>
-                {% endif %}
+                            {% else %}
+                                <i class="far fa-circle mr-3 text-gray-500"></i>
+                            {% endif %}
+                            {{ option.text }}
+                        </li>
+                    {% endfor %}
+                </ul>
 
                 <p class="text-sm mt-3 flex items-center
                     {% if qa.is_correct %}text-green-600{% else %}text-red-600{% endif %}">

@@ -1358,14 +1358,9 @@ def quiz_take(request, course_slug):
 
     # --- Form Handling ---
     if request.method == 'POST':
-        # Instantiate the form with the current question and POST data
         form = SingleQuestionForm(current_question, request.POST)
         
         if form.is_valid():
-            # The form's cleaned_data will return the chosen option IDs
-            # as a list for multi-select, and a single string for single-select.
-            
-            # The field name depends on the question's ID
             field_name = f'question_{current_question.id}'
             chosen_answer = form.cleaned_data.get(field_name)
 
@@ -1457,10 +1452,7 @@ def quiz_submit(request, course_slug):
         )
 
         # Step 2: Prepare StudentAnswer objects for bulk creation
-        # We save the questions' `is_multi_select` status to avoid extra queries later
-        questions_map = {q.id: q.is_multi_select for q in quiz.questions.all()}
-        
-        for question_key, chosen_option_ids_list in quiz_answers.items():
+        for question_key, chosen_option_ids in quiz_answers.items():
             question_id = int(question_key)
             question = get_object_or_404(Question, id=question_id, quiz=quiz)
             
@@ -1469,10 +1461,14 @@ def quiz_submit(request, course_slug):
             correct_options = question.options.filter(is_correct=True)
             correct_options_ids_set = set(correct_options.values_list('id', flat=True))
 
-            if isinstance(chosen_option_ids_list, list) and chosen_option_ids_list:
-                chosen_options_ids_set = set(int(id) for id in chosen_option_ids_list)
-                if chosen_options_ids_set == correct_options_ids_set:
-                    is_correct_for_question = True
+            # Normalize chosen answers to a list for consistent comparison
+            if not isinstance(chosen_option_ids, list):
+                chosen_option_ids = [chosen_option_ids]
+
+            chosen_options_ids_set = set(int(id) for id in chosen_option_ids if id)
+            
+            if chosen_options_ids_set == correct_options_ids_set:
+                is_correct_for_question = True
             
             if is_correct_for_question:
                 correct_answers_count += 1
@@ -1485,19 +1481,22 @@ def quiz_submit(request, course_slug):
             student_answers_to_create.append(student_answer)
 
         # Bulk create the StudentAnswer objects
-        # This gives each object an ID so we can set the ManyToManyField
         StudentAnswer.objects.bulk_create(student_answers_to_create)
 
         # Step 3: Now that StudentAnswers exist, set their chosen_options M2M field
-        for question_key, chosen_option_ids_list in quiz_answers.items():
-            if chosen_option_ids_list:
+        for question_key, chosen_option_ids in quiz_answers.items():
+            # Normalize chosen answers to a list again for consistency
+            if not isinstance(chosen_option_ids, list):
+                chosen_option_ids = [chosen_option_ids]
+            
+            if chosen_option_ids:
                 question_id = int(question_key)
                 
                 # Fetch the StudentAnswer object that was just created
                 student_answer = get_object_or_404(StudentAnswer, attempt=attempt, question_id=question_id)
                 
                 # Filter for the chosen options
-                chosen_options = Option.objects.filter(id__in=chosen_option_ids_list, question_id=question_id)
+                chosen_options = Option.objects.filter(id__in=chosen_option_ids, question_id=question_id)
                 
                 # Set the ManyToManyField
                 student_answer.chosen_options.set(chosen_options)
@@ -1558,6 +1557,7 @@ def quiz_result(request, course_slug, attempt_id):
             chosen_option_ids = set(student_answer.chosen_options.values_list('id', flat=True))
 
         # Determine the correctness of the chosen options by comparing sets
+        # This logic now works for both single and multi-select questions
         is_correct_question = (chosen_option_ids == correct_options_ids)
         
         # Prepare the options for the template
@@ -1575,24 +1575,7 @@ def quiz_result(request, course_slug, attempt_id):
             'options': options_data,
             'is_correct': is_correct_question,
         }
-
-        # Handle single-option questions separately
-        if len(options_data) == 1:
-            # We can't use the same logic, so we'll grab the specific answers
-            try:
-                # Find the user's chosen answer
-                chosen_option = student_answer.chosen_options.first()
-                # Find the correct answer
-                correct_option = question.options.get(is_correct=True)
-
-                question_data['user_answer'] = chosen_option.text if chosen_option else "No Answer"
-                question_data['correct_answer'] = correct_option.text
-
-            except (StudentAnswer.chosen_options.RelatedObjectDoesNotExist, Option.DoesNotExist):
-                # Handle cases where the data might be missing
-                question_data['user_answer'] = "No Answer"
-                question_data['correct_answer'] = "N/A"
-
+        
         questions_with_answers.append(question_data)
 
     # Remaining attempts logic
@@ -1617,6 +1600,7 @@ def quiz_result(request, course_slug, attempt_id):
         'attempts_remaining': attempts_remaining,
     }
     return render(request, 'student/quiz_result.html', context)
+
 
 @login_required
 @user_passes_test(is_student)
