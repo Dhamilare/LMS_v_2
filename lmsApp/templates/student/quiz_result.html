@@ -42,37 +42,62 @@
                 <p class="text-lg font-semibold text-gray-800 mb-3 flex items-start">
                     Q{{ forloop.counter }}. {{ qa.question.text }}
                 </p>
-                <ul class="space-y-2">
-                    {% for option in qa.options %}
-                        <li class="p-3 rounded-md border flex items-center
-                            {# Correctly chosen option #}
-                            {% if option.is_chosen and option.is_correct %}
-                                bg-green-100 border-green-400 text-green-800 font-medium
-                            {# Incorrectly chosen option #}
-                            {% elif option.is_chosen and not option.is_correct %}
-                                bg-red-100 border-red-400 text-red-800 font-medium
-                            {# Unchosen but correct option #}
-                            {% elif not option.is_chosen and option.is_correct %}
-                                bg-blue-100 border-blue-400 text-blue-800 font-medium
-                            {# Default style for unchosen incorrect options #}
-                            {% else %}
-                                bg-white border-gray-200 text-gray-700
-                            {% endif %}">
 
-                            {# Icon logic based on chosen/correct status #}
-                            {% if option.is_chosen and option.is_correct %}
-                                <i class="fas fa-check-circle mr-3 text-green-600"></i>
-                            {% elif option.is_chosen and not option.is_correct %}
-                                <i class="fas fa-times-circle mr-3 text-red-600"></i>
-                            {% elif not option.is_chosen and option.is_correct %}
-                                <i class="fas fa-check mr-3 text-blue-600"></i>
+                {% if qa.options|length > 1 %}
+                    {# Logic for multiple-choice questions #}
+                    <ul class="space-y-2">
+                        {% for option in qa.options %}
+                            <li class="p-3 rounded-md border flex items-center
+                                {% if option.is_chosen and option.is_correct %}
+                                    bg-green-100 border-green-400 text-green-800 font-medium
+                                {% elif option.is_chosen and not option.is_correct %}
+                                    bg-red-100 border-red-400 text-red-800 font-medium
+                                {% elif not option.is_chosen and option.is_correct %}
+                                    bg-blue-100 border-blue-400 text-blue-800 font-medium
+                                {% else %}
+                                    bg-white border-gray-200 text-gray-700
+                                {% endif %}">
+                                {% if option.is_chosen and option.is_correct %}
+                                    <i class="fas fa-check-circle mr-3 text-green-600"></i>
+                                {% elif option.is_chosen and not option.is_correct %}
+                                    <i class="fas fa-times-circle mr-3 text-red-600"></i>
+                                {% elif not option.is_chosen and option.is_correct %}
+                                    <i class="fas fa-check mr-3 text-blue-600"></i>
+                                {% else %}
+                                    <i class="far fa-circle mr-3 text-gray-500"></i>
+                                {% endif %}
+                                {{ option.text }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    {# Logic for single-option questions (e.g., True/False, Fill-in-the-Blank) #}
+                    <div class="space-y-2">
+                        {# Display the user's answer first #}
+                        <div class="p-3 rounded-md border flex items-center
+                            {% if qa.is_correct %}
+                                bg-green-100 border-green-400 text-green-800 font-medium
                             {% else %}
-                                <i class="far fa-circle mr-3 text-gray-500"></i>
+                                bg-red-100 border-red-400 text-red-800 font-medium
+                            {% endif %}">
+                            {% if qa.is_correct %}
+                                <i class="fas fa-check-circle mr-3 text-green-600"></i>
+                            {% else %}
+                                <i class="fas fa-times-circle mr-3 text-red-600"></i>
                             {% endif %}
-                            {{ option.text }}
-                        </li>
-                    {% endfor %}
-                </ul>
+                            Your Answer: {{ qa.user_answer }}
+                        </div>
+                        
+                        {# Display the correct answer, highlighted in blue if the user was wrong #}
+                        {% if not qa.is_correct %}
+                            <div class="p-3 rounded-md border bg-blue-100 border-blue-400 text-blue-800 font-medium flex items-center">
+                                <i class="fas fa-check mr-3 text-blue-600"></i>
+                                Correct Answer: {{ qa.correct_answer }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
                 <p class="text-sm mt-3 flex items-center
                     {% if qa.is_correct %}text-green-600{% else %}text-red-600{% endif %}">
                     {% if qa.is_correct %}
@@ -96,18 +121,20 @@
             </a>
         {% endif %}
 
-        {% if enrollment.completed %}
-            {% if enrollment.has_certificate %}
-                <a href="{% url 'view_certificate' certificate_id=enrollment.certificate_obj.certificate_id %}" target="_blank" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto justify-center">
-                    <i class="fas fa-award mr-2"></i> View Certificate
-                </a>
-            {% elif enrollment.can_claim_certificate %}
-                <form method="post" action="{% url 'issue_certificate' course_slug=enrollment.course.slug %}" class="inline w-full sm:w-auto">
-                    {% csrf_token %}
-                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 w-full justify-center">
-                        <i class="fas fa-certificate mr-2"></i> Claim Certificate
-                    </button>
-                </form>
+        {% if enrollment %}
+            {% if enrollment.completed %}
+                {% if enrollment.has_certificate %}
+                    <a href="{% url 'view_certificate' certificate_id=enrollment.certificate_obj.certificate_id %}" target="_blank" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto justify-center">
+                        <i class="fas fa-award mr-2"></i> View Certificate
+                    </a>
+                {% elif enrollment.can_claim_certificate %}
+                    <form method="post" action="{% url 'issue_certificate' course_slug=enrollment.course.slug %}" class="inline w-full sm:w-auto">
+                        {% csrf_token %}
+                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 w-full justify-center">
+                            <i class="fas fa-certificate mr-2"></i> Claim Certificate
+                        </button>
+                    </form>
+                {% endif %}
             {% endif %}
         {% endif %}
     </div>

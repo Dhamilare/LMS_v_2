@@ -1283,10 +1283,12 @@ def quiz_take(request, course_slug):
     Allows a student to take a course-level quiz, paginating through questions
     in a consistent, randomized order.
     """
+    # Fetch core objects
     course = get_object_or_404(Course, slug=course_slug)
     quiz = get_object_or_404(Quiz, course=course)
     enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
 
+    # --- Pre-Quiz Checks ---
     if not course.is_published:
         messages.error(request, "This quiz is not currently available.")
         return redirect('course_detail', slug=course.slug)
@@ -1299,7 +1301,7 @@ def quiz_take(request, course_slug):
         messages.info(request, "This quiz has no questions yet.")
         return redirect('course_detail', slug=course.slug)
 
-    # Check for max attempts
+    # --- Attempt Limiting Logic ---
     current_attempts_count = StudentQuizAttempt.objects.filter(
         student=request.user,
         quiz=quiz
@@ -1323,69 +1325,79 @@ def quiz_take(request, course_slug):
         else:
             return redirect('course_detail', slug=course.slug)
 
-    # --- Randomization and Pagination Logic ---
-    # Check if a random order has been stored in the session
+    # --- Session-based Randomization and Reset Logic ---
     quiz_order_session_key = f'quiz_questions_order_{quiz.id}'
+    quiz_answers_session_key = 'quiz_answers'
     
-    # If this is the first time taking the quiz, or we need a new attempt,
-    # generate a random order and store it.
-    if quiz_order_session_key not in request.session:
-        # Generate a new random order of question IDs
-        random_question_ids = list(quiz.questions.all().values_list('id', flat=True).order_by('?'))
+    # Check if a new attempt is requested or if the quiz order is not in session
+    if request.GET.get('new_attempt') or quiz_order_session_key not in request.session:
+        random_question_ids = list(quiz.questions.values_list('id', flat=True).order_by('?'))
         request.session[quiz_order_session_key] = random_question_ids
+        request.session[quiz_answers_session_key] = {}
         request.session.modified = True
     
-    # Retrieve the ordered list of question IDs from the session
-    ordered_question_ids = request.session[quiz_order_session_key]
-    
-    # Fetch questions based on the stored order.
-    questions = list(Question.objects.filter(id__in=ordered_question_ids))
-    # Sort them in the exact order as the list from the session
-    questions.sort(key=lambda x: ordered_question_ids.index(x.id))
+    # Retrieve ordered list of question IDs and answers from the session
+    ordered_question_ids = request.session.get(quiz_order_session_key, [])
+    quiz_answers = request.session.get(quiz_answers_session_key, {})
 
-    # Setup Paginator with the consistently ordered questions
-    paginator = Paginator(questions, 1)
-    
+    # Fetch questions and sort efficiently using a dictionary
+    questions = list(Question.objects.filter(id__in=ordered_question_ids))
+    order_map = {id: i for i, id in enumerate(ordered_question_ids)}
+    questions.sort(key=lambda q: order_map[q.id])
+
+    # Setup pagination
     page_number = request.GET.get('page', 1)
+    try:
+        page_number = int(page_number)
+    except ValueError:
+        page_number = 1
+        
+    paginator = Paginator(questions, 1)
     page_obj = paginator.get_page(page_number)
     current_question = page_obj.object_list[0]
 
-    if 'quiz_answers' not in request.session:
-        request.session['quiz_answers'] = {}
-    
+    # --- Form Handling ---
     if request.method == 'POST':
-        # Retrieve the correct form based on question type
-        form_class = SingleQuestionForm # Assuming a SingleQuestionForm is provided by the user
-        form = form_class(current_question, request.POST)
+        # Instantiate the form with the current question and POST data
+        form = SingleQuestionForm(current_question, request.POST)
         
         if form.is_valid():
-            chosen_option_id = form.cleaned_data.get(f'question_{current_question.id}')
-            request.session['quiz_answers'][str(current_question.id)] = chosen_option_id
-            request.session.modified = True
+            # The form's cleaned_data will return the chosen option IDs
+            # as a list for multi-select, and a single string for single-select.
+            
+            # The field name depends on the question's ID
+            field_name = f'question_{current_question.id}'
+            chosen_answer = form.cleaned_data.get(field_name)
 
+            request.session[quiz_answers_session_key][str(current_question.id)] = chosen_answer
+            request.session.modified = True
+            
             if page_obj.has_next():
                 next_page_url = f'{reverse("quiz_take", args=[course.slug])}?page={page_obj.next_page_number()}'
                 return redirect(next_page_url)
             else:
                 return redirect('quiz_submit', course_slug=course.slug)
         else:
-            messages.error(request, "Please select an option before proceeding.")
+            messages.error(request, "Please correct the errors below.")
             
-    initial_data = {}
-    if str(current_question.id) in request.session.get('quiz_answers', {}):
-        initial_data[f'question_{current_question.id}'] = request.session['quiz_answers'][str(current_question.id)]
-    
-    form = SingleQuestionForm(current_question, initial=initial_data)
+    else: # GET request
+        initial_data = {}
+        saved_answer = quiz_answers.get(str(current_question.id))
+        if saved_answer:
+            field_name = f'question_{current_question.id}'
+            initial_data[field_name] = saved_answer
+        
+        form = SingleQuestionForm(current_question, initial=initial_data)
 
     context = {
         'course': course,
         'quiz': quiz,
         'form': form,
+        'page_obj': page_obj,
         'current_attempts_count': current_attempts_count,
         'max_attempts': quiz.max_attempts,
         'attempts_remaining': quiz.max_attempts - current_attempts_count,
         'enrollment_id': enrollment.id,
-        'page_obj': page_obj,
     }
     return render(request, 'student/quiz_take.html', context)
 
@@ -1515,7 +1527,7 @@ def quiz_result(request, course_slug, attempt_id):
     """
     course = get_object_or_404(Course, slug=course_slug)
     quiz = get_object_or_404(Quiz, course=course)
-    
+
     # We use Prefetch to fetch all related options and student answers efficiently
     attempt = get_object_or_404(
         StudentQuizAttempt.objects.prefetch_related(
@@ -1530,10 +1542,10 @@ def quiz_result(request, course_slug, attempt_id):
     )
 
     questions_with_answers = []
-    
+
     # Map student answers by question ID for easy lookup
     student_answers_map = {sa.question_id: sa for sa in attempt.answers.all()}
-    
+
     for question in quiz.questions.all().order_by('order'):
         student_answer = student_answers_map.get(question.id)
         
@@ -1558,11 +1570,30 @@ def quiz_result(request, course_slug, attempt_id):
                 'is_chosen': option.id in chosen_option_ids,
             })
             
-        questions_with_answers.append({
+        question_data = {
             'question': question,
             'options': options_data,
             'is_correct': is_correct_question,
-        })
+        }
+
+        # Handle single-option questions separately
+        if len(options_data) == 1:
+            # We can't use the same logic, so we'll grab the specific answers
+            try:
+                # Find the user's chosen answer
+                chosen_option = student_answer.chosen_options.first()
+                # Find the correct answer
+                correct_option = question.options.get(is_correct=True)
+
+                question_data['user_answer'] = chosen_option.text if chosen_option else "No Answer"
+                question_data['correct_answer'] = correct_option.text
+
+            except (StudentAnswer.chosen_options.RelatedObjectDoesNotExist, Option.DoesNotExist):
+                # Handle cases where the data might be missing
+                question_data['user_answer'] = "No Answer"
+                question_data['correct_answer'] = "N/A"
+
+        questions_with_answers.append(question_data)
 
     # Remaining attempts logic
     current_attempts_count = StudentQuizAttempt.objects.filter(
