@@ -38,7 +38,7 @@ urlpatterns = [
     path('assign-course-page/', views.assign_course_page_view, name='assign_course_page'),
 
     # --- Student Course Enrollment & Detail ---
-    path('student_courses/', views.all_courses, name='all_courses'), 
+    path('student_courses/', views.all_courses, name='all_courses'), # Student's list of courses
     path('courses/<slug:slug>/', views.course_detail, name='course_detail'),
     path('courses/<slug:slug>/enroll/', views.enroll_course, name='enroll_course'),
     path('courses/<slug:course_slug>/transcript/', views.course_transcript, name='course_transcript'),

@@ -689,15 +689,8 @@ def course_delete(request, slug):
 
 
 # --- Course Detail and Content Management Views ---
-
 @login_required
 def course_detail(request, slug):
-    """
-    Displays the details of a specific course.
-    Allows instructors to manage modules/lessons/content.
-    Allows students to view published courses and enroll,
-    with module-by-module progression locking.
-    """
     course = get_object_or_404(Course, slug=slug)
     is_enrolled = False
     enrollment = None
@@ -722,9 +715,6 @@ def course_detail(request, slug):
     )
 
     modules_data = []
-    
-    # This flag tracks if the *previous* module was completed.
-    # It starts as True so the first module is always accessible.
     previous_module_completed = True 
 
     for module in modules_queryset:
@@ -735,12 +725,9 @@ def course_detail(request, slug):
         elif request.user.is_staff:
             module_accessible = True
         elif request.user.is_student and is_enrolled:
-            # For students, a module is accessible if the previous one was completed.
             if previous_module_completed:
                 module_accessible = True
         
-        # Check if the current module is completed by the student.
-        # This only makes sense if the module is accessible to the student.
         current_module_is_completed = False
         if request.user.is_student and is_enrolled and module_accessible:
             current_module_is_completed = module.is_completed_by_student(request.user)
@@ -784,20 +771,31 @@ def course_detail(request, slug):
             'is_completed': current_module_is_completed,
         })
         
-        # After processing the current module, update the flag for the next one.
         previous_module_completed = current_module_is_completed
 
-    # Check for a passing final quiz attempt
+    # Check for quiz status
     has_passed_final_quiz = False
+    has_failed_course = False
     course_quiz = None
     if hasattr(course, 'quiz'):
         course_quiz = course.quiz
         if request.user.is_student and is_enrolled:
+            # Check for a passing attempt
             has_passed_final_quiz = StudentQuizAttempt.objects.filter(
                 student=request.user,
                 quiz=course_quiz,
                 passed=True
             ).exists()
+            
+            # Check if all attempts are used up and all failed
+            if course_quiz.max_attempts: # Ensure max_attempts exists on the quiz model
+                total_attempts = StudentQuizAttempt.objects.filter(
+                    student=request.user,
+                    quiz=course_quiz
+                ).count()
+                
+                if total_attempts >= course_quiz.max_attempts and not has_passed_final_quiz:
+                    has_failed_course = True
 
     average_rating = Rating.objects.filter(course=course).aggregate(Avg('rating'))['rating__avg']
     total_ratings = Rating.objects.filter(course=course).count()
@@ -812,6 +810,7 @@ def course_detail(request, slug):
         'enrollment': enrollment,
         'course_quiz': course_quiz,
         'has_passed_final_quiz': has_passed_final_quiz,
+        'has_failed_course': has_failed_course, # Add the new variable
         'average_rating': average_rating,
         'total_ratings': total_ratings,
         'user_rating': user_rating,

@@ -189,8 +189,7 @@
                     {% else %}
                         <div class="text-center py-4 text-gray-500">
                             <i class="fas fa-lock fa-2x mb-2"></i>
-                            <!-- <p class="font-semibold">Complete the previous module to unlock this one.</p> -->
-                        </div>
+                            </div>
                     {% endif %}
                 </div>
             {% endfor %}
@@ -277,7 +276,13 @@
         {% if course_quiz %}
             <div class="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200 shadow-md flex flex-col sm:flex-row items-center justify-between">
                 <div class="flex items-center mb-3 sm:mb-0">
-                    {% if course.is_completed %}
+                    {% if has_failed_course %}
+                         <i class="fas fa-exclamation-circle text-3xl text-red-600 mr-4"></i>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800">Final Assessment Failed</h3>
+                            <p class="text-gray-600 text-sm">You have reached the maximum number of attempts and did not pass the final assessment. Please reach out to support for further assistance!</p>
+                        </div>
+                    {% elif course.is_completed %}
                         <i class="fas fa-medal text-3xl text-green-600 mr-4"></i>
                         <div>
                             <h3 class="text-xl font-bold text-gray-800">Course Completed!</h3>
@@ -303,7 +308,11 @@
                         </div>
                     {% endif %}
                 </div>
-                {% if course.is_completed %}
+                {% if has_failed_course %}
+                     <span class="bg-red-500 text-white py-2 px-5 rounded-md flex items-center justify-center shadow-md w-full sm:w-auto">
+                        <i class="fas fa-times-circle mr-2"></i> Failed
+                    </span>
+                {% elif course.is_completed %}
                     <span class="bg-green-500 text-white py-2 px-5 rounded-md flex items-center justify-center shadow-md w-full sm:w-auto">
                         <i class="fas fa-check-circle mr-2"></i> Certificate Earned
                     </span>
@@ -343,6 +352,7 @@
         </a>
     </div>
 </div>
+
 
 
 <!-- The Modal HTML Structure -->
