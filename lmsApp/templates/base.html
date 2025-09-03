@@ -52,13 +52,13 @@
         </button>
         <!-- Logo -->
         <a href="{% url 'dashboard' %}" class="flex items-center space-x-2">
-            <i class="fa-solid fa-graduation-cap text-2xl text-blue-600"></i>
-            <span class="text-xl font-bold text-gray-800">LMS</span>
+            <img src="{% static 'images/Ha-Shem-Blue-Favicon-2.png' %}" alt="Ha-Shem Logo" class="h-8 w-8">
+            <span class="text-xl font-bold text-gray-800">Ha-Shem LMS</span>
         </a>
         <!-- User Info and Logout -->
         <div class="flex items-center space-x-4">
             {% if user.is_authenticated %}
-                <span class="text-gray-700 hidden sm:inline">Hello, {{ user.first_name }} {{ user.last_name }}</span>
+                <span class="text-gray-700 hidden sm:inline">Hello, {{user.get_full_name|default:user.username}}</span>
                 <a href="{% url 'logout' %}" class="text-red-500 hover:text-red-700 transition-colors duration-300">
                     <i class="fa-solid fa-right-from-bracket mr-1"></i>Logout
                 </a>
@@ -201,7 +201,7 @@
     <!-- The flex-1 class on the main content area will push this footer to the bottom -->
     <footer class="bg-white shadow-md p-4 mt-auto">
         <div class="container mx-auto text-center text-gray-500 text-sm">
-            &copy; {% now "Y" %} LMS. All rights reserved.
+            &copy; {% now "Y" %} Ha-Shem LMS Portal. All rights reserved.
         </div>
     </footer>
 
