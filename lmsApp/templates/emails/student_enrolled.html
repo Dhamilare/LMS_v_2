@@ -4,10 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Student Enrollment</title>
+    <!-- Google Font: Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
+        /* Base styles */
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f4f7f6;
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6; /* Light gray bg */
             margin: 0;
             padding: 0;
             -webkit-text-size-adjust: 100%;
@@ -18,11 +23,14 @@
             margin: 20px auto;
             background-color: #ffffff;
             border-radius: 8px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             overflow: hidden;
+            border: 1px solid #e5e7eb;
         }
+        
+        /* Header: Revamped with new dark theme */
         .header {
-            background-color: #4f46e5;
+            background-color: #1f2937; /* Dark Slate */
             color: #ffffff;
             padding: 40px 30px;
             text-align: center;
@@ -32,9 +40,11 @@
             font-size: 28px;
             font-weight: 700;
         }
+        
+        /* Content Area */
         .content {
-            padding: 30px;
-            color: #374151;
+            padding: 40px;
+            color: #374151; /* Dark gray text */
             line-height: 1.6;
         }
         .content h2 {
@@ -42,59 +52,95 @@
             color: #1f2937;
             margin-top: 0;
             margin-bottom: 20px;
+            font-weight: 600;
         }
         .content p {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
+        
+        /* Info Box: Revamped with new blue */
         .info-box {
-            background-color: #eef2ff;
-            border-left: 4px solid #4f46e5;
+            background-color: #eff6ff; /* Blue light 50 */
+            border-left: 4px solid #3b82f6; /* Blue 500 */
             padding: 20px;
-            margin: 20px 0;
+            margin: 30px 0;
             border-radius: 4px;
         }
         .info-box p {
-            margin: 0;
+            margin: 0 0 8px 0;
+            color: #1f2937;
         }
-        .footer {
-            background-color: #f3f4f6;
-            padding: 20px 30px;
+        .info-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Button: Revamped with new blue */
+        .button-container {
             text-align: center;
-            color: #6b7280;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #3b82f6; /* New standard blue */
+            color: #ffffff !important; /* !important for email clients */
+            text-decoration: none;
+            font-weight: 600;
+            border-radius: 6px; /* Matching our site's style */
+            transition: background-color 0.3s ease;
+        }
+        
+        /* Footer */
+        .footer {
+            padding: 30px;
+            text-align: center;
+            color: #6b7280; /* Medium gray text */
             font-size: 12px;
             border-top: 1px solid #e5e7eb;
         }
         .footer p {
-            margin: 0;
+            margin: 0 0 5px 0;
         }
     </style>
 </head>
-<body>
+<body style="font-family: 'Poppins', sans-serif; background-color: #f3f4f6; margin: 0; padding: 0;">
 
-    <div class="container">
-        <div class="header">
-            <h1>New Student Enrolled!</h1>
+    <div class="container" style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); overflow: hidden; border: 1px solid #e5e7eb;">
+        
+        <!-- Header -->
+        <div class="header" style="background-color: #1f2937; color: #ffffff; padding: 40px 30px; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px; font-weight: 700;">New Student Enrollment</h1>
         </div>
 
-        <div class="content">
-            <p>Hello {{ instructor_name }},</p>
+        <!-- Content -->
+        <div class="content" style="padding: 40px; color: #374151; line-height: 1.6;">
+            <h2 style="font-size: 24px; color: #1f2937; margin-top: 0; margin-bottom: 20px; font-weight: 600;">Hi {{ instructor_name }},</h2>
             
-            <p>Congratulations! A new student has just enrolled in one of your courses.</p>
+            <p style="margin-bottom: 20px;">Great news! A new student has just enrolled in your course:</p>
             
-            <div class="info-box">
-                <p><strong>Student Name:</strong> {{ student_name }}</p>
-                <p><strong>Course Title:</strong> {{ course_title }}</p>
-                <p><strong>Enrollment Date:</strong> {{ enrollment_date }}</p>
+            <!-- Info Box -->
+            <div class="info-box" style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 30px 0; border-radius: 4px;">
+                <p style="margin: 0 0 8px 0; color: #1f2937;"><strong>Student Name:</strong> {{ student_name }}</p>
+                <p style="margin: 0 0 8px 0; color: #1f2937;"><strong>Course Title:</strong> {{ course_title }}</p>
+                <p style="margin: 0 0 0 0; color: #1f2937;"><strong>Enrollment Date:</strong> {{ enrollment_date }}</p>
             </div>
 
-            <p>You can now view this student's progress and manage their course access from your dashboard.</p>
+            <p style="margin-bottom: 20px;">You can view this student's progress and manage your course from your dashboard.</p>
             
-            <p>Thank you for your hard work and dedication!</p>
-            <p>The LMS Team</p>
+            <!-- Button -->
+            <div class="button-container" style="text-align: center; margin: 30px 0;">
+                <a href="{{ dashboard_url }}" class="button" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: #ffffff !important; text-decoration: none; font-weight: 600; border-radius: 6px;">
+                    Go to Your Dashboard
+                </a>
+            </div>
+
+            <p style="margin-bottom: 0;">Thank you,<br>The Ha-Shem LMS Team</p>
         </div>
 
-        <div class="footer">
-            <p>&copy; {{ current_year }} LMS. All rights reserved.</p>
+        <!-- Footer -->
+        <div class="footer" style="padding: 30px; text-align: center; color: #6b7280; font-size: 12px; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 5px 0;">&copy; {{ current_year }} Ha-Shem LMS. All rights reserved.</p>
+            <p style="margin: 0;">This is an automated notification. Please do not reply.</p>
         </div>
     </div>
 

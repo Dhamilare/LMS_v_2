@@ -76,7 +76,7 @@
                             <div class="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center text-sm text-gray-500 mb-4 space-y-2 sm:space-y-0 sm:space-x-4">
                                 <div class="flex items-center">
                                     <i class="fas fa-user-tie text-indigo-500 mr-2"></i>
-                                    <span>Instructor: {{ course.instructor.get_full_name|default:course.instructor.username }}</span>
+                                    <span>Instructor: {{ course.instructor.get_full_name|default:course.instructor.email }}</span>
                                 </div>
                                 <div class="flex items-center">
                                     <i class="fas fa-folder text-orange-500 mr-2"></i>

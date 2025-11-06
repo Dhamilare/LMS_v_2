@@ -6,38 +6,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LMS - Login</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Poppins', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
     
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Poppins', sans-serif;
         }
+    
+        /* Animation keyframes */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Animation class */
+        .fade-in-up {
+            animation: fadeInUp 0.6s ease-out forwards;
+            opacity: 0; /* Start hidden */
+        }
+        
+        /* Staggered delay classes */
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-300 { animation-delay: 0.3s; }
+        .delay-400 { animation-delay: 0.4s; }
     </style>
 </head>
 
-<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
-    <div class="flex flex-col md:flex-row w-full max-w-6xl bg-white shadow-xl overflow-hidden border border-gray-300 rounded-lg">
+<body class="bg-gradient-to-br from-gray-50 to-indigo-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="flex flex-col md:flex-row w-full max-w-6xl bg-white shadow-xl overflow-hidden border border-gray-200 rounded-lg 
+                transition-all duration-300 hover:shadow-2xl fade-in-up">
         
-        <!-- Left Column -->
-        <div class="hidden md:flex md:w-1/2 p-10 bg-blue-600 text-white flex-col justify-center items-center text-center space-y-6">
-            <div class="mb-4">
-                <img src="{% static 'images/Ha-Shem-Blue-Condensed-Logo-2.png'  %}" alt="LMS Logo" class="w-48 mx-auto">
+        <div class="hidden md:flex md:w-1/2 p-10 bg-indigo-600 text-white flex-col justify-center items-center text-center space-y-6">
+            <div class="mb-4 fade-in-up delay-100">
+                <img src="{% static 'images/Ha-Shem-Blue-Condensed-Logo-2.png'  %}" 
+                     alt="LMS Logo" 
+                     class="w-48 mx-auto"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                >
+                <div style="display:none;" class="text-2xl font-bold">Ha-Shem LMS</div>
             </div>
-            <h1 class="text-4xl font-bold">Welcome to the LMS</h1>
-            <p class="text-lg leading-relaxed">
+            <h1 class="text-4xl font-bold fade-in-up delay-200">Welcome to the LMS</h1>
+            <p class="text-lg leading-relaxed fade-in-up delay-300">
                 Your platform for seamless learning and teaching. Dive into a world of knowledge with interactive courses, lessons, and smart analytics.
             </p>
             
-            <div class="space-y-4 text-left">
+            <div class="space-y-4 text-left fade-in-up delay-400">
                 <div class="flex items-center space-x-3">
                     <i class="fa-solid fa-graduation-cap text-2xl"></i>
                     <p>Access a wide range of courses and track your progress.</p>
@@ -53,18 +92,15 @@
             </div>
         </div>
 
-        <!-- Right Column -->
         <div class="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
             
-            <!-- Heading -->
-            <div class="text-center mb-8">
+            <div class="text-center mb-8 fade-in-up delay-100">
                 <h2 class="text-3xl font-bold text-gray-800">Sign in to your Account</h2>
-                <p class="text-gray-500 mt-2">Welcome back! Please enter your details.</p>
+                <p class="text-gray-500 mt-2">Please sign in with your Microsoft account.</p>
             </div>
 
-            <!-- Generic Messages -->
             {% if messages %}
-                <ul class="mb-4 space-y-2">
+                <ul class="mb-4 space-y-2 fade-in-up delay-200">
                     {% for message in messages %}
                         <li class="p-3 border text-sm font-medium rounded
                             {% if message.tags == 'error' %}
@@ -80,73 +116,28 @@
                     {% endfor %}
                 </ul>
             {% endif %}
-
-            <!-- Login Form -->
-            <form method="post" class="space-y-6">
-                {% csrf_token %}
-                
-                <!-- Username -->
-                <div>
-                    <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-gray-700">
-                        <i class="fa-solid fa-envelope mr-2"></i>Email
-                    </label>
-                    {{ form.username }}
-                </div>
-
-                <!-- Password -->
-                <div>
-                    <div class="flex justify-between items-center">
-                        <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700">
-                            <i class="fa-solid fa-lock mr-2"></i>Password
-                        </label>
-                        <a href="{% url 'custom_password_reset' %}" class="text-xs font-medium text-blue-600 hover:text-blue-500">
-                            Forgot password?
-                        </a>
-                    </div>
-                    {{ form.password }}
-                </div>
-
-                <!-- Submit -->
-                <button type="submit" 
-                    class="w-full flex justify-center py-3 px-4 border border-transparent shadow-sm text-sm font-medium 
-                                text-white bg-blue-600 hover:bg-blue-700 focus:outline-none 
-                                focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition rounded">
-                    <i class="fa-solid fa-right-to-bracket mr-2"></i>Sign In
-                </button>
-            </form>
-
-            <!-- OR separator -->
-            <div class="relative my-6">
-                <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-300"></div>
-                </div>
-                <div class="relative flex justify-center text-sm">
-                    <span class="bg-white px-2 text-gray-500">Or continue with</span>
-                </div>
-            </div>
-
-            <!-- Social Login Buttons Container -->
-            <div class="flex flex-col space-y-4">
-                <!-- Microsoft Login Button -->
+            
+            <div class="mt-6 fade-in-up delay-300">
                 <a href="{% url 'social:begin' 'azuread-oauth2' %}" 
-                   class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded shadow-sm bg-white hover:bg-gray-50 transition">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft" class="w-5 h-5 mr-2">
-                    <span class="text-gray-700 font-medium">Sign in with Microsoft</span>
-                </a>
-                
-                <!-- Google Login Button -->
-                <a href="{% url 'social:begin' 'google-oauth2' %}" 
-                   class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded shadow-sm bg-white hover:bg-gray-50 transition">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg" alt="Google" class="w-5 h-5 mr-2">
-                    <span class="text-gray-700 font-medium">Sign in with Google</span>
+                   class="w-full flex items-center justify-center py-3 px-4 border border-transparent shadow-sm text-base font-medium 
+                           text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none 
+                           focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition rounded-lg
+                           transform hover:scale-105 hover:shadow-lg">
+                    
+                    <svg class="w-5 h-5 mr-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" fill="currentColor">
+                        <path d="M10.8809 10.8809H0V0H10.8809V10.8809Z" fill="#F25022"/>
+                        <path d="M23 10.8809H12.1191V0H23V10.8809Z" fill="#7FBA00"/>
+                        <path d="M10.8809 23H0V12.1191H10.8809V23Z" fill="#00A4EF"/>
+                        <path d="M23 23H12.1191V12.1191H23V23Z" fill="#FFB900"/>
+                    </svg>
+                    Sign in with Microsoft
                 </a>
             </div>
 
-            <!-- Footer -->
-            <div class="mt-6 text-center">
+            <div class="mt-8 text-center fade-in-up delay-400">
                 <p class="text-sm text-gray-600">
-                    Don't have an account? 
-                    <a href="{% url 'register' %}" class="font-medium text-blue-600 hover:text-blue-500">Register here</a>
+                    By signing in, you agree to our 
+                    <a href="#" class="font-medium text-indigo-600 hover:text-indigo-500">Terms of Service</a>.
                 </p>
             </div>
         </div>

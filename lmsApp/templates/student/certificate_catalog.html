@@ -31,7 +31,7 @@
                             
                             <div class="flex items-center text-sm text-gray-500 mb-3">
                                 <i class="fas fa-user-tie text-indigo-500 mr-2"></i>
-                                <span>Instructor: {{ certificate.course.instructor.get_full_name|default:certificate.course.instructor.username }}</span>
+                                <span>Instructor: {{ certificate.course.instructor.get_full_name|default:certificate.course.instructor.email }}</span>
                             </div>
 
                             <div class="flex items-center text-sm text-gray-500 mb-4">

@@ -152,19 +152,31 @@ AUTH_USER_MODEL = 'lmsApp.User'
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
 CRISPY_TEMPLATE_PACK = "tailwind"
 
-EMAIL_BACKEND = config("EMAIL_BACKEND")
-EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool)
-EMAIL_HOST = config("EMAIL_HOST")
-EMAIL_PORT = config("EMAIL_PORT", cast=int)
-EMAIL_HOST_USER = config("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
+EMAIL_SENDER = config('EMAIL_SENDER')
+
+M365_SCOPES = [
+    "User.Read",
+    "email",
+    "openid",
+    "profile",
+]
+
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.social_auth.associate_by_email',
+    'social_core.pipeline.user.create_user',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+)
 
 
 AUTHENTICATION_BACKENDS = (
-    'social_core.backends.azuread.AzureADOAuth2',  # Microsoft Entra OIDC backend
-    'social_core.backends.google.GoogleOAuth2',    # Google 
-    'django.contrib.auth.backends.ModelBackend',
+    'social_core.backends.azuread.AzureADOAuth2', # Microsoft Entra OIDC backend
+    'django.contrib.auth.backends.ModelBackend', 
 )
 
 # Microsoft Entra ID settings
@@ -173,18 +185,14 @@ SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET = config('SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET')
 SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID = config('SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID')
 
 
-# Google Workspace settings
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = config('SOCIAL_AUTH_GOOGLE_OAUTH2_KEY')
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = config('SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET')
-
 # Login URLs
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
-LOGIN_REDIRECT_URL = 'set_password' 
+LOGOUT_REDIRECT_URL = 'login'
 
 # Optional security
 SECURE_SSL_REDIRECT = False # True in production
-
+EMAIL_BACKEND = 'LMS.graph_email_backend.GraphEmailBackend'
 
 USE_AZURE_STORAGE = config("USE_AZURE_STORAGE", default=not DEBUG, cast=bool)
 
@@ -224,6 +232,15 @@ AZURE_OVERWRITE_FILES = True
 
 CSRF_TRUSTED_ORIGINS = [
     "https://lms-v-2.onrender.com"
+]
+
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    "https://lms-v-2.onrender.com",
 ]
 
 

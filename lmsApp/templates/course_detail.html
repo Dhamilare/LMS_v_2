@@ -8,13 +8,15 @@
 {% block content %}
 <div class="bg-white p-8 rounded-lg shadow-lg max-w-7xl mx-auto my-8">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+        
         <div class="mb-4 md:mb-0">
             <h1 class="text-4xl font-bold text-gray-800 mb-2 flex items-center">
                 <i class="fas fa-book mr-3 text-indigo-600"></i> {{ course.title }}
             </h1>
             <p class="text-gray-600 text-lg mb-4">{{ course.description }}</p>
             <div class="flex flex-wrap items-center text-gray-500 text-sm space-x-4">
-                <span class="flex items-center"><i class="fas fa-user-tie mr-2"></i> Instructor: <span class="font-medium text-indigo-600 ml-1">{{ course.instructor.get_full_name|default:course.instructor.username }}</span></span>
+                <!-- FIX 1: Use email as fallback -->
+                <span class="flex items-center"><i class="fas fa-user-tie mr-2"></i> Instructor: <span class="font-medium text-indigo-600 ml-1">{{ course.instructor.get_full_name|default:course.instructor.email }}</span></span>
                 <span class="flex items-center"><i class="fas fa-dollar-sign mr-2"></i> Price: <span class="font-medium text-green-600 ml-1">{% if course.price %}{{ course.price }}{% else %}Free{% endif %}</span></span>
                 <span class="flex items-center"><i class="fas fa-clock mr-2"></i> Duration: <span class="font-medium text-blue-600 ml-1">{{ course.duration|format_duration }}</span></span>
                 <span class="px-3 py-1 text-xs font-semibold rounded-full flex items-center {% if course.is_published %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
@@ -22,9 +24,11 @@
                 </span>
             </div>
         </div>
+
+        {# --- ACTION BUTTONS (Instructor/Student) --- #}
         {% if request.user.is_instructor and course.instructor == request.user %}
             <div class="flex space-x-2">
-                <button onclick="loadModalForm('{% url 'course_update' slug=course.slug %}')" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+                <button onclick="loadModalForm('{% url 'course_update' slug=course.slug %}', 'Edit Course Details')" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
                     <i class="fas fa-edit mr-2"></i> Edit Course
                 </button>
                 <button onclick="showConfirmationModal('{% url 'course_delete' slug=course.slug %}', 'Delete Course', 'Are you sure you want to delete this course? This action cannot be undone.')" class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
@@ -34,9 +38,16 @@
         {% elif request.user.is_student and course.is_published %}
             <div class="mt-4 md:mt-0">
                 {% if is_enrolled %}
+                    <!-- FIX 2: Only show View Transcript button if a quiz is associated -->
+                    {% if course_quiz %}
+                    <a href="{% url 'course_transcript' course_slug=course.slug %}" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
+                        <i class="fas fa-file-alt mr-2"></i> View Transcript
+                    </a>
+                    {% else %}
                     <span class="bg-green-500 text-white py-2 px-4 rounded-md flex items-center shadow-md">
                         <i class="fas fa-check-circle mr-2"></i> Enrolled
                     </span>
+                    {% endif %}
                 {% else %}
                     <button onclick="showConfirmationModal('{% url 'enroll_course' slug=course.slug %}', 'Enroll in Course', 'Are you sure you want to enroll in this course?')" class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
                         <i class="fas fa-hand-point-right mr-2"></i> Enroll in Course
@@ -53,11 +64,13 @@
     <h3 class="text-2xl font-bold text-gray-800 mb-4 mt-8 flex items-center">
         <i class="fas fa-list-alt mr-3 text-indigo-600"></i> Course Content
         {% if request.user.is_instructor and course.instructor == request.user %}
-            <button onclick="loadModalForm('{% url 'module_create' course_slug=course.slug %}')" class="ml-4 bg-indigo-500 text-white text-sm py-1 px-3 rounded-md hover:bg-indigo-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
+            <button onclick="loadModalForm('{% url 'module_create' course_slug=course.slug %}', 'Add New Module')" class="ml-4 bg-indigo-500 text-white text-sm py-1 px-3 rounded-md hover:bg-indigo-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
                 <i class="fas fa-plus mr-1"></i> Add Module
             </button>
         {% endif %}
     </h3>
+    
+    {# --- MODULE LIST START (Unmodified logic) --- #}
     {% if modules %}
         <div class="space-y-6">
             {% for module in modules %}
@@ -79,10 +92,10 @@
                         </h4>
                         {% if request.user.is_instructor and course.instructor == request.user %}
                             <div class="flex flex-wrap space-x-2 space-y-2 md:space-y-0">
-                                <button onclick="loadModalForm('{% url 'lesson_create' course_slug=course.slug module_id=module.id %}')" class="bg-green-500 text-white text-sm py-1 px-3 rounded-md hover:bg-green-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
+                                <button onclick="loadModalForm('{% url 'lesson_create' course_slug=course.slug module_id=module.id %}', 'Add Lesson to {{ module.title }}')" class="bg-green-500 text-white text-sm py-1 px-3 rounded-md hover:bg-green-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
                                     <i class="fas fa-plus mr-1"></i> Add Lesson
                                 </button>
-                                <button onclick="loadModalForm('{% url 'module_update' course_slug=course.slug module_id=module.id %}')" class="bg-blue-500 text-white text-sm py-1 px-3 rounded-md hover:bg-blue-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
+                                <button onclick="loadModalForm('{% url 'module_update' course_slug=course.slug module_id=module.id %}', 'Edit Module: {{ module.title }}')" class="bg-blue-500 text-white text-sm py-1 px-3 rounded-md hover:bg-blue-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
                                     <i class="fas fa-edit mr-1"></i> Edit
                                 </button>
                                 <button onclick="showConfirmationModal('{% url 'module_delete' course_slug=course.slug module_id=module.id %}', 'Delete Module', 'Are you sure you want to delete this module and all its contents? This action is permanent.')" class="bg-red-500 text-white text-sm py-1 px-3 rounded-md hover:bg-red-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
@@ -120,10 +133,10 @@
 
                                         {% if request.user.is_instructor and course.instructor == request.user %}
                                             <div class="flex flex-wrap space-x-2 space-y-2 md:space-y-0">
-                                                <button onclick="loadModalForm('{% url 'content_create' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}')" class="bg-purple-500 text-white text-xs py-1 px-2 rounded-md hover:bg-purple-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
+                                                <button onclick="loadModalForm('{% url 'content_create' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}', 'Add Content to {{ lesson.title }}')" class="bg-purple-500 text-white text-xs py-1 px-2 rounded-md hover:bg-purple-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
                                                     <i class="fas fa-plus mr-1"></i> Add Content
                                                 </button>
-                                                <button onclick="loadModalForm('{% url 'lesson_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}')" class="bg-blue-500 text-white text-xs py-1 px-2 rounded-md hover:bg-blue-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
+                                                <button onclick="loadModalForm('{% url 'lesson_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}', 'Edit Lesson: {{ lesson.title }}')" class="bg-blue-500 text-white text-xs py-1 px-2 rounded-md hover:bg-blue-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
                                                     <i class="fas fa-edit mr-1"></i> Edit
                                                 </button>
                                                 <button onclick="showConfirmationModal('{% url 'lesson_delete' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}', 'Delete Lesson', 'Are you sure you want to delete this lesson and all its content? This action is permanent.')" class="bg-red-500 text-white text-xs py-0.5 px-1.5 rounded-md hover:bg-red-600 transition duration-300 flex items-center shadow-sm hover:shadow-md">
@@ -151,7 +164,7 @@
                                                     </a>
                                                     {% if request.user.is_instructor and course.instructor == request.user %}
                                                         <div class="flex space-x-1">
-                                                            <button onclick="loadModalForm('{% url 'content_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content_item.id %}')" class="bg-blue-400 text-white text-xs py-0.5 px-1.5 rounded-md hover:bg-blue-500 flex items-center shadow-sm hover:shadow-md">
+                                                            <button onclick="loadModalForm('{% url 'content_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content_item.id %}', 'Edit Content: {{ content_item.title }}')" class="bg-blue-400 text-white text-xs py-0.5 px-1.5 rounded-md hover:bg-blue-500 flex items-center shadow-sm hover:shadow-md">
                                                                 <i class="fas fa-edit"></i>
                                                             </button>
                                                             <button onclick="showConfirmationModal('{% url 'content_delete' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content_item.id %}', 'Delete Content', 'Are you sure you want to delete this content item? This action is permanent.')" class="bg-red-400 text-white text-xs py-0.5 px-1.5 rounded-md hover:bg-red-500 flex items-center shadow-sm hover:shadow-md">
@@ -162,17 +175,6 @@
                                                 </li>
                                             {% endfor %}
                                         </ul>
-                                    {% elif request.user.is_student and not is_enrolled %}
-                                        <p class="text-gray-500 text-sm ml-8 flex items-center"><i class="fas fa-lock mr-2"></i> Enroll to view content.</p>
-                                    {% else %}
-                                        <p class="text-gray-500 text-sm ml-8 flex items-center"><i class="fas fa-info-circle mr-2"></i> No content in this lesson yet.</p>
-                                        {% if request.user.is_instructor and course.instructor == request.user %}
-                                            <div class="ml-8 mt-2">
-                                                <button onclick="loadModalForm('{% url 'content_create' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}')" class="bg-purple-500 text-white text-xs py-1 px-2 rounded-md hover:bg-purple-600 transition duration-300 flex items-center w-fit shadow-sm hover:shadow-md">
-                                                    <i class="fas fa-plus mr-1"></i> Add Content
-                                                </button>
-                                            </div>
-                                        {% endif %}
                                     {% endif %}
                                 {% endfor %}
                             </ul>
@@ -180,7 +182,7 @@
                             <p class="text-gray-500 flex items-center"><i class="fas fa-info-circle mr-2"></i> No lessons in this module yet.</p>
                             {% if request.user.is_instructor and course.instructor == request.user %}
                                 <div class="mt-2">
-                                    <button onclick="loadModalForm('{% url 'lesson_create' course_slug=course.slug module_id=module.id %}')" class="bg-green-500 text-white text-sm py-1 px-3 rounded-md hover:bg-green-600 transition duration-300 flex items-center w-fit shadow-sm hover:shadow-md">
+                                    <button onclick="loadModalForm('{% url 'lesson_create' course_slug=course.slug module_id=module.id %}', 'Add New Lesson')" class="bg-green-500 text-white text-sm py-1 px-3 rounded-md hover:bg-green-600 transition duration-300 flex items-center w-fit shadow-sm hover:shadow-md">
                                         <i class="fas fa-plus mr-1"></i> Add Lesson
                                     </button>
                                 </div>
@@ -189,7 +191,8 @@
                     {% else %}
                         <div class="text-center py-4 text-gray-500">
                             <i class="fas fa-lock fa-2x mb-2"></i>
-                            </div>
+                            <p class="text-sm">Module is locked until the previous one is completed.</p>
+                        </div>
                     {% endif %}
                 </div>
             {% endfor %}
@@ -206,10 +209,79 @@
         {% endif %}
     {% endif %}
 
+    {# --- COMPLETION STATUS AND QUIZ ACTION --- #}
     {% if request.user.is_student and is_enrolled %}
+        <div class="mt-8 p-6 bg-gray-50 rounded-lg border border-gray-200 shadow-md">
+            <h5 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-check-double mr-3 text-indigo-600"></i> Course Completion Status
+            </h5>
+
+            {# --- STATUS LIST --- #}
+            <ul class="space-y-3 mb-6 text-lg">
+                <li class="flex items-center {% if enrollment.is_content_completed %}text-green-700{% else %}text-red-700{% endif %}">
+                    <i class="fas {% if enrollment.is_content_completed %}fa-check-circle{% else %}fa-times-circle{% endif %} mr-3"></i>
+                    1. Complete All Course Content ({{ enrollment.progress_percentage }}% Progress)
+                </li>
+                
+                {# QUIZ STATUS (Only show if a quiz is assigned) #}
+                {% if course_quiz %}
+                <li class="flex items-center {% if has_passed_final_quiz %}text-green-700{% elif has_failed_course %}text-red-700{% else %}text-gray-700{% endif %}">
+                    <i class="fas {% if has_passed_final_quiz %}fa-check-circle{% else %}fa-times-circle{% endif %} mr-3"></i>
+                    2. Pass Final Assessment (Pass Grade: {{ course_quiz.pass_percentage }}%)
+                    {% if has_failed_course %}
+                        <span class="ml-2 text-sm text-red-500">(Max attempts reached)</span>
+                    {% elif enrollment.is_content_completed and not has_passed_final_quiz %}
+                         <span class="ml-2 text-sm text-orange-500">(Ready to Take)</span>
+                    {% endif %}
+                </li>
+                {% endif %}
+            </ul>
+
+            {# --- ACTION BUTTONS --- #}
+            <div class="flex justify-start space-x-3">
+                {% if enrollment.can_claim_certificate %}
+                    {# State 1: FULLY COMPLETED (Content + Quiz Passed or No Quiz) #}
+                    <button onclick="showConfirmationModal('{% url 'issue_certificate' course_slug=course.slug %}', 'Claim Certificate', 'Are you sure you want to issue your certificate? This will be finalized.')"
+                            class="bg-green-600 text-white py-2 px-5 rounded-md hover:bg-green-700 transition duration-300 flex items-center justify-center font-medium shadow-md hover:shadow-lg">
+                        <i class="fas fa-medal mr-2"></i> Claim Certificate
+                    </button>
+                {% elif has_failed_course %}
+                    {# State 2: FAILED (Max Attempts Reached) #}
+                    <span class="bg-red-100 text-red-700 py-2 px-5 rounded-md flex items-center justify-center border border-red-300 font-medium w-full sm:w-auto">
+                        <i class="fas fa-times-circle mr-2"></i> Final Assessment Failed (Max Attempts)
+                    </span>
+                {% elif course_quiz and enrollment.is_content_completed %}
+                    {# State 3: READY FOR QUIZ #}
+                    <a href="{% url 'quiz_take' course_slug=course.slug %}" 
+                       class="bg-indigo-600 text-white py-2 px-5 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center font-medium shadow-md hover:shadow-lg w-full sm:w-auto">
+                        <i class="fas fa-play-circle mr-2"></i> Take Final Assessment
+                    </a>
+                {% elif not course_quiz and enrollment.is_content_completed %}
+                    {# State 4: NO QUIZ REQUIRED (Content is 100%) #}
+                    <button onclick="showConfirmationModal('{% url 'issue_certificate' course_slug=course.slug %}', 'Claim Certificate', 'Are you sure you want to issue your certificate? This course requires no final quiz.')"
+                            class="bg-green-600 text-white py-2 px-5 rounded-md hover:bg-green-700 transition duration-300 flex items-center shadow-md hover:shadow-lg font-medium">
+                        <i class="fas fa-award mr-2"></i> Claim Certificate (No Quiz Required)
+                    </button>
+                {% else %}
+                    {# State 5: LOCKED (Need Content) #}
+                    <span class="bg-gray-300 text-gray-700 py-2 px-5 rounded-md flex items-center justify-center cursor-not-allowed shadow-md w-full sm:w-auto">
+                        <i class="fas fa-lock mr-2"></i> Complete All Modules to Unlock
+                    </span>
+                {% endif %}
+
+                {# Secondary Action: View Transcript (FIXED: Only show if a quiz is present) #}
+                {% if course_quiz %}
+                <a href="{% url 'course_transcript' course_slug=course.slug %}" class="bg-white text-gray-700 py-2 px-5 rounded-md hover:bg-gray-100 transition duration-300 flex items-center justify-center border border-gray-300 font-medium shadow-sm w-full sm:w-auto">
+                    <i class="fas fa-file-alt mr-2"></i> View Transcript
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        {# --- RATING/REVIEW SECTION --- #}
         <div class="mt-8">
             <h5 class="text-2xl font-bold text-gray-800 mb-2 flex items-center"><i class="fas fa-star mr-3 text-yellow-500"></i>Ratings & Reviews</h5>
-                
+            
             <div class="flex items-center mb-4">
                 <span class="text-4xl font-bold text-gray-800 mr-2">{{ average_rating|floatformat:1 }}</span>
                 <div class="flex text-yellow-400 text-2xl">
@@ -272,87 +344,12 @@
         </div>
     {% endif %}
 
-    {% if request.user.is_student and is_enrolled %}
-        {% if course_quiz %}
-            <div class="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200 shadow-md flex flex-col sm:flex-row items-center justify-between">
-                <div class="flex items-center mb-3 sm:mb-0">
-                    {% if has_failed_course %}
-                         <i class="fas fa-exclamation-circle text-3xl text-red-600 mr-4"></i>
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-800">Final Assessment Failed</h3>
-                            <p class="text-gray-600 text-sm">You have reached the maximum number of attempts and did not pass the final assessment. Please reach out to support for further assistance!</p>
-                        </div>
-                    {% elif course.is_completed %}
-                        <i class="fas fa-medal text-3xl text-green-600 mr-4"></i>
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-800">Course Completed!</h3>
-                            <p class="text-gray-600 text-sm">Congratulations! You have completed all course requirements.</p>
-                        </div>
-                    {% elif has_passed_final_quiz %}
-                        <i class="fas fa-award text-3xl text-purple-600 mr-4"></i>
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-800">Transcript Available</h3>
-                            <p class="text-gray-600 text-sm">You have successfully passed the final assessment.</p>
-                        </div>
-                    {% elif enrollment.is_content_completed %}
-                        <i class="fas fa-graduation-cap text-3xl text-blue-600 mr-4"></i>
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-800">Final Course Assessment</h3>
-                            <p class="text-gray-600 text-sm">Pass this quiz to complete the course and earn your certification.</p>
-                        </div>
-                    {% else %}
-                        <i class="fas fa-lock text-3xl text-gray-500 mr-4"></i>
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-800">Final Assessment Locked</h3>
-                            <p class="text-gray-600 text-sm">Complete all modules to unlock this assessment.</p>
-                        </div>
-                    {% endif %}
-                </div>
-                {% if has_failed_course %}
-                     <span class="bg-red-500 text-white py-2 px-5 rounded-md flex items-center justify-center shadow-md w-full sm:w-auto">
-                        <i class="fas fa-times-circle mr-2"></i> Failed
-                    </span>
-                {% elif course.is_completed %}
-                    <span class="bg-green-500 text-white py-2 px-5 rounded-md flex items-center justify-center shadow-md w-full sm:w-auto">
-                        <i class="fas fa-check-circle mr-2"></i> Certificate Earned
-                    </span>
-                {% elif has_passed_final_quiz %}
-                    <a href="{% url 'course_transcript' course_slug=course.slug %}" class="bg-blue-600 text-white py-2 px-5 rounded-md hover:bg-blue-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
-                        <i class="fas fa-file-alt mr-2"></i> View Transcript
-                    </a>
-                {% elif enrollment.is_content_completed %}
-                    <a href="{% url 'quiz_take' course_slug=course.slug %}" class="bg-indigo-600 text-white py-2 px-5 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
-                        <i class="fas fa-play-circle mr-2"></i> Take Assessment
-                    </a>
-                {% else %}
-                    <span class="bg-gray-300 text-gray-700 py-2 px-5 rounded-md flex items-center justify-center cursor-not-allowed shadow-md w-full sm:w-auto">
-                        <i class="fas fa-lock mr-2"></i> Complete all modules to unlock
-                    </span>
-                {% endif %}
-            </div>
-        {% elif not course_quiz and enrollment.is_content_completed %}
-            <div class="mt-8 p-6 bg-green-50 rounded-lg border border-green-200 shadow-md flex flex-col sm:flex-row items-center justify-between">
-                <div class="flex items-center mb-3 sm:mb-0">
-                    <i class="fas fa-file-invoice text-3xl text-green-600 mr-4"></i>
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-800">Certificate Unlocked!</h3>
-                        <p class="text-gray-600 text-sm">You have completed all requirements for this course.</p>
-                    </div>
-                </div>
-                <a href="{% url 'issue_certificate' course_slug=course.slug %}" class="bg-green-600 text-white py-2 px-5 rounded-md hover:bg-green-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg w-full sm:w-auto">
-                    <i class="fas fa-award mr-2"></i> Claim Certificate
-                </a>
-            </div>
-        {% endif %}
-    {% endif %}
-
     <div class="mt-8 text-center">
         <a href="{% url 'dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
             <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
         </a>
     </div>
 </div>
-
 
 
 <!-- The Modal HTML Structure -->

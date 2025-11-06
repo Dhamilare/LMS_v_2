@@ -1,4 +1,4 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
@@ -8,17 +8,79 @@ from django.db.models import Sum
 from django.core.validators import MinValueValidator, MaxValueValidator
 import random
 import string
+from django.utils.translation import gettext_lazy as _
+
+class UserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError(_('The Email must be set'))
+        
+        email = self.normalize_email(email)
+        username = extra_fields.pop('username', email)
+
+        user = self.model(
+            email=email,
+            username=username,
+            **extra_fields 
+        )
+
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
+
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password, first_name, last_name, **extra_fields):
+        """
+        Create and save a SuperUser with the given email, password, first_name, and last_name.
+        """
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError(_('Superuser must have is_staff=True.'))
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError(_('Superuser must have is_superuser=True.'))
+        extra_fields['first_name'] = first_name
+        extra_fields['last_name'] = last_name
+
+        return self.create_user(email, password, **extra_fields)
+
+
 
 class User(AbstractUser):
     """
     Custom User model extending Django's AbstractUser.
-    Adds fields to differentiate between instructors and students.
+    Uses email as the primary identifier.
     """
     is_instructor = models.BooleanField(default=False)
     is_student = models.BooleanField(default=True)
+    
+    username = models.CharField(
+        _('username'),
+        max_length=150,
+        blank=True, 
+        null=True,
+        help_text=_('Required for staff/admin, optional for others. Can be same as email.'),
+    )
+    
+    email = models.EmailField(_('email address'), unique=True)
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['first_name', 'last_name'] 
+
+    objects = UserManager()
 
     def __str__(self):
-        return self.username
+        full_name = self.get_full_name()
+        return full_name if full_name else self.email
+    
+    def save(self, *args, **kwargs):
+        if not self.username:
+            self.username = self.email
+        super().save(*args, **kwargs)
     
 
 class Course(models.Model):
@@ -149,7 +211,7 @@ class Lesson(models.Model):
             if not content_item.is_completed_by_student(user):
                 return False
         
-        return True # All content are completed
+        return True 
 
 class Content(models.Model):
     """
@@ -219,7 +281,8 @@ class Enrollment(models.Model):
         ordering = ['-enrolled_at']
 
     def __str__(self):
-        return f"{self.student.username} enrolled in {self.course.title}"
+        student_name = self.student.get_full_name() or self.student.email
+        return f"{student_name} enrolled in {self.course.title}"
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -227,19 +290,13 @@ class Enrollment(models.Model):
     @property
     def progress_percentage(self):
         """Calculates the percentage of completed content (all non-quiz content) for this enrollment."""
-        # This property might become less relevant for overall course completion
-        # if completion is strictly module-by-module + final quiz.
-        # It still serves as a general indicator of content consumption.
-
-        # Get all non-quiz content items for the course
         total_contents = Content.objects.filter(
             lesson__module__course=self.course
-        ).count() # Now 'quiz' content_type is removed from Content model
+        ).count() 
 
         if total_contents == 0:
             return 0
 
-        # Count completed content items for this student in this course
         completed_contents = StudentContentProgress.objects.filter(
             student=self.student,
             content__lesson__module__course=self.course,
@@ -253,7 +310,7 @@ class Enrollment(models.Model):
         """Returns True if all modules and their contained lessons/content are completed."""
         all_modules = self.course.modules.all()
         if not all_modules.exists():
-            return False # A course with no modules cannot be content-completed
+            return True
 
         for module in all_modules:
             if not module.is_completed_by_student(self.student):
@@ -265,12 +322,11 @@ class Enrollment(models.Model):
         """
         Checks if the student has a passing attempt for the course's associated quiz.
         """
-        course_quiz = getattr(self.course, 'quiz', None) # Access the related quiz object directly from course
+        course_quiz = getattr(self.course, 'quiz', None) 
 
         if not course_quiz:
-            return True # No quiz for this course, so consider it passed by default for completion criteria
+            return True # No quiz for this course, so consider it passed
 
-        # Check for any passing attempt by this student for this specific quiz
         return StudentQuizAttempt.objects.filter(
             student=self.student,
             quiz=course_quiz,
@@ -281,7 +337,6 @@ class Enrollment(models.Model):
         """
         Synchronizes the 'completed' status of the enrollment based on
         content completion (all modules/lessons) and course-level quiz passing status.
-        This method should be called whenever content progress or quiz attempts change.
         """
         should_be_completed = self.is_content_completed and self.is_quiz_passed
 
@@ -307,8 +362,6 @@ class Enrollment(models.Model):
     @property
     def can_claim_certificate(self):
         """Checks if the student can claim a certificate for this enrollment."""
-        # Student can claim if enrollment is completed (meaning content + quiz passed)
-        # AND no certificate has been issued yet.
         return self.completed and not self.has_certificate
 
 
@@ -327,15 +380,13 @@ class StudentContentProgress(models.Model):
         verbose_name_plural = "Student Content Progress"
 
     def save(self, *args, **kwargs):
-        # Set completed_at for this specific content progress entry
         if self.completed and not self.completed_at:
             self.completed_at = timezone.now()
         elif not self.completed and self.completed_at:
             self.completed_at = None
         
-        super().save(*args, **kwargs) # Save the content progress first
+        super().save(*args, **kwargs) 
 
-        # After saving content progress, trigger the enrollment completion status sync
         enrollment = Enrollment.objects.filter(
             student=self.student,
             course=self.content.lesson.module.course
@@ -347,7 +398,8 @@ class StudentContentProgress(models.Model):
 
     def __str__(self):
         status = "Completed" if self.completed else "Incomplete"
-        return f"{self.student.username} - {self.content.title} ({status})"
+        student_name = self.student.get_full_name() or self.student.email
+        return f"{student_name} - {self.content.title} ({status})"
 
 
 class Quiz(models.Model):
@@ -355,7 +407,7 @@ class Quiz(models.Model):
     Represents a quiz, now linked directly to a Course.
     """
     course = models.OneToOneField(Course, on_delete=models.CASCADE, related_name='quiz', null=True, blank=True,
-                                  help_text="The course this quiz is the main assessment for.")
+                                    help_text="The course this quiz is the main assessment for.")
     title = models.CharField(max_length=255)
     allow_multiple_correct = models.BooleanField(default=False)
     description = models.TextField(blank=True, null=True)
@@ -423,22 +475,18 @@ class StudentQuizAttempt(models.Model):
         ordering = ['-attempt_date']
 
     def save(self, *args, **kwargs):
-        # Calculate score and set 'passed' status before saving
         if self.score is not None and self.quiz.pass_percentage is not None:
             self.passed = self.score >= self.quiz.pass_percentage
         
-        super().save(*args, **kwargs) # Save the attempt first
+        super().save(*args, **kwargs) 
 
-        # After saving the attempt, trigger the enrollment completion status sync
-        # Ensure 'enrollment' is set, if not, try to find it via quiz -> course
         if not self.enrollment and self.quiz.course:
             self.enrollment = Enrollment.objects.filter(
                 student=self.student,
                 course=self.quiz.course
             ).first()
             if self.enrollment:
-                # If enrollment was just found and assigned, save again to persist the FK
-                super().save(update_fields=['enrollment']) # Save the FK link
+                super().save(update_fields=['enrollment']) 
 
         if self.enrollment:
             self.enrollment._sync_completion_status()
@@ -446,7 +494,8 @@ class StudentQuizAttempt(models.Model):
 
     def __str__(self):
         status = "Passed" if self.passed else "Failed"
-        return f"{self.student.username} - {self.quiz.title} ({self.score or 'N/A'}% - {status})"
+        student_name = self.student.get_full_name() or self.student.email
+        return f"{student_name} - {self.quiz.title} ({self.score or 'N/A'}% - {status})"
 
 
 class StudentAnswer(models.Model):
@@ -458,7 +507,9 @@ class StudentAnswer(models.Model):
     chosen_options = models.ManyToManyField(Option, related_name='chosen_by_students', blank=True)
 
     def __str__(self):
-        return f"{self.attempt.student.username}'s answer for {self.question.text[:30]}..."
+        # --- (!!!) UPDATED STRING (!!!) ---
+        student_name = self.attempt.student.get_full_name() or self.attempt.student.email
+        return f"{student_name}'s answer for {self.question.text[:30]}..."
 
     class Meta:
         unique_together = ('attempt', 'question')
@@ -479,7 +530,8 @@ class Certificate(models.Model):
         ordering = ['-issue_date']
 
     def __str__(self):
-        return f"Certificate for {self.student.username} - {self.course.title} (Issued: {self.issue_date})"
+        student_name = self.student.get_full_name() or self.student.email
+        return f"Certificate for {student_name} - {self.course.title} (Issued: {self.issue_date})"
     
     def get_absolute_url(self):
         return reverse('view_certificate', kwargs={'certificate_id': self.certificate_id})
@@ -498,12 +550,12 @@ class Rating(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Ensures a user can only submit one rating per course.
         unique_together = ('user', 'course')
         ordering = ['-created_at']
 
     def __str__(self):
-        return f'Rating for {self.course.title} by {self.user.username}'
+        user_name = self.user.get_full_name() or self.user.email
+        return f'Rating for {self.course.title} by {user_name}'
     
 
 class SupportTicket(models.Model):
@@ -555,4 +607,3 @@ class SupportTicket(models.Model):
     
     class Meta:
         ordering = ['-created_at']
-        

@@ -1,26 +1,13 @@
 from django.urls import path
 from . import views
-from django.contrib.auth import views as auth_views
-from .forms import CustomSetPasswordForm
 
 urlpatterns = [
-    # --- Authentication & General Views ---
-    path('accounts/register/', views.student_register, name='register'),
-    path('activate/<uidb64>/<token>/', views.verify_email, name='verify_email'),
-    path('accounts/login/', views.user_login, name='login'),
+    path('login/', views.login_view, name='login'),
     path('logout/', views.user_logout, name='logout'),
-    path('password-reset/', views.custom_password_reset, name='custom_password_reset'),
-    path('password-reset/done/', auth_views.PasswordResetDoneView.as_view(template_name='accounts/password_reset_done.html'), name='password_reset_done'),
-    path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(template_name='accounts/password_reset_confirm.html', form_class=CustomSetPasswordForm), name='password_reset_confirm'),
-    path('reset/complete/', auth_views.PasswordResetCompleteView.as_view(template_name='accounts/password_reset_complete.html'), name='password_reset_complete'),
-    path('set-password/', views.set_password_after_microsoft_login, name='set_password'),
     path('', views.dashboard, name='dashboard'),
-    
-    # --- Admin Functionality ---
-    path('create-instructor/', views.create_instructor, name='create_instructor'),
-    path('instructors/', views.instructor_list, name='instructor_list'), 
-    path('instructors/<int:pk>/edit/', views.instructor_update, name='instructor_update'),
-    path('instructors/<int:pk>/delete/', views.instructor_delete, name='instructor_delete'), 
+
+    path('instructors/', views.instructor_list, name='instructor_list'),
+    path('instructors/<int:pk>/delete/', views.instructor_delete, name='instructor_delete'),
     path('audit-logs/', views.audit_logs, name='audit_logs'),
     path('students/', views.student_list_view, name='student_list'),
 
@@ -33,7 +20,7 @@ urlpatterns = [
     path('courses/', views.course_list, name='course_list'), # Instructor's list of courses
     path('courses/create/', views.course_create, name='course_create'),
     path('courses/<slug:slug>/edit/', views.course_update, name='course_update'),
-    path('courses/<slug:slug>/delete/', views.course_delete, name='course_delete'), 
+    path('courses/<slug:slug>/delete/', views.course_delete, name='course_delete'),
     path('assign-course/', views.assign_course_to_student_view, name='assign_course'),
     path('assign-course-page/', views.assign_course_page_view, name='assign_course_page'),
 
@@ -66,27 +53,26 @@ urlpatterns = [
     path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/create/', views.content_create, name='content_create'),
     path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/edit/', views.content_update, name='content_update'),
     path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/delete/', views.content_delete, name='content_delete'),
-    path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/', views.content_detail, name='content_detail'), 
-   
+    path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/', views.content_detail, name='content_detail'),
+
     # --- Instructor Quiz Management ---
     path('instructor/quizzes/', views.quiz_list_instructor, name='quiz_list_instructor'),
     path('instructor/quizzes/<int:quiz_id>/edit/', views.quiz_edit, name='quiz_edit'),
     path('quizzes/<int:quiz_id>/delete/', views.quiz_delete, name='quiz_delete'),
-    path('instructor/quizzes/create/', views.quiz_create, name='quiz_create'), 
-    path('instructor/quizzes/<int:quiz_id>/manage/', views.quiz_detail_manage, name='quiz_detail_manage'), 
-    path('instructor/quizzes/<int:quiz_id>/questions/create/', views.question_create, name='question_create'), 
-    path('instructor/quizzes/<int:quiz_id>/questions/<int:question_id>/update/', views.question_update, name='question_update'), 
-    path('instructor/quizzes/<int:quiz_id>/questions/<int:question_id>/delete/', views.question_delete, name='question_delete'), 
-    path('instructor/quizzes/<int:quiz_id>/assign_to_course/', views.quiz_assign_to_course, name='quiz_assign_to_course'), 
-    path('instructor/quizzes/<int:quiz_id>/upload_csv/', views.quiz_upload_csv, name='quiz_upload_csv'), 
-    path('instructor/quizzes/download_csv_template/', views.quiz_download_csv_template, name='quiz_download_csv_template'), 
+    path('instructor/quizzes/create/', views.quiz_create, name='quiz_create'),
+    path('instructor/quizzes/<int:quiz_id>/manage/', views.quiz_detail_manage, name='quiz_detail_manage'),
+    path('instructor/quizzes/<int:quiz_id>/questions/create/', views.question_create, name='question_create'),
+    path('instructor/quizzes/<int:quiz_id>/questions/<int:question_id>/update/', views.question_update, name='question_update'),
+    path('instructor/quizzes/<int:quiz_id>/questions/<int:question_id>/delete/', views.question_delete, name='question_delete'),
+    path('instructor/quizzes/<int:quiz_id>/assign_to_course/', views.quiz_assign_to_course, name='quiz_assign_to_course'),
+    path('instructor/quizzes/<int:quiz_id>/upload_csv/', views.quiz_upload_csv, name='quiz_upload_csv'),
+    path('instructor/quizzes/<int:quiz_id>/download_csv_template/', views.quiz_download_csv_template_view, name='quiz_download_csv_template'),
 
     # --- Student Course-Level Quiz Interaction
-    path('courses/<slug:course_slug>/take_quiz/', views.quiz_take, name='quiz_take'), 
-    path('courses/<slug:course_slug>/submit_quiz/', views.quiz_submit, name='quiz_submit'), 
+    path('courses/<slug:course_slug>/take_quiz/', views.quiz_take, name='quiz_take'),
+    path('courses/<slug:course_slug>/submit_quiz/', views.quiz_submit, name='quiz_submit'),
     path('courses/<slug:course_slug>/quiz_result/<int:attempt_id>/', views.quiz_result, name='quiz_result'),
 
-   
     # --- Tickets
     path('submit/', views.submit_ticket, name='submit_ticket'),
     path('my-tickets/', views.ticket_list, name='ticket_list'),
