@@ -90,9 +90,6 @@ def login_view(request):
         return redirect('dashboard')
     return render(request, 'accounts/login.html')
 
-# DELETED: student_register (Obsolete: Handled by Microsoft)
-# DELETED: verify_email (Obsolete: Handled by Microsoft)
-# DELETED: user_login (Obsolete: Handled by social_django)
 
 @login_required
 def user_logout(request):
