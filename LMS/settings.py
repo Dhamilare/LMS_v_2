@@ -230,17 +230,13 @@ if USE_AZURE_STORAGE and not DEBUG:
 
 AZURE_OVERWRITE_FILES = True
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://lms-v-2.onrender.com"
-]
-
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
-    "https://lms-v-2.onrender.com",
+    "https://lms-v-2-9wah.onrender.com",
 ]
 
 
