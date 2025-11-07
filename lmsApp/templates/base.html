@@ -30,7 +30,7 @@
         /* Apply the font globally */
         body {
             font-family: 'Century Gothic';
-            background-color: #f3f4f6; /* Light gray background */
+            background-color: #f3f4f6;
         }
         
         /* Mobile sidebar transition and positioning */
@@ -113,12 +113,12 @@
     <div class="flex flex-1 pt-16">
         
         <aside id="sidebar" 
-               class="bg-slate-900 text-slate-200 w-64 p-4 shadow-lg flex-shrink-0 z-40 fixed md:relative top-0 left-0 bottom-0 transform -translate-x-full md:translate-x-0 md:flex md:flex-col overflow-y-auto">
+               class="bg-indigo-800 text-indigo-100 w-64 p-4 shadow-lg flex-shrink-0 z-40 fixed md:relative top-0 left-0 bottom-0 transform -translate-x-full md:translate-x-0 md:flex md:flex-col overflow-y-auto">
             
             <div class="space-y-2 mt-12 md:mt-0">
                 {% if user.is_authenticated %}
                     
-                    {% with link_class="flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors duration-200" %}
+                    {% with link_class="flex items-center p-3 text-indigo-200 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200" %}
                     
                     <a href="{% url 'dashboard' %}" class="{{ link_class }}">
                         <i class="fa-solid fa-house fa-fw mr-3 text-lg"></i>
@@ -127,7 +127,7 @@
 
                     {% if user.is_instructor %}
                         <div class="relative">
-                            <button id="courses-dropdown-toggle" class="w-full flex justify-between items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors duration-200 focus:outline-none">
+                            <button id="courses-dropdown-toggle" class="w-full flex justify-between items-center p-3 text-indigo-200 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200 focus:outline-none">
                                 <div class="flex items-center">
                                     <i class="fa-solid fa-book-open fa-fw mr-3 text-lg"></i>
                                     <span class="font-medium">Courses</span>
@@ -135,13 +135,13 @@
                                 <i class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
                             </button>
                             <div id="courses-dropdown" class="pl-8 mt-1 space-y-1 hidden">
-                                <a href="{% url 'course_create' %}" class="flex items-center p-2 text-sm text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors duration-200">
+                                <a href="{% url 'course_create' %}" class="flex items-center p-2 text-sm text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200">
                                     <i class="fa-solid fa-plus-circle fa-fw mr-2"></i> Create new course
                                 </a>
-                                <a href="{% url 'course_list' %}" class="flex items-center p-2 text-sm text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors duration-200">
+                                <a href="{% url 'course_list' %}" class="flex items-center p-2 text-sm text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200">
                                     <i class="fa-solid fa-edit fa-fw mr-2"></i> Manage courses
                                 </a>
-                                <a href="{% url 'assign_course_page' %}" class="flex items-center p-2 text-sm text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors duration-200">
+                                <a href="{% url 'assign_course_page' %}" class="flex items-center p-2 text-sm text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200">
                                     <i class="fa-solid fa-user-plus fa-fw mr-2"></i> Assign courses
                                 </a>
                             </div>
@@ -161,7 +161,7 @@
                             <span class="font-medium">Certificate</span>
                         </a>
                         <div class="relative">
-                            <button id="support-dropdown-toggle" class="w-full flex justify-between items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors duration-200 focus:outline-none">
+                            <button id="support-dropdown-toggle" class="w-full flex justify-between items-center p-3 text-indigo-200 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200 focus:outline-none">
                                 <div class="flex items-center">
                                     <i class="fa-solid fa-headset fa-fw mr-3 text-lg"></i>
                                     <span class="font-medium">Support</span>
@@ -169,10 +169,10 @@
                                 <i class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
                             </button>
                             <div id="support-dropdown" class="pl-8 mt-1 space-y-1 hidden">
-                                <a href="{% url 'submit_ticket' %}" class="flex items-center p-2 text-sm text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors duration-200">
+                                <a href="{% url 'submit_ticket' %}" class="flex items-center p-2 text-sm text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200">
                                     <i class="fa-solid fa-plus-circle fa-fw mr-2"></i> Submit Ticket
                                 </a>
-                                <a href="{% url 'ticket_list' %}" class="flex items-center p-2 text-sm text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors duration-200">
+                                <a href="{% url 'ticket_list' %}" class="flex items-center p-2 text-sm text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200">
                                     <i class="fa-solid fa-eye fa-fw mr-2"></i> View Requests
                                 </a>
                             </div>
@@ -199,7 +199,7 @@
                     {% endwith %}
                 
                 {% else %}
-                    <a href="{% url 'login' %}" class="flex items-center p-3 text-blue-400 hover:bg-slate-700 hover:text-blue-300 rounded-lg transition-colors duration-200">
+                    <a href="{% url 'login' %}" class="flex items-center p-3 text-blue-300 hover:bg-indigo-700 hover:text-blue-200 rounded-lg transition-colors duration-200">
                         <i class="fa-solid fa-sign-in-alt fa-fw mr-3 text-lg"></i>
                         <span class="font-medium">Login</span>
                     </a>
@@ -238,14 +238,14 @@
 
 
     <div id="form-modal-backdrop" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4 transition-opacity duration-300 opacity-0 hidden">
-        <div id="form-modal-container" class="bg-white rounded-lg shadow-2xl w-full max-w-2xl transform transition-all duration-300 scale-95 opacity-0">
+        <div id="form-modal-container" class="bg-white rounded-lg shadow-2xl w-full max-w-2xl transform transition-all duration-300 scale-95 opacity-0 **max-h-[90vh]**">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 id="form-modal-title" class="text-xl font-semibold text-gray-800">Modal Title</h3>
                 <button onclick="window.closeModal()" class="text-gray-400 hover:text-gray-600">
                     <i class="fa-solid fa-times text-xl"></i>
                 </button>
             </div>
-            <div id="form-modal-body" class="p-6">
+            <div id="form-modal-body" class="p-6 overflow-y-auto max-h-[calc(90vh-100px)]"> 
                 </div>
         </div>
     </div>
@@ -277,7 +277,7 @@
     </div>
 
     <script>
-        // --- GLOBALIZED VARIABLES ---
+        // --- GLOBALIZED VARIABLES (Aliased for clarity) ---
         const menuToggle = document.getElementById('menu-toggle');
         const sidebar = document.getElementById('sidebar');
         const backdrop = document.getElementById('sidebar-backdrop');
@@ -286,8 +286,9 @@
         const formModalTitle = document.getElementById('form-modal-title');
         const formModalBody = document.getElementById('form-modal-body');
         const confirmBackdrop = document.getElementById('confirmation-modal-backdrop');
+        const confirmContainer = confirmBackdrop ? confirmBackdrop.querySelector('div') : null;
 
-        // --- SIDEBAR LOGIC ---
+        // --- SIDEBAR & DROPDOWN LOGIC ---
         if (menuToggle) {
              menuToggle.addEventListener('click', () => {
                 sidebar.classList.toggle('-translate-x-full');
@@ -301,8 +302,6 @@
                 backdrop.classList.add('hidden');
             });
         }
-       
-        // --- DROPDOWN LOGIC ---
         function setupDropdown(toggleId, dropdownId) {
             const toggle = document.getElementById(toggleId);
             const dropdown = document.getElementById(dropdownId);
@@ -391,7 +390,7 @@
                 }
             }, 5000); 
         }
-        window.showToast = showToast; // Attach to global window
+        window.showToast = showToast;
 
 
         // --- FORM MODAL LOGIC (GLOBAL) ---
@@ -414,7 +413,7 @@
                 formModalBody.innerHTML = '';
             }, 300);
         }
-        window.closeModal = closeModal; // Globalize
+        window.closeModal = closeModal; 
         
         // This function handles the default success behavior (reload page)
         const defaultSuccessHandler = (data) => {
@@ -464,7 +463,18 @@
                 
                 if (response.ok) {
                     const result = JSON.parse(responseText);
-                    onSuccess(result);
+                    
+                    if (result.redirect_url) {
+                        closeModal(); 
+                        showToast('success', result.message || 'Operation successful!');
+                        setTimeout(() => {
+                            window.location.href = result.redirect_url;
+                        }, 500); 
+                    } else {
+                        // Default action for updates (close modal and reload page)
+                        onSuccess(result);
+                    }
+
                 } else {
                     let errorData = { error: 'An error occurred.' };
                     let formHtml = null;
@@ -481,7 +491,7 @@
                 }
             } catch (error) {
                 console.error('Error submitting form:', error);
-                onError({ error: 'An error occurred. Please try again.' }, null);
+                onError({ error: 'A critical network error occurred.' }, null);
             } finally {
                 if (submitButton) {
                     submitButton.innerHTML = originalButtonText;
@@ -521,11 +531,10 @@
                 showToast('error', 'Failed to load form.');
             });
         }
-        window.loadModalForm = loadModalForm; // Attach to global window
+        window.loadModalForm = loadModalForm;
 
 
         // --- CONFIRMATION MODAL LOGIC (GLOBAL) ---
-        const confirmContainer = confirmBackdrop ? confirmBackdrop.querySelector('div') : null;
         const confirmTitle = document.getElementById('confirm-modal-title');
         const confirmBody = document.getElementById('confirm-modal-body');
         const confirmButton = document.getElementById('confirm-modal-action-button');
@@ -539,7 +548,7 @@
                 confirmBackdrop.classList.add('hidden');
             }, 300);
         }
-        window.closeConfirmationModal = closeConfirmationModal; // Attach to global window
+        window.closeConfirmationModal = closeConfirmationModal;
 
         async function performConfirmedAction(url) {
             closeConfirmationModal();
@@ -555,17 +564,25 @@
                 });
                 const result = await response.json();
                 if (response.ok) {
-                    showToast('success', result.message || 'Operation successful!');
-                    setTimeout(() => window.location.reload(), 1500);
+                    // Check for redirect signal
+                    if (result.redirect_url) {
+                        showToast('success', result.message || 'Operation successful!');
+                        setTimeout(() => {
+                            window.location.href = result.redirect_url;
+                        }, 500); 
+                    } else {
+                        showToast('success', result.message || 'Operation successful!');
+                        setTimeout(() => window.location.reload(), 1000);
+                    }
                 } else {
                     showToast('error', result.error || 'Operation failed.');
                 }
             } catch (error) {
                 console.error('Error during action:', error);
-                showToast('error', 'An error occurred.');
+                showToast('error', 'A network error occurred.');
             }
         }
-        window.performConfirmedAction = performConfirmedAction; // Attach to global window
+        window.performConfirmedAction = performConfirmedAction; 
         
         function showConfirmationModal(actionUrl, title, body, confirmColor = 'bg-red-600') {
             if (!confirmBackdrop || !confirmContainer || !confirmTitle || !confirmBody || !confirmButton) {
@@ -580,7 +597,7 @@
             if (actionUrl) {
                 confirmButton.onclick = () => performConfirmedAction(actionUrl);
             } else {
-                confirmButton.onclick = null; // Should be handled externally if actionUrl is null
+                confirmButton.onclick = null; 
             }
             
             // Set button styling (dynamically changing color)
@@ -593,13 +610,13 @@
                 confirmContainer.classList.add('scale-100', 'opacity-100');
             }, 10);
         }
-        window.showConfirmationModal = showConfirmationModal; // Attach to global window
+        window.showConfirmationModal = showConfirmationModal;
 
         // Legacy function, now reroutes to showConfirmationModal
         function enrollCourse(url) {
             showConfirmationModal(url, 'Enroll in Course', 'Are you sure you want to enroll in this course?', 'bg-green-600');
         }
-        window.enrollCourse = enrollCourse; // Attach to global window
+        window.enrollCourse = enrollCourse;
 
     </script>
     

@@ -15,7 +15,6 @@
             </h1>
             <p class="text-gray-600 text-lg mb-4">{{ course.description }}</p>
             <div class="flex flex-wrap items-center text-gray-500 text-sm space-x-4">
-                <!-- FIX 1: Use email as fallback -->
                 <span class="flex items-center"><i class="fas fa-user-tie mr-2"></i> Instructor: <span class="font-medium text-indigo-600 ml-1">{{ course.instructor.get_full_name|default:course.instructor.email }}</span></span>
                 <span class="flex items-center"><i class="fas fa-dollar-sign mr-2"></i> Price: <span class="font-medium text-green-600 ml-1">{% if course.price %}{{ course.price }}{% else %}Free{% endif %}</span></span>
                 <span class="flex items-center"><i class="fas fa-clock mr-2"></i> Duration: <span class="font-medium text-blue-600 ml-1">{{ course.duration|format_duration }}</span></span>
@@ -38,7 +37,6 @@
         {% elif request.user.is_student and course.is_published %}
             <div class="mt-4 md:mt-0">
                 {% if is_enrolled %}
-                    <!-- FIX 2: Only show View Transcript button if a quiz is associated -->
                     {% if course_quiz %}
                     <a href="{% url 'course_transcript' course_slug=course.slug %}" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
                         <i class="fas fa-file-alt mr-2"></i> View Transcript
@@ -70,7 +68,7 @@
         {% endif %}
     </h3>
     
-    {# --- MODULE LIST START (Unmodified logic) --- #}
+    {# --- MODULE LIST START --- #}
     {% if modules %}
         <div class="space-y-6">
             {% for module in modules %}
@@ -85,7 +83,7 @@
                                 {% else %}
                                     <i class="fas fa-folder-open mr-2 text-purple-600"></i>
                                 {% endif %}
-                                 {{ module.title }}
+                                Module {{ module.order }}: {{ module.title }}
                             {% else %}
                                 <i class="fas fa-lock mr-2 text-gray-400"></i> Module {{ module.order }}: {{ module.title }} (Locked)
                             {% endif %}
@@ -350,254 +348,11 @@
         </a>
     </div>
 </div>
+{% endblock %}
 
-
-<!-- The Modal HTML Structure -->
-<div id="modal-backdrop" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden transition-opacity duration-300 ease-in-out">
-    <div id="modal-container" class="bg-white rounded-lg shadow-xl w-11/12 md:w-3/4 max-w-2xl transform transition-transform duration-300 ease-in-out scale-95 opacity-0">
-        <div class="flex justify-between items-center p-4 border-b border-gray-200">
-            <h5 id="modal-title" class="text-lg font-bold text-gray-800"></h5>
-            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 focus:outline-none">
-                <i class="fas fa-times fa-lg"></i>
-            </button>
-        </div>
-        <div id="modal-body" class="p-6 overflow-y-auto max-h-[80vh]">
-            <!-- Form content will be loaded here -->
-        </div>
-    </div>
-</div>
-
-<!-- Confirmation Modal (for deletes, enrollments, etc.) -->
-<div id="confirmation-modal-backdrop" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden transition-opacity duration-300 ease-in-out">
-    <div class="bg-white rounded-lg shadow-xl w-11/12 md:w-1/2 max-w-md transform transition-transform duration-300 ease-in-out scale-95 opacity-0">
-        <div class="p-6">
-            <div class="flex items-center mb-4">
-                <div class="bg-red-100 rounded-full p-2 flex items-center justify-center text-red-600">
-                    <i class="fas fa-exclamation-triangle fa-2x"></i>
-                </div>
-                <div class="ml-4">
-                    <h5 id="confirm-modal-title" class="text-xl font-bold text-gray-800"></h5>
-                </div>
-            </div>
-            <p id="confirm-modal-body" class="text-gray-600 mb-6"></p>
-            <div class="flex justify-end space-x-2">
-                <button onclick="closeConfirmationModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">Cancel</button>
-                <button id="confirm-modal-action-button" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Confirm</button>
-            </div>
-        </div>
-    </div>
-</div>
-
+{% block extra_scripts %}
 <script>
-    // Utility function to get the CSRF token from the cookie
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            const nameEQ = name + '=';
-            for (let i = 0; i < cookies.length; i++) {
-                let cookie = cookies[i].trim();
-                if (cookie.startsWith(nameEQ)) {
-                    cookieValue = decodeURIComponent(cookie.substring(nameEQ.length));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-
-    // Function to display a toast-like message (using alert for now)
-    function displayMessage(type, message) {
-        console.log(`[${type.toUpperCase()}] ${message}`);
-        // This should be replaced with a proper toast notification system
-        // for a better user experience.
-        const toastContainer = document.getElementById('toast-container');
-        if (toastContainer) {
-            const toast = document.createElement('div');
-            toast.className = `p-4 rounded-lg shadow-lg text-white mb-2 transform transition-all duration-300 ease-in-out {% if type == 'success' %}bg-green-500{% elif type == 'error' %}bg-red-500{% else %}bg-gray-500{% endif %}`;
-            toast.textContent = message;
-            toastContainer.appendChild(toast);
-            setTimeout(() => {
-                toast.classList.add('opacity-0', 'translate-y-4');
-                toast.addEventListener('transitionend', () => toast.remove());
-            }, 3000);
-        } else {
-            alert(message);
-        }
-    }
-    
-    // --- Modal Functions ---
-    const modalBackdrop = document.getElementById('modal-backdrop');
-    const modalContainer = document.getElementById('modal-container');
-    const modalTitle = document.getElementById('modal-title');
-    const modalBody = document.getElementById('modal-body');
-
-    async function loadModalForm(url, title = 'Form') {
-        modalTitle.textContent = title;
-        modalBody.innerHTML = '<div class="flex justify-center items-center h-48"><i class="fas fa-spinner fa-spin fa-3x text-indigo-500"></i></div>';
-        openModal(); // Open modal immediately with loading spinner
-        
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error('Network response was not ok.');
-            }
-            const formHtml = await response.text();
-            modalBody.innerHTML = formHtml;
-            const form = modalBody.querySelector('form');
-            if (form) {
-                form.addEventListener('submit', handleModalFormSubmit);
-            }
-        } catch (error) {
-            console.error('Error loading modal content:', error);
-            modalBody.innerHTML = `<p class="text-red-500">Failed to load content. Please try again.</p>`;
-            displayMessage('error', 'Failed to load form. Please try again.');
-        }
-    }
-
-    async function handleModalFormSubmit(event) {
-        event.preventDefault();
-        const form = event.target;
-        const url = form.action;
-        const method = form.method;
-        const formData = new FormData(form);
-
-        const submitButton = form.querySelector('button[type="submit"]');
-        const originalButtonText = submitButton ? submitButton.innerHTML : '';
-        if (submitButton) {
-            submitButton.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> Saving...`;
-            submitButton.disabled = true;
-        }
-
-        try {
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: formData
-            });
-
-            if (response.ok) {
-                closeModal();
-                const result = await response.json();
-                displayMessage('success', result.message || 'Operation successful!');
-                window.location.reload();
-            } else {
-                const errorText = await response.text();
-                try {
-                    const errorResult = JSON.parse(errorText);
-                    displayMessage('error', errorResult.error || 'Please correct the errors in the form.');
-                } catch (e) {
-                    // If the response is not JSON (e.g., HTML with errors)
-                    modalBody.innerHTML = errorText;
-                    const newForm = modalBody.querySelector('form');
-                    if (newForm) {
-                        newForm.addEventListener('submit', handleModalFormSubmit);
-                    }
-                    displayMessage('error', 'Please correct the errors in the form.');
-                }
-            }
-        } catch (error) {
-            console.error('Error submitting form:', error);
-            displayMessage('error', 'An error occurred. Please try again.');
-        } finally {
-            if (submitButton) {
-                submitButton.innerHTML = originalButtonText;
-                submitButton.disabled = false;
-            }
-        }
-    }
-
-    function openModal() {
-        modalBackdrop.classList.remove('hidden');
-        setTimeout(() => {
-            modalBackdrop.classList.add('opacity-100');
-            modalContainer.classList.remove('scale-95', 'opacity-0');
-            modalContainer.classList.add('scale-100', 'opacity-100');
-        }, 10);
-    }
-
-    function closeModal() {
-        modalContainer.classList.remove('scale-100', 'opacity-100');
-        modalContainer.classList.add('scale-95', 'opacity-0');
-        modalBackdrop.classList.remove('opacity-100');
-        setTimeout(() => {
-            modalBackdrop.classList.add('hidden');
-            modalBody.innerHTML = '';
-        }, 300);
-    }
-
-    // --- Confirmation Modal Functions (Replaces confirm()) ---
-    const confirmBackdrop = document.getElementById('confirmation-modal-backdrop');
-    const confirmContainer = confirmBackdrop ? confirmBackdrop.querySelector('div') : null; // Get the inner div
-    const confirmTitle = document.getElementById('confirm-modal-title');
-    const confirmBody = document.getElementById('confirm-modal-body');
-    const confirmButton = document.getElementById('confirm-modal-action-button');
-
-    function showConfirmationModal(actionUrl, title, body) {
-        if (!confirmBackdrop || !confirmContainer || !confirmTitle || !confirmBody || !confirmButton) {
-            console.error("Confirmation modal elements not found.");
-            // Replace with proper fallback UI if needed
-            return;
-        }
-
-        confirmTitle.textContent = title;
-        confirmBody.textContent = body;
-        confirmButton.onclick = () => performConfirmedAction(actionUrl);
-        
-        confirmBackdrop.classList.remove('hidden');
-        setTimeout(() => {
-            confirmBackdrop.classList.add('opacity-100');
-            confirmContainer.classList.remove('scale-95', 'opacity-0');
-            confirmContainer.classList.add('scale-100', 'opacity-100');
-        }, 10);
-    }
-
-    function closeConfirmationModal() {
-        if (!confirmBackdrop || !confirmContainer) return;
-
-        confirmContainer.classList.remove('scale-100', 'opacity-100');
-        confirmContainer.classList.add('scale-95', 'opacity-0');
-        confirmBackdrop.classList.remove('opacity-100');
-        setTimeout(() => {
-            confirmBackdrop.classList.add('hidden');
-        }, 300);
-    }
-
-    async function performConfirmedAction(url) {
-        closeConfirmationModal(); // Close the confirmation modal first
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({})
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                displayMessage('success', result.message || 'Operation successful!');
-                window.location.reload();
-            } else {
-                displayMessage('error', result.error || 'Operation failed.');
-            }
-        } catch (error) {
-            console.error('Error during action:', error);
-            displayMessage('error', 'An error occurred.');
-        }
-    }
-
-    function enrollCourse(url) {
-        showConfirmationModal(url, 'Enroll in Course', 'Are you sure you want to enroll in this course?');
-    }
-
-
+    // Star rating JavaScript for the review section
     document.addEventListener('DOMContentLoaded', function () {
     const stars = document.querySelectorAll('.star-rating i');
     const ratingInput = document.getElementById('rating-value');
@@ -627,7 +382,7 @@
         stars.forEach(star => {
         if (parseInt(star.getAttribute('data-value')) <= count) {
             star.classList.remove('far'); // Outline star
-            star.classList.add('fas');    // Solid star
+            star.classList.add('fas');    // Solid star
         } else {
             star.classList.remove('fas');
             star.classList.add('far');

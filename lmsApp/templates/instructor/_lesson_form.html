@@ -6,7 +6,7 @@
         <i class="fas fa-file-alt mr-3 text-indigo-600"></i> {{ page_title }}
     </h2>
     <p class="text-center text-gray-600 mb-6">For Module: <span class="font-semibold">{{ module.title }}</span> (Course: <span class="font-semibold">{{ course.title }}</span>)</p>
-    <form method="post" class="space-y-4" action="{% if lesson %}{% url 'lesson_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}{% else %}{% url 'lesson_create' course_slug=course.slug module_id=module.id %}{% endif %}">
+    <form method="post" class="space-y-4" action="{% if lesson.id %}{% url 'lesson_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id %}{% else %}{% url 'lesson_create' course_slug=course.slug module_id=module.id %}{% endif %}">
         {% csrf_token %}
         {{ form|crispy }}
         <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center justify-center">

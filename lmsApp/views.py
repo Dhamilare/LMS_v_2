@@ -80,7 +80,6 @@ def is_ajax(request):
 
 # --- Authentication and Dashboard Views ---
 
-# NEW: Simple view to render the login page
 def login_view(request):
     """
     Renders the login page.
@@ -502,10 +501,17 @@ def course_delete(request, slug):
     template_name = 'instructor/_confirm_delete.html'
 
     if request.method == 'POST':
+        title = course.title 
         course.delete()
-        messages.success(request, f'Course "{course.title}" deleted successfully.')
-        if is_ajax(request):
-            return JsonResponse({'success': True, 'message': f'Course "{course.title}" deleted successfully!', 'redirect_url': str(redirect('course_list').url)})
+
+        messages.success(request, f'Course "{title}" deleted successfully.')
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': f'Course "{title}" deleted successfully!',
+                'redirect_url': reverse('course_list'),
+            })
+
         return redirect('course_list')
 
     context = {'object': course, 'type': 'course', 'course_slug': course.slug}
@@ -706,13 +712,13 @@ def module_create(request, course_slug):
 def module_update(request, course_slug, module_id):
     """
     Allows an instructor to update an existing module.
+    (Simplified after removing unique_together constraint from model)
     """
     course = get_object_or_404(Course, slug=course_slug, instructor=request.user)
     module = get_object_or_404(Module, id=module_id, course=course)
     template_name = 'instructor/_module_form.html'
 
     if request.method == 'POST':
-        form = ModuleForm(request.POST, instance=module)
         if form.is_valid():
             form.save()
             messages.success(request, f'Module "{module.title}" updated successfully.')
@@ -786,6 +792,7 @@ def lesson_create(request, course_slug, module_id):
 def lesson_update(request, course_slug, module_id, lesson_id):
     """
     Allows an instructor to update an existing lesson.
+    (Simplified after removing unique_together constraint from model)
     """
     course = get_object_or_404(Course, slug=course_slug, instructor=request.user)
     module = get_object_or_404(Module, id=module_id, course=course)
@@ -795,7 +802,7 @@ def lesson_update(request, course_slug, module_id, lesson_id):
     if request.method == 'POST':
         form = LessonForm(request.POST, instance=lesson)
         if form.is_valid():
-            form.save() 
+            form.save()
             messages.success(request, f'Lesson "{lesson.title}" updated successfully.')
             if is_ajax(request):
                 return JsonResponse({'success': True, 'message': f'Lesson "{lesson.title}" updated successfully!'})
@@ -808,6 +815,7 @@ def lesson_update(request, course_slug, module_id, lesson_id):
     else:
         form = LessonForm(instance=lesson)
     return render(request, template_name, {'form': form, 'module': module, 'course': course, 'page_title': f'Edit Lesson: {lesson.title}'})
+
 
 @login_required
 @user_passes_test(is_instructor)
