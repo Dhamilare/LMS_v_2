@@ -18,8 +18,8 @@
             min-height: 100vh;
             padding: 20px;
             margin: 0;
-            -webkit-text-size-adjust: 100%;
-            -ms-text-size-adjust: 100%;
+            box-sizing: border-box;
+            text-align: center;
         }
 
         .certificate-container {
@@ -28,9 +28,13 @@
             padding: 40px;
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
             text-align: center;
-            max-width: 900px; /* A4-ish width for landscape */
-            width: 100%;
-            aspect-ratio: 297 / 210; /* A4 landscape aspect ratio approx */
+            
+            /* CRITICAL FIX 1: Max width on screen view, but allow flexibility */
+            max-width: 900px;
+            width: 95%; 
+            
+            /* Maintain aspect ratio for print/PDF consistency */
+            aspect-ratio: 297 / 210; 
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -48,50 +52,50 @@
             transform: translate(-50%, -50%) rotate(-30deg);
             width: 80%;
             height: 80%;
-            background-image: url("{% static 'images/Ha-Shem-Blue-Favicon-2.png' %}"); /* Assumes your logo is here */
+            background-image: url("{% static 'images/Ha-Shem-Blue-Favicon-2.png' %}"); 
             background-repeat: no-repeat;
             background-position: center;
             background-size: contain;
-            opacity: 0.05; /* Very subtle */
+            opacity: 0.05; 
             z-index: 0;
         }
 
         .certificate-header, .certificate-body, .certificate-footer {
-            position: relative; /* Ensure content is above watermark */
+            position: relative; 
             z-index: 1;
         }
 
         .certificate-title {
-            font-family: 'Times New Roman', Times, serif; /* PDF-safe serif */
-            font-size: 3.5rem; /* Large title */
-            color: #4338ca; /* Indigo-800 */
+            font-family: 'Times New Roman', Times, serif; 
+            font-size: 3.5rem; 
+            color: #4338ca; 
             margin-bottom: 20px;
             line-height: 1;
         }
 
         .certificate-subtitle {
             font-size: 1.5rem;
-            color: #6b7280; /* Gray 500 */
+            color: #6b7280;
             margin-bottom: 30px;
         }
 
         .certificate-recipient {
-            font-family: 'cursive'; /* PDF-safe script */
+            font-family: 'cursive'; 
             font-size: 3rem; 
-            color: #1a202c; /* Dark text */
+            color: #1a202c;
             margin-bottom: 20px;
             line-height: 1;
         }
 
         .certificate-text {
             font-size: 1.25rem;
-            color: #374151; /* Gray 700 */
+            color: #374151;
             margin-bottom: 30px;
         }
         
         .certificate-text .course-title {
              font-weight: bold;
-             color: #4f46e5; /* Indigo-600 */
+             color: #4f46e5;
         }
         .certificate-text .issue-date {
              font-weight: 600;
@@ -104,18 +108,19 @@
             align-items: flex-end; 
             margin-top: 40px;
             padding-top: 20px;
-            border-top: 1px solid #e5e7eb; /* Light gray separator */
+            border-top: 1px solid #e5e7eb;
         }
 
         .certificate-signature {
-            flex: 1;
+            width: 40%;
             padding: 0 20px;
+            text-align: center;
         }
 
         .signature-line {
-            border-bottom: 1px solid #4b5563; /* Darker line for signature */
+            border-bottom: 1px solid #4b5563;
             margin-bottom: 5px;
-            width: 80%; /* Shorter line */
+            width: 80%; 
             margin-left: auto;
             margin-right: auto;
         }
@@ -131,20 +136,13 @@
             color: #6b7280;
         }
 
-        .certificate-id-text {
+        .certificate-id-text, .certificate-verification-link {
             font-size: 0.8rem;
             color: #9ca3af;
             margin-top: 20px;
         }
         
-        .certificate-verification-link {
-            font-size: 0.8rem;
-            color: #9ca3af;
-            margin-top: 5px;
-        }
-        
         .print-controls {
-            /* This class is only for the browser, not the PDF */
             display: block;
             position: fixed;
             bottom: 20px;
@@ -158,64 +156,56 @@
                 background-color: #ffffff;
                 margin: 0;
                 padding: 0;
-                display: block; /* Remove flex */
+                display: block;
             }
             .certificate-container {
-                border: 10px solid #4338ca; /* Keep the border for printing */
+                border: 10px solid #4338ca;
                 box-shadow: none;
-                width: 297mm; /* A4 width in landscape */
-                height: 200mm; /* A4 height in landscape (minus margins) */
+                width: 297mm; 
+                height: 200mm; 
                 padding: 20mm;
                 margin: 0;
                 page-break-after: always;
             }
-            .certificate-container::before {
-                opacity: 0.05; /* Make watermark very subtle for print */
-            }
-            /* Hide print/download buttons */
             .print-controls {
                 display: none !important;
             }
         }
 
-        /* Mobile adjustments */
         @media (max-width: 768px) {
             body {
-                padding: 10px;
+                padding: 0; /* Remove body padding on small screens */
             }
             .certificate-container {
-                padding: 20px;
-                aspect-ratio: auto; /* Allow height to adjust */
+                width: 100%;
+                max-width: 100%; /* Ensure fluid width */
+                padding: 20px 10px; /* Reduce padding to use space efficiently */
+                aspect-ratio: auto;
+                margin: 0;
             }
             .certificate-title {
-                font-size: 2.5rem;
-            }
-            .certificate-subtitle {
-                font-size: 1.2rem;
+                font-size: 2rem;
             }
             .certificate-recipient {
-                font-size: 2.2rem;
-            }
-            .certificate-text {
-                font-size: 1rem;
+                font-size: 2rem;
             }
             .certificate-details {
                 flex-direction: column;
                 align-items: center;
-                margin-top: 20px;
+                margin-top: 10px;
                 padding-top: 10px;
             }
             .certificate-signature {
-                margin-bottom: 20px;
-                width: 100%;
+                margin-bottom: 10px;
+                width: 80%;
             }
             .signature-line {
-                width: 60%;
+                width: 80%;
             }
         }
     </style>
 </head>
-<body class="bg-gray-100">
+<body>
 
     <div class="certificate-container">
         <div class="certificate-header">

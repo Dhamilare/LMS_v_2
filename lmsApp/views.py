@@ -1336,12 +1336,11 @@ def quiz_result(request, course_slug, attempt_id):
 def issue_certificate(request, course_slug):
     """
     Allows a student to claim/issue a certificate for a completed course.
-    Generates and saves the PDF, then sends a completion email with the PDF.
+    Generates, saves, and sends the PDF certificate as an ATTACHMENT via email.
     """
     course = get_object_or_404(Course, slug=course_slug)
     student = request.user
 
-    # Basic checks
     enrollment = get_object_or_404(Enrollment, student=student, course=course)
 
     if not enrollment.completed:
@@ -1355,7 +1354,7 @@ def issue_certificate(request, course_slug):
         certificate = Certificate.objects.get(student=student, course=course)
         
         if is_ajax(request):
-            return JsonResponse({'success': True, 'message': 'Certificate already claimed.', 'redirect_url': str(redirect('view_certificate', certificate_id=certificate.certificate_id).url)})
+            return JsonResponse({'success': True, 'message': 'Certificate already claimed.', 'redirect_url': str(reverse('view_certificate', kwargs={'certificate_id': certificate.certificate_id}))})
         return redirect('view_certificate', certificate_id=certificate.certificate_id)
 
     try:
@@ -1365,13 +1364,13 @@ def issue_certificate(request, course_slug):
                 course=course,
             )
             
-            # --- Get domain and protocol for email links ---
+            # --- Get necessary global variables ---
             current_site = get_current_site(request)
             protocol = 'https' if request.is_secure() else 'http'
             domain = current_site.domain
             current_year = timezone.now().year
 
-            # --- PDF Generation Logic ---
+            # --- PDF GENERATION ---
             template_path = 'student/certificate_template.html'
             context = {
                 'certificate': certificate,
@@ -1389,15 +1388,22 @@ def issue_certificate(request, course_slug):
             html = template.render(context)
 
             result_file = BytesIO()
+            
+            # Helper function for resource paths during PDF generation (essential for logos/images)
             def link_callback(uri, rel):
-                if uri.startswith(settings.MEDIA_URL):
-                    path = os.path.join(settings.MEDIA_ROOT, uri.replace(settings.MEDIA_URL, ""))
-                elif uri.startswith(settings.STATIC_URL):
-                    path = os.path.join(settings.BASE_DIR, 'static', uri.replace(settings.STATIC_URL, ""))
-                    if not os.path.exists(path): # Fallback for collected static files
-                        path = os.path.join(settings.STATIC_ROOT, uri.replace(settings.STATIC_URL, ""))
+                sUrl = settings.STATIC_URL
+                sRoot = settings.STATIC_ROOT
+                mUrl = settings.MEDIA_URL
+                mRoot = settings.MEDIA_ROOT
+                
+                if uri.startswith(mUrl):
+                    path = os.path.join(mRoot, uri.replace(mUrl, ""))
+                elif uri.startswith(sUrl):
+                    path = os.path.join(sRoot, uri.replace(sUrl, ""))
+                    if not os.path.exists(path):
+                        path = os.path.join(settings.BASE_DIR, 'static', uri.replace(sUrl, ""))
                 else:
-                    path = uri # Assume it's a direct path or external URL
+                    path = uri
                 return path
 
             pisa_status = pisa.CreatePDF(
@@ -1408,49 +1414,57 @@ def issue_certificate(request, course_slug):
 
             if pisa_status.err:
                 raise Exception(f"PDF generation error: {pisa_status.err}")
+            
+            result_file.seek(0)
 
-            # Save the PDF to the Certificate model's FileField
             file_name = f'certificate_{certificate.certificate_id}.pdf'
             certificate.pdf_file.save(file_name, result_file)
             certificate.save()
-            # --- End PDF Generation Logic ---
-
-            messages.success(request, f'Congratulations! Your certificate for "{course.title}" has been issued and sent to your email.')
+            
             
             # --- Send Course Completion Email with PDF Attachment ---
+            messages.success(request, f'Congratulations! Your certificate for "{course.title}" has been issued and sent to your email.')
+            
             email_subject = f"Congratulations! You've Completed {course.title}!"
             email_context = {
                 'student_name': student.get_full_name() or student.email,
                 'course_title': course.title,
                 'completion_date': certificate.issue_date,
-                'certificate_url': f"{protocol}://{domain}{reverse('view_certificate', args=[certificate.certificate_id])}",
-                'protocol': protocol,
-                'domain': domain,
+                'certificate_url': f"{protocol}://{domain}{reverse('view_certificate', kwargs={'certificate_id': certificate.certificate_id})}",
                 'current_year': current_year,
             }
             
-            # Prepare PDF attachment
-            pdf_attachment = (
-                f"{course.title}_Certificate_{certificate.certificate_id}.pdf",
-                certificate.pdf_file.read(), # Read binary content of the saved PDF
-                'application/pdf'
-            )
+            # Open the saved file from storage/disk for reading
+            with certificate.pdf_file.open('rb') as f:
+                pdf_attachment = (
+                    f"{course.title}_Certificate_{certificate.certificate_id}.pdf",
+                    f.read(),
+                    'application/pdf'
+                )
 
-            send_templated_email(
-                'emails/course_completion.html',
-                email_subject,
-                [student.email],
-                email_context,
-                attachments=[pdf_attachment]
-            )
+                send_templated_email(
+                    'emails/course_completion.html',
+                    email_subject,
+                    [student.email],
+                    email_context,
+                    attachments=[pdf_attachment]
+                )
+
             # --- End Email Send ---
 
             if is_ajax(request):
-                return JsonResponse({'success': True, 'message': 'Certificate issued!', 'redirect_url': str(redirect('view_certificate', certificate_id=certificate.certificate_id).url)})
+                return JsonResponse({
+                    'success': True, 
+                    'message': 'Certificate issued!', 
+                    'redirect_url': str(reverse('view_certificate', kwargs={'certificate_id': certificate.certificate_id}))
+                })
             return redirect('view_certificate', certificate_id=certificate.certificate_id)
+            
     except Exception as e:
         messages.error(request, f'Failed to issue certificate: {e}')
-        traceback.print_exc() # Print full traceback to console
+        import traceback 
+        traceback.print_exc() 
+        
         if is_ajax(request):
             return JsonResponse({'success': False, 'error': f'Failed to issue certificate: {e}'}, status=500)
         return redirect('dashboard')

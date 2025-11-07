@@ -1,116 +1,100 @@
 import requests
-from msal import ConfidentialClientApplication
+import json
+import base64
 from django.core.mail.backends.base import BaseEmailBackend
-from decouple import config
+from django.conf import settings
+from msal import ConfidentialClientApplication
+from urllib.parse import quote
 
 class GraphEmailBackend(BaseEmailBackend):
-    
     def __init__(self, fail_silently=False, **kwargs):
         super().__init__(fail_silently=fail_silently)
-        self.client_id = config('SOCIAL_AUTH_AZUREAD_OAUTH2_KEY')
-        self.client_secret = config('SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET')
-        self.tenant_id = config('SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID')
-        self.email_sender = config('EMAIL_SENDER')
-        
-        if not all([self.client_id, self.client_secret, self.tenant_id, self.email_sender]):
-            raise ValueError("Email backend is missing required settings (KEY, SECRET, TENANT_ID, or EMAIL_SENDER).")
-            
-        self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
+        self.client_id = settings.SOCIAL_AUTH_AZUREAD_OAUTH2_KEY
+        self.client_secret = settings.SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET
+        self.tenant_id = settings.SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID
+        self.sender_email = settings.EMAIL_SENDER
+        self.authority = f'https://login.microsoftonline.com/{self.tenant_id}'
         self.scope = ["https://graph.microsoft.com/.default"]
         
-        self.client_app = ConfidentialClientApplication(
-            client_id=self.client_id,
+        self.app = ConfidentialClientApplication(
+            self.client_id, 
             authority=self.authority,
             client_credential=self.client_secret
         )
+        self.encoded_sender_email = quote(self.sender_email) 
 
-    def _get_access_token(self):
-        """
-        Get an app-only access token from MSAL.
-        It will first try the cache, then acquire a new one if needed.
-        """
-        result = self.client_app.acquire_token_silent(scopes=self.scope, account=None)
-        
+    def get_access_token(self):
+        result = self.app.acquire_token_silent(self.scope, account=None)
         if not result:
-            print("No token in cache, acquiring new one...")
-            result = self.client_app.acquire_token_for_client(scopes=self.scope)
-            
-        if "access_token" in result:
-            return result["access_token"]
-        else:
-            print(f"Error acquiring token: {result.get('error_description')}")
-            return None
+            result = self.app.acquire_token_for_client(scopes=self.scope)
+        
+        if "access_token" not in result:
+            raise Exception("Failed to acquire access token from Microsoft Graph API.")
+        return result['access_token']
 
     def send_messages(self, email_messages):
-        """
-        Sends one or more EmailMessage objects.
-        Returns the number of messages sent.
-        """
-        if not email_messages:
-            return 0
-            
-        access_token = self._get_access_token()
-        if not access_token:
-            if not self.fail_silently:
-                raise Exception("Failed to acquire Graph API access token.")
-            return 0
-
+        access_token = self.get_access_token()
         headers = {
             'Authorization': f'Bearer {access_token}',
             'Content-Type': 'application/json'
         }
         
-        send_count = 0
-        for message in email_messages:
-            # Construct the API payload
-            graph_message = {
-                "message": {
-                    "from": {
-                        "emailAddress": {
-                            "address": self.email_sender
-                        }
-                    },
-                    "toRecipients": [
-                        {"emailAddress": {"address": to}} for to in message.to
-                    ],
-                    "subject": message.subject,
-                    "body": {
-                        "contentType": "Html" if message.content_subtype == "html" else "Text",
-                        "content": message.body
-                    }
+        num_sent = 0
+        
+        for email_message in email_messages:
+            recipients = [
+                {'emailAddress': {'address': email}} 
+                for email in email_message.to
+            ]
+
+            attachments_list = []
+            for attachment in email_message.attachments:
+                filename, content, mimetype = attachment
+                base64_content = base64.b64encode(content).decode('utf-8')
+                
+                attachments_list.append({
+                    "@odata.type": "#microsoft.graph.fileAttachment",
+                    "name": filename,
+                    "contentType": mimetype,
+                    "contentBytes": base64_content,
+                    "isInline": False
+                })
+
+            message = {
+                'subject': email_message.subject,
+                'body': {
+                    'contentType': 'HTML',
+                    'content': email_message.body
                 },
-                "saveToSentItems": "true"
+                'toRecipients': recipients,
+                'attachments': attachments_list
             }
-            
-            # Add CC and BCC recipients if they exist
-            if message.cc:
-                graph_message["message"]["ccRecipients"] = [
-                    {"emailAddress": {"address": cc}} for cc in message.cc
-                ]
-            if message.bcc:
-                graph_message["message"]["bccRecipients"] = [
-                    {"emailAddress": {"address": bcc}} for bcc in message.bcc
-                ]
-            
-            # The API endpoint to send mail FROM a specific user (our service account)
-            send_mail_url = f"https://graph.microsoft.com/v1.0/users/{self.email_sender}/sendMail"
+
+            payload = {
+                'message': message,
+                'saveToSentItems': True 
+            }
+            send_mail_url = f'https://graph.microsoft.com/v1.0/users/{self.encoded_sender_email}/sendMail'
             
             try:
                 response = requests.post(
                     send_mail_url,
                     headers=headers,
-                    json=graph_message
+                    data=json.dumps(payload),
+                    timeout=30
                 )
-            
-                if response.status_code == 202:  # 202 Accepted
-                    send_count += 1
+                
+                if response.status_code == 202: 
+                    num_sent += 1
                 else:
-                    if not self.fail_silently:
-                        raise Exception(
-                            f"Graph API error {response.status_code}: {response.text}"
-                        )
+                    print(f"Graph API Mail Send Failure (Status {response.status_code}) for URL: {send_mail_url}")
+                    print(f"Response Text: {response.text}")
+                    raise Exception(
+                        f"Graph API error {response.status_code}: {response.text}"
+                    )
+
             except Exception as e:
                 if not self.fail_silently:
                     raise e
-
-        return send_count
+        
+        return num_sent
