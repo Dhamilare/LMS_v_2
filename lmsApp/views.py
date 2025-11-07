@@ -671,6 +671,10 @@ def rate_course(request, course_slug):
 @login_required
 @user_passes_test(is_instructor)
 def module_create(request, course_slug):
+    """
+    Allows an instructor to add a new module to their course,
+    automatically setting the order field.
+    """
     course = get_object_or_404(Course, slug=course_slug, instructor=request.user)
     template_name = 'instructor/_module_form.html'
 
@@ -679,6 +683,9 @@ def module_create(request, course_slug):
         if form.is_valid():
             module = form.save(commit=False)
             module.course = course
+            max_order = Module.objects.filter(course=course).aggregate(Max('order'))['order__max']
+            module.order = (max_order or 0) + 1
+            
             module.save()
             messages.success(request, f'Module "{module.title}" added successfully to {course.title}.')
             if is_ajax(request):
@@ -697,6 +704,9 @@ def module_create(request, course_slug):
 @login_required
 @user_passes_test(is_instructor)
 def module_update(request, course_slug, module_id):
+    """
+    Allows an instructor to update an existing module.
+    """
     course = get_object_or_404(Course, slug=course_slug, instructor=request.user)
     module = get_object_or_404(Module, id=module_id, course=course)
     template_name = 'instructor/_module_form.html'
@@ -740,6 +750,10 @@ def module_delete(request, course_slug, module_id):
 @login_required
 @user_passes_test(is_instructor)
 def lesson_create(request, course_slug, module_id):
+    """
+    Allows an instructor to add a new lesson to a module,
+    automatically setting the order field.
+    """
     course = get_object_or_404(Course, slug=course_slug, instructor=request.user)
     module = get_object_or_404(Module, id=module_id, course=course)
     template_name = 'instructor/_lesson_form.html'
@@ -749,6 +763,9 @@ def lesson_create(request, course_slug, module_id):
         if form.is_valid():
             lesson = form.save(commit=False)
             lesson.module = module
+            max_order = Lesson.objects.filter(module=module).aggregate(Max('order'))['order__max']
+            lesson.order = (max_order or 0) + 1
+            
             lesson.save()
             messages.success(request, f'Lesson "{lesson.title}" added successfully to module "{module.title}".')
             if is_ajax(request):
@@ -767,6 +784,9 @@ def lesson_create(request, course_slug, module_id):
 @login_required
 @user_passes_test(is_instructor)
 def lesson_update(request, course_slug, module_id, lesson_id):
+    """
+    Allows an instructor to update an existing lesson.
+    """
     course = get_object_or_404(Course, slug=course_slug, instructor=request.user)
     module = get_object_or_404(Module, id=module_id, course=course)
     lesson = get_object_or_404(Lesson, id=lesson_id, module=module)
@@ -775,7 +795,7 @@ def lesson_update(request, course_slug, module_id, lesson_id):
     if request.method == 'POST':
         form = LessonForm(request.POST, instance=lesson)
         if form.is_valid():
-            form.save()
+            form.save() 
             messages.success(request, f'Lesson "{lesson.title}" updated successfully.')
             if is_ajax(request):
                 return JsonResponse({'success': True, 'message': f'Lesson "{lesson.title}" updated successfully!'})
@@ -788,7 +808,6 @@ def lesson_update(request, course_slug, module_id, lesson_id):
     else:
         form = LessonForm(instance=lesson)
     return render(request, template_name, {'form': form, 'module': module, 'course': course, 'page_title': f'Edit Lesson: {lesson.title}'})
-
 
 @login_required
 @user_passes_test(is_instructor)
@@ -2380,6 +2399,84 @@ def resolve_ticket(request, ticket_id):
     return redirect('admin_ticket_list')
 
 
+
+@login_required
+@user_passes_test(is_admin)
+def user_management_view(request):
+    """
+    Admin view to list all non-superuser accounts for role management.
+    """
+    query = request.GET.get('q', '')
+
+    # Fetch all users who are NOT superusers
+    users_list = User.objects.filter(is_superuser=False).order_by('email')
+
+    if query:
+        # Search by name or email
+        users_list = users_list.filter(
+            Q(email__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query)
+        ).distinct()
+
+    # Pagination
+    paginator = Paginator(users_list, 15)  
+    page_number = request.GET.get('page')
+    
+    try:
+        page_obj = paginator.get_page(page_number)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+
+    context = {
+        'page_obj': page_obj,
+        'query': query,
+    }
+    return render(request, 'admin/user_management.html', context)
+
+
+@login_required
+@user_passes_test(is_admin)
+@require_POST
+def toggle_user_status(request, pk):
+    """
+    AJAX endpoint to promote/demote or disable/enable a user.
+    """
+    user_to_update = get_object_or_404(User, pk=pk)
+    field = request.POST.get('field') # e.g., 'is_instructor', 'is_student', 'is_active'
+    
+    # Security check: Admin cannot change their own active status or superuser status
+    if user_to_update == request.user and field == 'is_active':
+        return JsonResponse({'success': False, 'error': "You cannot disable your own active status."}, status=403)
+    
+    # 1. Handle Role Toggle (is_instructor)
+    if field == 'is_instructor':
+        user_to_update.is_instructor = not user_to_update.is_instructor
+        
+        # When promoting to instructor, ensure they are NOT staff or student (optional for clarity)
+        if user_to_update.is_instructor:
+            user_to_update.is_student = False
+        else:
+            # If demoting, set them back to student by default
+            user_to_update.is_student = True 
+            
+        user_to_update.save()
+        
+        status = "promoted to Instructor" if user_to_update.is_instructor else "demoted to Student"
+        return JsonResponse({'success': True, 'message': f'User {user_to_update.get_full_name()} {status} successfully.'})
+
+    elif field == 'is_active':
+        user_to_update.is_active = not user_to_update.is_active
+        user_to_update.save()
+        
+        status = "enabled" if user_to_update.is_active else "disabled"
+        return JsonResponse({'success': True, 'message': f'User {user_to_update.get_full_name()} account {status} successfully.'})
+    
+    return JsonResponse({'success': False, 'error': "Invalid field specified."}, status=400)
+
+
 @user_passes_test(is_admin)
 def group_management_view(request, pk=None):
     if pk:
@@ -2411,7 +2508,6 @@ def group_list_view(request):
     groups = Group.objects.all().order_by('name')
     context = {'groups': groups}
     return render(request, 'admin/group_list.html', context)
-
 
 @user_passes_test(is_admin)
 @require_POST

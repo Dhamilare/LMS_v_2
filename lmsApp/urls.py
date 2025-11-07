@@ -78,5 +78,8 @@ urlpatterns = [
     path('my-tickets/', views.ticket_list, name='ticket_list'),
     path('tickets/<str:ticket_id>/', views.ticket_detail, name='ticket_detail'),
     path('tickets/', views.admin_ticket_list, name='admin_ticket_list'),
-    path('resolve/<str:ticket_id>/', views.resolve_ticket, name='resolve_ticket')
+    path('resolve/<str:ticket_id>/', views.resolve_ticket, name='resolve_ticket'),
+
+    path('users/', views.user_management_view, name='user_management'),
+    path('users/<int:pk>/toggle/', views.toggle_user_status, name='toggle_user_status'),
 ]

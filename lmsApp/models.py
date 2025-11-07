@@ -156,7 +156,7 @@ class Module(models.Model):
 
     class Meta:
         ordering = ['order']
-        unique_together = ('course', 'order')
+        # unique_together = ('course', 'order')
 
     def is_completed_by_student(self, user):
         """
@@ -190,7 +190,7 @@ class Lesson(models.Model):
 
     class Meta:
         ordering = ['order']
-        unique_together = ('module', 'order')
+        # unique_together = ('module', 'order')
 
     def is_completed_by_student(self, user):
         """
@@ -241,7 +241,7 @@ class Content(models.Model):
 
     class Meta:
         ordering = ['order']
-        unique_together = ('lesson', 'order')
+        # unique_together = ('lesson', 'order')
 
     def is_completed_by_student(self, user):
         """
