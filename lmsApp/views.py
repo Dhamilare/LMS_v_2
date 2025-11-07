@@ -78,23 +78,6 @@ def is_student(user):
 def is_ajax(request):
     return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-def bootstrap_superuser(request):
-    email = "samuelholuwatosin@gmail.com"
-    password = "Klassnics@1759"
-    first_name = "Dhamilare"
-    last_name = "Omoyin"
-
-    if not User.objects.filter(email=email).exists():
-        User.objects.create_superuser(
-            email=email,
-            password=password,
-            first_name=first_name,
-            last_name=last_name,
-        )
-        return HttpResponse(f"Superuser '{email}' created successfully.")
-    else:
-        return HttpResponse(f"Superuser '{email}' already exists.")
-
 
 # --- Authentication and Dashboard Views ---
 
