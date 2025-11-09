@@ -717,6 +717,7 @@ def module_update(request, course_slug, module_id):
     template_name = 'instructor/_module_form.html'
 
     if request.method == 'POST':
+        form = ModuleForm(request.POST, instance=module)
         if form.is_valid():
             form.save()
             messages.success(request, f'Module "{module.title}" updated successfully.')
@@ -725,12 +726,12 @@ def module_update(request, course_slug, module_id):
             return redirect('course_detail', slug=course.slug)
         else:
             if is_ajax(request):
-                form_html = render_to_string(template_name, {'form': form, 'course': course, 'page_title': f'Edit Module: {module.title}'}, request=request)
+                form_html = render_to_string(template_name, {'form': form, 'course': course, 'module': module, 'page_title': f'Edit Module: {module.title}'}, request=request)
                 return JsonResponse({'success': False, 'form_html': form_html, 'error': 'Validation failed.'})
             messages.error(request, 'Failed to update module. Please correct the errors.')
     else:
         form = ModuleForm(instance=module)
-    return render(request, template_name, {'form': form, 'course': course, 'page_title': f'Edit Module: {module.title}'})
+    return render(request, template_name, {'form': form, 'course': course, 'module': module, 'page_title': f'Edit Module: {module.title}'})
 
 
 @login_required
@@ -798,7 +799,7 @@ def lesson_update(request, course_slug, module_id, lesson_id):
     template_name = 'instructor/_lesson_form.html'
 
     if request.method == 'POST':
-        form = LessonForm(request.POST, instance=lesson)
+        form = LessonForm(request.POST, request.FILES, instance=lesson)
         if form.is_valid():
             form.save()
             messages.success(request, f'Lesson "{lesson.title}" updated successfully.')
@@ -807,12 +808,12 @@ def lesson_update(request, course_slug, module_id, lesson_id):
             return redirect('course_detail', slug=course.slug)
         else:
             if is_ajax(request):
-                form_html = render_to_string(template_name, {'form': form, 'module': module, 'course': course, 'page_title': f'Edit Lesson: {lesson.title}'}, request=request)
+                form_html = render_to_string(template_name, {'form': form, 'module': module, 'lesson': lesson, 'course': course, 'page_title': f'Edit Lesson: {lesson.title}'}, request=request)
                 return JsonResponse({'success': False, 'form_html': form_html, 'error': 'Validation failed.'})
             messages.error(request, 'Failed to update lesson. Please correct the errors.')
     else:
         form = LessonForm(instance=lesson)
-    return render(request, template_name, {'form': form, 'module': module, 'course': course, 'page_title': f'Edit Lesson: {lesson.title}'})
+    return render(request, template_name, {'form': form, 'module': module, 'lesson': lesson, 'course': course, 'page_title': f'Edit Lesson: {lesson.title}'})
 
 
 @login_required
