@@ -37,7 +37,10 @@
                     <source src="{{ content.file.url }}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
-                <p class="text-gray-600 mt-4">Download Video: <a href="{{ content.file.url }}" download class="text-indigo-600 hover:underline flex items-center"><i class="fas fa-download mr-2"></i> {{ content.file.name|split:'/'|last }}</a></p>
+                <p class="text-gray-600 mt-4">
+                    Video content embedded.
+                    {# Download Video: <a href="{{ content.file.url }}" download class="text-indigo-600 hover:underline flex items-center"><i class="fas fa-download mr-2"></i> {{ content.file.name|split:'/'|last }}</a> #}
+                </p>
             {% else %}
                 <p class="text-red-600">No video content available.</p>
             {% endif %}
@@ -46,7 +49,10 @@
                 <div class="mb-4">
                     <iframe src="{{ content.file.url|embed_document }}" class="w-full h-[600px] border-none rounded-lg shadow-md"></iframe>
                 </div>
-                <p class="text-gray-600">Download {{ content.get_content_type_display }}: <a href="{{ content.file.url }}" download class="text-indigo-600 hover:underline flex items-center"><i class="fas fa-download mr-2"></i> {{ content.file.name|split:'/'|last }}</a></p>
+                <p class="text-gray-600">
+                    Document embedded for viewing.
+                    {# Download {{ content.get_content_type_display }}: <a href="{{ content.file.url }}" download class="text-indigo-600 hover:underline flex items-center"><i class="fas fa-download mr-2"></i> {{ content.file.name|split:'/'|last }}</a> #}
+                </p>
             {% else %}
                 <p class="text-red-600">No {{ content.get_content_type_display }} file available.</p>
             {% endif %}
