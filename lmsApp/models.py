@@ -81,6 +81,14 @@ class User(AbstractUser):
         if not self.username:
             self.username = self.email
         super().save(*args, **kwargs)
+
+    def promote_to_superuser(self):
+        """Promote user to superuser and strip instructor/student roles."""
+        self.is_staff = True
+        self.is_superuser = True
+        self.is_student = False
+        self.is_instructor = False
+        self.save()
     
 
 class Course(models.Model):

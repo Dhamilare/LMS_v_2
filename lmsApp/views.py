@@ -2425,22 +2425,22 @@ def resolve_ticket(request, ticket_id):
 @user_passes_test(is_admin)
 def user_management_view(request):
     """
-    Admin view to list all non-superuser accounts for role management.
+    Admin view to list all accounts for role management, prioritizing Superusers/Staff
+    and listing all other users for management.
     """
     query = request.GET.get('q', '')
-
-    # Fetch all users who are NOT superusers
-    users_list = User.objects.filter(is_superuser=False).order_by('email')
+    admin_staff_users = User.objects.filter(Q(is_superuser=True) | Q(is_staff=True)).distinct()
+    standard_users = User.objects.filter(is_superuser=False, is_staff=False).order_by('email')
+    from itertools import chain
+    users_list = list(chain(admin_staff_users, standard_users))
 
     if query:
-        # Search by name or email
-        users_list = users_list.filter(
-            Q(email__icontains=query) |
-            Q(first_name__icontains=query) |
-            Q(last_name__icontains=query)
-        ).distinct()
+        users_list = [
+            user for user in users_list 
+            if query.lower() in user.email.lower() or 
+               query.lower() in user.get_full_name().lower()
+        ]
 
-    # Pagination
     paginator = Paginator(users_list, 15)  
     page_number = request.GET.get('page')
     
@@ -2463,39 +2463,63 @@ def user_management_view(request):
 @require_POST
 def toggle_user_status(request, pk):
     """
-    AJAX endpoint to promote/demote or disable/enable a user.
+    AJAX endpoint to promote/demote or disable/enable a user (for non-staff users).
     """
     user_to_update = get_object_or_404(User, pk=pk)
-    field = request.POST.get('field') # e.g., 'is_instructor', 'is_student', 'is_active'
-    
-    # Security check: Admin cannot change their own active status or superuser status
+    field = request.POST.get('field') 
+
     if user_to_update == request.user and field == 'is_active':
         return JsonResponse({'success': False, 'error': "You cannot disable your own active status."}, status=403)
     
     # 1. Handle Role Toggle (is_instructor)
     if field == 'is_instructor':
+        # Ensure only non-staff/non-superuser roles are managed here
+        if user_to_update.is_staff or user_to_update.is_superuser:
+            return JsonResponse({'success': False, 'error': "Cannot change the role of an Admin user via this button."}, status=403)
+
         user_to_update.is_instructor = not user_to_update.is_instructor
         
-        # When promoting to instructor, ensure they are NOT staff or student (optional for clarity)
         if user_to_update.is_instructor:
-            user_to_update.is_student = False
+            user_to_update.is_student = False # Promote: Remove Student status
         else:
-            # If demoting, set them back to student by default
-            user_to_update.is_student = True 
+            user_to_update.is_student = True # Demote: Set back to Student status
             
         user_to_update.save()
         
         status = "promoted to Instructor" if user_to_update.is_instructor else "demoted to Student"
-        return JsonResponse({'success': True, 'message': f'User {user_to_update.get_full_name()} {status} successfully.'})
+        return JsonResponse({'success': True, 'message': f'User {user_to_update.get_full_name() or user_to_update.email} {status} successfully.'})
 
+    # 2. Handle Status Toggle (is_active)
     elif field == 'is_active':
         user_to_update.is_active = not user_to_update.is_active
         user_to_update.save()
         
         status = "enabled" if user_to_update.is_active else "disabled"
-        return JsonResponse({'success': True, 'message': f'User {user_to_update.get_full_name()} account {status} successfully.'})
+        return JsonResponse({'success': True, 'message': f'User {user_to_update.get_full_name() or user_to_update.email} account {status} successfully.'})
     
     return JsonResponse({'success': False, 'error': "Invalid field specified."}, status=400)
+
+
+
+@login_required
+@user_passes_test(is_admin)
+@require_POST
+def grant_superuser_access(request, pk):
+    """
+    AJAX endpoint to promote a user to Superuser status.
+    Strips existing instructional/student roles upon promotion.
+    """
+    user_to_update = get_object_or_404(User, pk=pk)
+    
+    if user_to_update == request.user:
+        return JsonResponse({'success': False, 'error': "You cannot change your own superuser status here."}, status=403)
+        
+    user_to_update.promote_to_superuser()
+    
+    return JsonResponse({
+        'success': True, 
+        'message': f'Admin access successfully granted to {user_to_update.get_full_name() or user_to_update.email}.'
+    })
 
 
 @user_passes_test(is_admin)
