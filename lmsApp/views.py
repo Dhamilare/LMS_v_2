@@ -15,9 +15,7 @@ from io import BytesIO
 from xhtml2pdf import pisa
 from django.conf import settings
 import os
-import traceback
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from .utils import send_templated_email
 from django.db.models import Prefetch
 import csv
 from django.db.models import Avg
