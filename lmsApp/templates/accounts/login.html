@@ -54,6 +54,35 @@
         .delay-200 { animation-delay: 0.2s; }
         .delay-300 { animation-delay: 0.3s; }
         .delay-400 { animation-delay: 0.4s; }
+        
+        /* Custom modal for terms */
+        .terms-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 100;
+            background-color: rgba(0, 0, 0, 0.75);
+            transition: opacity 0.3s ease-out;
+            opacity: 0;
+            visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .terms-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .terms-content {
+            transform: scale(0.95);
+            transition: transform 0.3s ease-out;
+        }
+        .terms-modal.active .terms-content {
+            transform: scale(1);
+        }
     </style>
 </head>
 
@@ -137,10 +166,56 @@
             <div class="mt-8 text-center fade-in-up delay-400">
                 <p class="text-sm text-gray-600">
                     By signing in, you agree to our 
-                    <a href="#" class="font-medium text-indigo-600 hover:text-indigo-500">Terms of Service</a>.
+                    <a href="#" onclick="event.preventDefault(); window.showTermsModal()" class="font-medium text-indigo-600 hover:text-indigo-500">Terms of Service</a>.
                 </p>
             </div>
         </div>
     </div>
+    
+    <div id="termsModalBackdrop" class="terms-modal" 
+         onclick="window.hideTermsModal()">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-xl terms-content max-h-[90vh] overflow-y-auto"
+             onclick="event.stopPropagation()">
+             
+            {% include 'accounts/terms_modal.html' %} 
+
+        </div>
+    </div>
+
+    <script>
+        // CRITICAL URL: The actual Microsoft SSO endpoint
+        const MICROSOFT_AUTH_URL = "{% url 'social:begin' 'azuread-oauth2' %}";
+
+        function showTermsModal() {
+            const backdrop = document.getElementById('termsModalBackdrop');
+            if (backdrop) {
+                backdrop.classList.add('active');
+            }
+        }
+
+        function hideTermsModal() {
+            const backdrop = document.getElementById('termsModalBackdrop');
+            if (backdrop) {
+                backdrop.classList.remove('active');
+            }
+        }
+        
+        // Globalize functions for inline use
+        window.showTermsModal = showTermsModal;
+        window.hideTermsModal = hideTermsModal;
+        
+        // Final action logic (not used in this version but kept for consistency)
+        window.acceptTermsAndLogin = function() {
+            window.location.href = MICROSOFT_AUTH_URL;
+        };
+        
+        // Prevent backdrop close if the user clicks inside the content area
+        document.getElementById('termsModalBackdrop').addEventListener('click', function(e) {
+            if (e.target.id === 'termsModalBackdrop') {
+                hideTermsModal();
+            }
+        });
+        
+    </script>
 </body>
 </html>

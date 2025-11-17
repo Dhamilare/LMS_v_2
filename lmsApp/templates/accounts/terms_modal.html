@@ -1,0 +1,79 @@
+<div class="p-4 sm:p-6 text-gray-700">
+    <h3 class="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+        <i class="fas fa-file-contract mr-3 text-indigo-600"></i> Terms of Use & Privacy Policy
+    </h3>
+    
+    <!-- CRITICAL SCROLLABLE CONTENT AREA -->
+    <div id="termsContentPane" class="space-y-4 text-sm max-h-80 overflow-y-auto pr-2 border-b pb-4">
+        <p><strong>Effective Date: November 7, 2025</strong></p>
+        <p>Welcome to the Ha-Shem Learning Management System. By accessing or using this service, you agree to be bound by these Terms of Use and our Privacy Policy. Please read them carefully.</p>
+
+        <!-- --- Section 1: Use of Service --- -->
+        <h4>1. Acceptance of Terms</h4>
+        <p>This platform is intended solely for internal organizational use. Unauthorized use is strictly prohibited. Your access is conditional upon your acceptance of these terms.</p>
+
+        <h4>2. User Responsibilities</h4>
+        <p>You agree not to share your access credentials, not to misuse the content (which remains the exclusive property of Ha-Shem), and to abide by all organizational IT security policies.</p>
+
+        <!-- --- Section 2: Content Ownership --- -->
+        <h4>3. Intellectual Property</h4>
+        <p>All courses, modules, videos, documents (PPTX, PDF, DOCX), and quiz materials provided within this LMS are copyrighted and proprietary to Ha-Shem. No content may be downloaded, reproduced, or distributed without explicit written permission.</p>
+
+        <h4>4. Data Security & Privacy</h4>
+        <p>We collect personal information (name, email address, role, progress data) for the purpose of managing your professional development within the organization. This data is stored securely and will not be shared externally.</p>
+
+        <!-- --- Section 3: Termination --- -->
+        <h4>5. Termination of Access</h4>
+        <p>Your access may be terminated at any time by the LMS administrators or by the organization for violation of these terms or loss of organizational affiliation.</p>
+        
+        <!-- Add padding space to ensure scroll bar is present on shorter content -->
+        <div style="height: 1px;"></div> 
+    </div>
+
+    <div class="mt-6 pt-4 flex justify-end space-x-3">
+        <!-- Button is DISABLED by default (JavaScript enables it) -->
+        <button id="termsCancelBtn" type="button" onclick="window.hideTermsModal()" 
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
+            Cancel
+        </button>
+        <button id="termsAcknowledgeBtn" type="button" disabled
+                onclick="window.hideTermsModal()" 
+                class="bg-indigo-600 text-white py-2 px-4 rounded-md opacity-50 cursor-not-allowed transition duration-300 flex items-center justify-center shadow-md">
+            <i class="fas fa-check-circle mr-2"></i> Accept
+        </button>
+    </div>
+</div>
+
+<script>
+    // --- SCROLL ENFORCEMENT LOGIC ---
+    document.addEventListener('DOMContentLoaded', function() {
+        const contentPane = document.getElementById('termsContentPane');
+        const acknowledgeBtn = document.getElementById('termsAcknowledgeBtn');
+        
+        // If contentPane doesn't exist (e.g., loaded in a non-modal context), enable immediately
+        if (!contentPane) {
+            acknowledgeBtn.disabled = false;
+            acknowledgeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            return;
+        }
+
+        // 1. Check if the user has scrolled to the bottom
+        function checkScroll() {
+            // Check if scroll position + container height is greater than or equal to total scrollable height
+            if (contentPane.scrollTop + contentPane.clientHeight >= contentPane.scrollHeight) {
+                // User has reached the bottom
+                acknowledgeBtn.disabled = false;
+                acknowledgeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                // Remove the listener once accepted/enabled
+                contentPane.removeEventListener('scroll', checkScroll);
+            }
+        }
+
+        // 2. Attach the scroll listener
+        contentPane.addEventListener('scroll', checkScroll);
+        
+        // 3. Initial check (in case content is shorter than the max-h-80 setting)
+        checkScroll();
+        
+    });
+</script>
