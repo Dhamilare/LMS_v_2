@@ -72,7 +72,6 @@ class CourseForm(forms.ModelForm):
         fields = ['title', 'description', 'category', 'instructor', 'price', 'is_published', 'thumbnail']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
-            'thumbnail': forms.URLInput(attrs={'placeholder': 'e.g., https://example.com/course_thumb.jpg'}),
         }
 
     def __init__(self, *args, **kwargs):

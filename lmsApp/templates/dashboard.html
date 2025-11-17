@@ -11,6 +11,9 @@
             <i class="fas fa-tachometer-alt mr-3 text-indigo-600"></i> Welcome, {{ user.get_full_name|default:user.email }}!
         </h2>
 
+        <!-- ===================== -->
+        <!-- ===== ADMIN DASHBOARD (Unchanged) ===== -->
+        <!-- ===================== -->
         {% if is_admin %}
             
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -49,7 +52,6 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
                 <div class="lg:col-span-2">
                     <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
                         <i class="fas fa-cogs mr-3 text-indigo-600"></i> Course Analytics
@@ -126,6 +128,9 @@
                 </div>
             </div>
             
+        <!-- ========================= -->
+        <!-- ===== INSTRUCTOR DASHBOARD (Unchanged) ===== -->
+        <!-- ========================= -->
         {% elif is_instructor %}
             <div class="bg-white border border-gray-200 rounded-xl shadow-lg p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start">
                 <i class="fas fa-chalkboard-teacher text-4xl text-indigo-500 mr-4 mt-1 hidden sm:block"></i>
@@ -153,7 +158,8 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {% for course in courses %}
                         <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
-                            <img src="{{ course.thumbnail|default:'https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail' }}" 
+                            <!-- FIX 3: Use course.thumbnail.url for ImageField -->
+                            <img src="{% if course.thumbnail %}{{ course.thumbnail.url }}{% else %}https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail{% endif %}" 
                                  alt="{{ course.title }} Thumbnail" 
                                  class="w-full h-48 object-cover"
                                  onerror="this.src='https://placehold.co/600x400/E0E7FF/4338CA?text=Image+Missing';">
@@ -195,8 +201,12 @@
                 </div>
             {% endif %}
 
+        <!-- ======================= -->
+        <!-- ===== STUDENT DASHBOARD (Modified for ImageField) ===== -->
+        <!-- ======================= -->
         {% elif is_student %}
             
+            <!-- Student Search Bar -->
             <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8 mb-8 border border-gray-200">
                 <h3 class="text-xl font-bold text-gray-800 mb-4">Find Your Next Course</h3>
                 <form action="{% url 'dashboard' %}" method="get">
@@ -218,6 +228,7 @@
                 </form>
             </div>
 
+            <!-- "My Enrolled Courses" Section -->
             <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8 mb-8 border border-gray-200">
                 <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
                     <i class="fas fa-bookmark mr-3 text-indigo-600"></i> My Enrolled Courses
@@ -226,7 +237,8 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {% for enrollment in enrolled_courses %}
                             <div class="bg-gray-50 rounded-lg shadow-md overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
-                                <img src="{{ enrollment.course.thumbnail|default:'https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail' }}" 
+                                <!-- FIX 4: Use conditional check for ImageField URL -->
+                                <img src="{% if enrollment.course.thumbnail %}{{ enrollment.course.thumbnail.url }}{% else %}https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail{% endif %}" 
                                      alt="{{ enrollment.course.title }} Thumbnail" 
                                      class="w-full h-48 object-cover"
                                      onerror="this.src='https://placehold.co/600x400/E0E7FF/4338CA?text=Image+Missing';">
@@ -263,6 +275,7 @@
                 {% endif %}
             </div>
 
+            <!-- "Explore More Courses" Section -->
             {% if available_courses %}
                 <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center mt-12">
                     <i class="fas fa-compass mr-3 text-indigo-600"></i>
@@ -271,7 +284,8 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {% for course in available_courses %}
                         <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
-                            <img src="{{ course.thumbnail|default:'https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail' }}" 
+                            <!-- FIX 5: Use conditional check for ImageField URL -->
+                            <img src="{% if course.thumbnail %}{{ course.thumbnail.url }}{% else %}https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail{% endif %}" 
                                  alt="{{ course.title }} Thumbnail" 
                                  class="w-full h-48 object-cover"
                                  onerror="this.src='https://placehold.co/600x400/E0E7FF/4338CA?text=Image+Missing';">

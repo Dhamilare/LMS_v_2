@@ -107,11 +107,11 @@ class Course(models.Model):
     is_published = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    thumbnail = models.URLField(
-        max_length=500,
+    thumbnail = models.ImageField(
+        upload_to='course_thumbnails/',
         blank=True,
         null=True,
-        help_text="URL for the course thumbnail image."
+        help_text="Upload a square image file for the course thumbnail."
     )
     duration = models.PositiveIntegerField(
         default=0, 

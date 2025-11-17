@@ -5,7 +5,7 @@
 {% block title %}All Courses{% endblock %}
 
 {% block content %}
-<div class="bg-gray-50 min-h-screen font-inter">
+<div class="bg-gray-50 min-h-screen">
     <div class="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div class="max-w-4xl mx-auto text-center mb-10">
             <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight">
@@ -16,6 +16,7 @@
             </p>
         </div>
         
+        <!-- Search Form -->
         <form action="{% url 'all_courses' %}" method="get" class="max-w-2xl mx-auto mb-10">
             <div class="flex items-stretch space-x-2 bg-white rounded-full shadow-lg border border-gray-200 p-2">
                 <input type="text" name="q" placeholder="Search courses, instructors..."
@@ -47,7 +48,12 @@
                 {% for course_data in page_obj %}
                     {% with course=course_data.course %}
                     <a href="{% url 'course_detail' slug=course.slug %}"
-                       class="block relative bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 transform hover:scale-105 transition duration-300 ease-in-out">
+                        class="block relative bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 transform hover:scale-105 transition duration-300 ease-in-out">
+                        
+                        <img src="{% if course.thumbnail %}{{ course.thumbnail.url }}{% else %}https://placehold.co/600x400/F0F4FF/4F46E5?text=Course+Thumbnail{% endif %}"
+                             alt="{{ course.title }} Thumbnail"
+                             class="w-full h-48 object-cover"
+                             onerror="this.src='https://placehold.co/600x400/E0E7FF/4338CA?text=Image+Missing';">
                         
                         {% if course_data.is_enrolled %}
                             <div class="absolute top-4 left-4 z-10">
@@ -67,9 +73,6 @@
                             </div>
                         {% endif %}
 
-                        <img src="{{ course.thumbnail|default:'https://placehold.co/600x400/F0F4FF/4F46E5?text=Course+Thumbnail' }}"
-                             alt="{{ course.title }} Thumbnail"
-                             class="w-full h-48 object-cover">
                         <div class="p-6">
                             <h3 class="text-xl font-bold text-gray-900 mb-2 truncate">{{ course.title }}</h3>
                             <p class="text-gray-500 text-sm mb-4 line-clamp-2">{{ course.description }}</p>
@@ -103,7 +106,7 @@
                             
                             <span class="inline-flex items-center justify-center w-full px-4 py-3 text-sm font-semibold text-white rounded-lg transition duration-300 shadow-sm
                                 {% if course_data.is_completed %}
-                                    bg-gray-400 hover:bg-gray-500
+                                    bg-gray-500 hover:bg-gray-600
                                 {% elif course_data.is_enrolled %}
                                     bg-green-600 hover:bg-green-700
                                 {% else %}
@@ -168,6 +171,7 @@
             </div>
 
         {% else %}
+            <!-- No Courses/Search Results Message -->
             <div class="max-w-2xl mx-auto text-center py-12 bg-white rounded-xl shadow-lg border border-gray-200">
                 <i class="fas fa-sad-cry text-5xl text-gray-400 mb-4"></i>
                 <p class="text-gray-600 text-lg mb-2">
