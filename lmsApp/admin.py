@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import *
+from django.db.models import Count
 
 # Custom User Admin
 @admin.register(User)
@@ -13,6 +14,7 @@ class CustomUserAdmin(UserAdmin):
                 "fields": (
                     "first_name",
                     "last_name",
+                    "department",
                 )
             },
         ),
@@ -32,15 +34,15 @@ class CustomUserAdmin(UserAdmin):
         ("Important dates", {"fields": ("last_login", "date_joined")}),
     )
     
-    list_display = ('email', 'first_name', 'last_name', 'is_staff', 'is_instructor', 'is_student')
-    list_filter = ('is_staff', 'is_instructor', 'is_student')
-    search_fields = ('email', 'first_name', 'last_name')
+    list_display = ('email', 'first_name', 'last_name', 'department', 'is_staff', 'is_instructor', 'is_student')
+    list_filter = ('is_staff', 'is_instructor', 'is_student', 'department')
+    search_fields = ('email', 'first_name', 'last_name', 'department')
     ordering = ('email',)
     
     add_fieldsets = UserAdmin.add_fieldsets + (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'first_name', 'last_name', 'is_instructor', 'is_student'),
+            'fields': ('email', 'first_name', 'last_name', 'department', 'is_instructor', 'is_student'),
         }),
     )
 
@@ -197,3 +199,18 @@ class SupportTicketAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
     )
+
+
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    list_display = ("name", "course_count")
+    search_fields = ("name",)
+    ordering = ("name",)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(course_count=Count("courses"))
+
+    def course_count(self, obj):
+        return obj.course_count
+    course_count.short_description = "Courses Using Tag"

@@ -187,7 +187,8 @@ SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID = config('SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT
 
 # Login URLs
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'dashboard'
+# LOGIN_REDIRECT_URL = 'dashboard'
+LOGIN_REDIRECT_URL = 'preference_setup'
 LOGOUT_REDIRECT_URL = 'login'
 
 # Optional security

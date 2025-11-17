@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Setup Your Profile{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-screen-minus-header">
+    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg border border-indigo-200">
+        <div class="text-center mb-6">
+            <i class="fas fa-user-tag text-5xl text-indigo-600 mb-3"></i>
+            <h2 class="text-3xl font-bold text-gray-800">Personalize Your Dashboard</h2>
+            <p class="text-gray-500 mt-2">Please tell us your primary department to tailor your course recommendations.</p>
+        </div>
+
+        <form method="post" action="{% url 'preference_setup' %}" class="space-y-6">
+            {% csrf_token %}
+            
+            <div class="bg-gray-50 p-4 rounded-lg">
+                {{ form|crispy }}
+            </div>
+
+            <button type="submit" 
+                    class="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center font-medium shadow-lg">
+                <i class="fas fa-arrow-right mr-2"></i> Save & Go to Dashboard
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

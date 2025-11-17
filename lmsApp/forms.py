@@ -69,9 +69,10 @@ class InstructorUpdateForm(UserChangeForm):
 class CourseForm(forms.ModelForm):
     class Meta:
         model = Course
-        fields = ['title', 'description', 'category', 'instructor', 'price', 'is_published', 'thumbnail']
+        fields = ['title', 'description', 'category', 'instructor', 'price', 'is_published', 'thumbnail', 'tags']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
+            'tags': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -79,6 +80,7 @@ class CourseForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['instructor'].queryset = User.objects.filter(is_instructor=True).order_by('email')
 
+        self.fields['tags'].queryset = Tag.objects.all().order_by('name')
 
 class ModuleForm(forms.ModelForm):
     class Meta:
@@ -395,6 +397,26 @@ class SupportTicketForm(forms.ModelForm):
         }
 
 
+class PreferenceForm(forms.ModelForm):
+    DEPARTMENT_CHOICES = [
+        ('IT', 'IT / Software Development'),
+        ('Marketing', 'Marketing & Communications'),
+        ('Sales', 'Sales & Business Development'),
+        ('HR', 'Human Resources'),
+        ('Finance', 'Finance & Accounting'),
+        ('General', 'General / All Departments'),
+    ]
+
+    department = forms.ChoiceField(
+        choices=DEPARTMENT_CHOICES,
+        widget=forms.Select(attrs={'class': 'w-full p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 shadow-sm'}),
+        label="Select Your Department"
+    )
+
+    class Meta:
+        model = User
+        fields = ['department']
+
 class GroupPermissionForm(forms.ModelForm):
     permissions = forms.ModelMultipleChoiceField(
         queryset=None,
@@ -464,3 +486,4 @@ class GroupPermissionForm(forms.ModelForm):
             group.user_set.set(group_users)
         
         return group
+    

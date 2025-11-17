@@ -10,6 +10,13 @@ import random
 import string
 from django.utils.translation import gettext_lazy as _
 
+
+class Tag(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+
+    def __str__(self):
+        return self.name
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -66,6 +73,7 @@ class User(AbstractUser):
         null=True,
         help_text=_('Required for staff/admin, optional for others. Can be same as email.'),
     )
+    department = models.CharField(max_length=100, blank=True, null=True)
     
     email = models.EmailField(_('email address'), unique=True)
     USERNAME_FIELD = 'email'
@@ -117,6 +125,7 @@ class Course(models.Model):
         default=0, 
         help_text="Total estimated duration of the course in minutes."
     )
+    tags = models.ManyToManyField(Tag, related_name='courses', blank=True, help_text="Select relevant departments or skills for this course.")
     slug = models.SlugField(unique=True, max_length=255, blank=True)
 
     def save(self, *args, **kwargs):

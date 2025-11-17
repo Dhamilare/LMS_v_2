@@ -16,7 +16,6 @@
             </p>
         </div>
         
-        <!-- Search Form -->
         <form action="{% url 'all_courses' %}" method="get" class="max-w-2xl mx-auto mb-10">
             <div class="flex items-stretch space-x-2 bg-white rounded-full shadow-lg border border-gray-200 p-2">
                 <input type="text" name="q" placeholder="Search courses, instructors..."
@@ -36,7 +35,9 @@
         </form>
 
         <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 text-center mb-8">
-            {% if search_query %}
+            {% if user_department %}
+                Courses Recommended for the {{ user_department|capfirst }} Team
+            {% elif search_query %}
                 Search Results
             {% else %}
                 All Available Courses
@@ -171,7 +172,6 @@
             </div>
 
         {% else %}
-            <!-- No Courses/Search Results Message -->
             <div class="max-w-2xl mx-auto text-center py-12 bg-white rounded-xl shadow-lg border border-gray-200">
                 <i class="fas fa-sad-cry text-5xl text-gray-400 mb-4"></i>
                 <p class="text-gray-600 text-lg mb-2">

@@ -62,6 +62,28 @@ def send_enrollment_email_to_instructor(request, enrollment):
         )
 
 
+@login_required
+def preference_setup_view(request):
+    """
+    Forces user to set their department preference on their first login.
+    """
+    if request.user.department:
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        form = PreferenceForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Welcome! Your preferences have been saved.")
+            return redirect('dashboard')
+        else:
+            messages.error(request, "Please select a valid department.")
+    else:
+        form = PreferenceForm(instance=request.user)
+        
+    return render(request, 'accounts/preference_setup.html', {'form': form, 'page_title': 'Setup Your Profile'})
+
+
 # --- Helper functions for role-based access control ---
 
 def is_admin(user):
@@ -113,7 +135,7 @@ def dashboard(request):
         'is_student': user.is_student,
     }
 
-    # --- ADMIN DASHBOARD LOGIC ---
+    # --- ADMIN DASHBOARD LOGIC
     if user.is_staff:
         avg_score_subquery = Subquery(
             StudentQuizAttempt.objects.filter(
@@ -122,7 +144,7 @@ def dashboard(request):
             .values('quiz__course')
             .annotate(avg_score=Avg('score'))
             .values('avg_score'),
-            output_field=models.DecimalField()
+            output_field=DecimalField()
         )
 
         avg_rating_subquery = Subquery(
@@ -132,14 +154,13 @@ def dashboard(request):
             .values('course')
             .annotate(avg_rating=Avg('rating'))
             .values('avg_rating'),
-            output_field=models.DecimalField()
+            output_field=DecimalField()
         )
 
         total_certificates = Certificate.objects.count()
         total_students = User.objects.filter(is_student=True).count()
         total_platform_enrollments = Enrollment.objects.count()
 
-        # Main annotated query to get course stats, ordered by popularity
         courses_queryset = Course.objects.annotate(
             total_enrollments=Count('enrollments', distinct=True),
             completed_enrollments=Count(
@@ -151,7 +172,6 @@ def dashboard(request):
             average_rating=avg_rating_subquery
         ).order_by('-total_enrollments', 'title')
 
-        # Pagination for the course list
         paginator = Paginator(courses_queryset, 4)
         page_number = request.GET.get('page')
         try:
@@ -159,42 +179,24 @@ def dashboard(request):
         except (PageNotAnInteger, EmptyPage):
             courses_page_obj = paginator.page(1)
 
-        # Build analytics per course for the paginated list
         courses_with_analytics = []
-
         for course in courses_page_obj:
             try:
-                completion_rate = (
-                    course.completed_enrollments / course.total_enrollments * 100
-                    if course.total_enrollments > 0 else 0
-                )
-
+                completion_rate = (course.completed_enrollments / course.total_enrollments * 100 if course.total_enrollments > 0 else 0)
                 courses_with_analytics.append({
                     'course': course,
                     'total_enrollments': course.total_enrollments,
                     'completion_rate': round(completion_rate, 2),
-                    'average_quiz_score': (
-                        round(course.average_quiz_score, 2)
-                        if course.average_quiz_score is not None else 'N/A'
-                    ),
-
-                    'average_rating': (
-                        round(course.average_rating, 2)
-                        if course.average_rating is not None else 'N/A'
-                    ),
+                    'average_quiz_score': (round(course.average_quiz_score, 2) if course.average_quiz_score is not None else 'N/A'),
+                    'average_rating': (round(course.average_rating, 2) if course.average_rating is not None else 'N/A'),
                 })
             except Exception as e:
-                # Log the error and skip this course to prevent a page crash
                 print(f"Error processing analytics for course ID {course.id}: {e}")
                 courses_with_analytics.append({
-                    'course': course,
-                    'total_enrollments': 'N/A',
-                    'completion_rate': 'N/A',
-                    'average_quiz_score': 'N/A',
-                    'average_rating': 'N/A',
+                    'course': course, 'total_enrollments': 'N/A', 'completion_rate': 'N/A', 
+                    'average_quiz_score': 'N/A', 'average_rating': 'N/A',
                 })
 
-        # Global metric: Top 5 courses by average quiz score
         performance_insights = (
             StudentQuizAttempt.objects
             .values('quiz__course__title')
@@ -211,65 +213,83 @@ def dashboard(request):
             'total_certificates': total_certificates
         })
 
-    # --- INSTRUCTOR DASHBOARD LOGIC ---
+    # --- INSTRUCTOR DASHBOARD LOGIC
     elif user.is_instructor:
         all_courses = Course.objects.filter(instructor=user).order_by('-created_at')
         context['courses'] = all_courses[:6]
         context['show_view_all_button'] = all_courses.count() > 6
 
-    # --- STUDENT DASHBOARD LOGIC ---
+    # --- STUDENT DASHBOARD LOGIC
     elif user.is_student:
-
+        # --- Enrolled Courses ---
         avg_rating_subquery = Subquery(
-            Rating.objects.filter(
-                course=OuterRef('course__pk')  # Links the subquery to the main queryset
-            ).values('course').annotate(avg_rating=Avg('rating')).values('avg_rating'),
+            Rating.objects.filter(course=OuterRef('course__pk')).values('course').annotate(avg_rating=Avg('rating')).values('avg_rating'),
             output_field=DecimalField()
         )
 
-        enrolled_courses_list = Enrollment.objects.filter(student=user).select_related('course').annotate(average_rating=avg_rating_subquery).order_by('-enrolled_at')
+        enrolled_courses_list = (
+            Enrollment.objects.filter(student=user)
+            .select_related('course')
+            .annotate(average_rating=avg_rating_subquery)
+            .order_by('-enrolled_at')
+        )
 
-        # Apply pagination for enrolled courses
-        enrolled_paginator = Paginator(enrolled_courses_list, 3) # 3 items per page
-        enrolled_page_number = request.GET.get('enrolled_page') # Use 'enrolled_page' parameter for enrolled courses
-
+        enrolled_paginator = Paginator(enrolled_courses_list, 3)
+        enrolled_page_number = request.GET.get('enrolled_page')
+        
         try:
             enrolled_page_obj = enrolled_paginator.get_page(enrolled_page_number)
-        except Exception: # Catch PageNotAnInteger or EmptyPage
+        except (PageNotAnInteger, EmptyPage): 
             enrolled_page_obj = enrolled_paginator.page(1)
 
-        context['enrolled_courses'] = enrolled_page_obj # Pass the paginated object
+        context['enrolled_courses'] = enrolled_page_obj
 
-        # --- Available Courses Search and Pagination Logic for students ---
-        search_query = request.GET.get('q', '') # Get search query from 'q' parameter
+        # --- Available Courses ---
+        search_query = request.GET.get('q', '') 
 
-        # Start with all published courses not yet enrolled by the student
-        available_courses_queryset = Course.objects.filter(is_published=True).exclude(enrollments__student=user)
+        available_courses_queryset = (
+            Course.objects.filter(is_published=True)
+            .exclude(enrollments__student=user)
+            .select_related('instructor')
+            .annotate(average_rating=Avg('ratings__rating'))
+            .order_by('title')
+        )
 
+        # 1. Department personalization
+        if user.department and user.department != 'General':
+            department_query = Q(tags__name__icontains=user.department)
+            available_courses_queryset = available_courses_queryset.filter(department_query).distinct()
+            context["user_department"] = user.department
+
+        # 2. Search filtering
         if search_query:
-            # Filter available courses by title or description if a search query exists
             available_courses_queryset = available_courses_queryset.filter(
-                Q(title__icontains=search_query) | Q(description__icontains=search_query)
+                Q(title__icontains=search_query) | Q(description__icontains=search_query) |
+                Q(instructor__first_name__icontains=search_query) | Q(instructor__last_name__icontains=search_query)
             ).distinct()
-            context['search_query'] = search_query # Pass query back to template for input field
+            context['search_query'] = search_query
 
-        # Apply pagination for available courses
-        available_paginator = Paginator(available_courses_queryset, 6) # 6 items per page
-        available_page_number = request.GET.get('available_page') # Use 'available_page' parameter for available courses
+        courses_with_status = []
+        for course in available_courses_queryset:
+            courses_with_status.append({
+                'course': course,
+                'average_rating': course.average_rating
+            })
 
+        available_paginator = Paginator(courses_with_status, 6)
+        available_page_number = request.GET.get('available_page')
+        
         try:
             available_page_obj = available_paginator.get_page(available_page_number)
-        except Exception: # Catch PageNotAnInteger or EmptyPage
+        except (PageNotAnInteger, EmptyPage):
             available_page_obj = available_paginator.page(1)
-
-        context['available_courses'] = available_page_obj # Pass the paginated object
+            
+        context['available_courses'] = available_page_obj
 
     return render(request, 'dashboard.html', context)
 
 
 # --- Admin Functionality ---
-
-# DELETED: create_instructor (Obsolete: New workflow is Admin promote existing user)
 
 @login_required
 @user_passes_test(is_admin)
@@ -381,16 +401,29 @@ def course_list(request):
 
     return render(request, 'instructor/course_list.html', context)
 
-
 @login_required
 def all_courses(request):
     """
-    Displays a list of all published courses with comprehensive search and pagination,
-    indicating the user's enrollment status for each course.
+    Displays all published courses with search, pagination, and optional
+    department-based personalization. Shows enrollment + completion status.
     """
-    search_query = request.GET.get('q', '')
-    courses_list = Course.objects.filter(is_published=True).annotate(average_rating=Avg('ratings__rating')).order_by('title')
+    user = request.user
+    search_query = request.GET.get('q', '').strip()
 
+    # Base queryset: all published courses + their average ratings
+    courses_list = (
+        Course.objects.filter(is_published=True)
+        .annotate(average_rating=Avg('ratings__rating'))
+        .order_by('title')
+    )
+
+    # --- Department Filter (Personalization) ---
+    if user.department and user.department != "General":
+        courses_list = courses_list.filter(
+            tags__name__icontains=user.department
+        ).distinct()
+
+    # --- Search Filter ---
     if search_query:
         courses_list = courses_list.filter(
             Q(title__icontains=search_query) |
@@ -399,37 +432,43 @@ def all_courses(request):
             Q(instructor__last_name__icontains=search_query)
         ).distinct()
 
-    enrolled_course_ids = set(Enrollment.objects.filter(student=request.user).values_list('course__id', flat=True))
+    # --- Enrollment Status ---
+    enrolled_course_ids = set(
+        Enrollment.objects.filter(student=user)
+        .values_list('course_id', flat=True)
+    )
 
-    completed_course_slugs = set(Enrollment.objects.filter(
-        student=request.user,
-        completed=True
-    ).values_list('course__slug', flat=True))
+    completed_course_slugs = set(
+        Enrollment.objects.filter(student=user, completed=True)
+        .values_list('course__slug', flat=True)
+    )
 
-    courses_with_status = []
-    for course in courses_list:
-        courses_with_status.append({
+    # Combine results with status flags
+    courses_with_status = [
+        {
             'course': course,
             'is_enrolled': course.id in enrolled_course_ids,
             'is_completed': course.slug in completed_course_slugs,
-            'average_rating': course.average_rating
-        })
+            'average_rating': course.average_rating,
+        }
+        for course in courses_list
+    ]
 
+    # --- Pagination ---
     paginator = Paginator(courses_with_status, 6)
-    page_number = request.GET.get('page')
-
-    try:
-        page_obj = paginator.get_page(page_number)
-    except PageNotAnInteger:
-        page_obj = paginator.page(1)
-    except EmptyPage:
-        page_obj = paginator.page(paginator.num_pages)
+    page_obj = paginator.get_page(request.GET.get('page'))
 
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
     }
+
+    if user.department and user.department != "General":
+        context['user_department'] = user.department
+
     return render(request, 'student/courses.html', context)
+
+
 
 
 @login_required

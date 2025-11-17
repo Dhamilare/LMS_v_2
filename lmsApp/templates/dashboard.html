@@ -11,9 +11,6 @@
             <i class="fas fa-tachometer-alt mr-3 text-indigo-600"></i> Welcome, {{ user.get_full_name|default:user.email }}!
         </h2>
 
-        <!-- ===================== -->
-        <!-- ===== ADMIN DASHBOARD (Unchanged) ===== -->
-        <!-- ===================== -->
         {% if is_admin %}
             
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -128,9 +125,6 @@
                 </div>
             </div>
             
-        <!-- ========================= -->
-        <!-- ===== INSTRUCTOR DASHBOARD (Unchanged) ===== -->
-        <!-- ========================= -->
         {% elif is_instructor %}
             <div class="bg-white border border-gray-200 rounded-xl shadow-lg p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start">
                 <i class="fas fa-chalkboard-teacher text-4xl text-indigo-500 mr-4 mt-1 hidden sm:block"></i>
@@ -158,7 +152,6 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {% for course in courses %}
                         <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
-                            <!-- FIX 3: Use course.thumbnail.url for ImageField -->
                             <img src="{% if course.thumbnail %}{{ course.thumbnail.url }}{% else %}https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail{% endif %}" 
                                  alt="{{ course.title }} Thumbnail" 
                                  class="w-full h-48 object-cover"
@@ -201,12 +194,8 @@
                 </div>
             {% endif %}
 
-        <!-- ======================= -->
-        <!-- ===== STUDENT DASHBOARD (Modified for ImageField) ===== -->
-        <!-- ======================= -->
         {% elif is_student %}
             
-            <!-- Student Search Bar -->
             <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8 mb-8 border border-gray-200">
                 <h3 class="text-xl font-bold text-gray-800 mb-4">Find Your Next Course</h3>
                 <form action="{% url 'dashboard' %}" method="get">
@@ -228,7 +217,6 @@
                 </form>
             </div>
 
-            <!-- "My Enrolled Courses" Section -->
             <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8 mb-8 border border-gray-200">
                 <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
                     <i class="fas fa-bookmark mr-3 text-indigo-600"></i> My Enrolled Courses
@@ -237,7 +225,6 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {% for enrollment in enrolled_courses %}
                             <div class="bg-gray-50 rounded-lg shadow-md overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
-                                <!-- FIX 4: Use conditional check for ImageField URL -->
                                 <img src="{% if enrollment.course.thumbnail %}{{ enrollment.course.thumbnail.url }}{% else %}https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail{% endif %}" 
                                      alt="{{ enrollment.course.title }} Thumbnail" 
                                      class="w-full h-48 object-cover"
@@ -275,16 +262,22 @@
                 {% endif %}
             </div>
 
-            <!-- "Explore More Courses" Section -->
             {% if available_courses %}
                 <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center mt-12">
                     <i class="fas fa-compass mr-3 text-indigo-600"></i>
-                    {% if search_query %}Search Results for "{{ search_query }}"{% else %}Explore More Courses{% endif %}
+                    {# FIX 6: Use personalization variable in heading #}
+                    {% if user_department %}
+                        Courses Recommended for the {{ user_department|capfirst }} Team
+                    {% elif search_query %}
+                        Search Results for "{{ search_query }}"
+                    {% else %}
+                        Explore More Courses
+                    {% endif %}
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {% for course in available_courses %}
+                    {% for course_data in available_courses %}
+                        {% with course=course_data.course %}
                         <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transform hover:scale-105 transition duration-300 ease-in-out">
-                            <!-- FIX 5: Use conditional check for ImageField URL -->
                             <img src="{% if course.thumbnail %}{{ course.thumbnail.url }}{% else %}https://placehold.co/600x400/E0E7FF/4338CA?text=Course+Thumbnail{% endif %}" 
                                  alt="{{ course.title }} Thumbnail" 
                                  class="w-full h-48 object-cover"
@@ -295,15 +288,15 @@
                                     <span class="flex items-center"><i class="fas fa-user-tie text-indigo-500 mr-2"></i> {{ course.instructor.get_full_name|default:course.instructor.email }}</span>
                                     <span class="flex items-center"><i class="fas fa-clock text-blue-500 mr-2"></i> {{ course.duration|format_duration }}</span>
                                     <span class="flex items-center text-sm">
-                                        {% if course.average_rating %}
+                                        {% if course_data.average_rating %}
                                             {% for i in "12345"|make_list %}
-                                                {% if forloop.counter <= course.average_rating|floatformat:0 %}
+                                                {% if forloop.counter <= course_data.average_rating|floatformat:0 %}
                                                     <i class="fas fa-star text-yellow-400"></i>
                                                 {% else %}
                                                     <i class="far fa-star text-gray-300"></i>
                                                 {% endif %}
                                             {% endfor %}
-                                            <span class="text-gray-600 ml-2 font-medium">{{ course.average_rating|floatformat:1 }}</span>
+                                            <span class="text-gray-600 ml-2 font-medium">{{ course_data.average_rating|floatformat:1 }}</span>
                                         {% else %}
                                             {% for i in "12345"|make_list %}
                                                 <i class="far fa-star text-gray-300"></i>
@@ -319,6 +312,7 @@
                                 </div>
                             </div>
                         </div>
+                        {% endwith %}
                     {% endfor %}
                 </div>
                 <div class="flex justify-center mt-6">
