@@ -238,6 +238,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
     "https://lms-v-2-9wah.onrender.com",
+    "https://hl-lms-axe9dzgve2e4d6gd.southafricanorth-01.azurewebsites.net",
 ]
 
 
