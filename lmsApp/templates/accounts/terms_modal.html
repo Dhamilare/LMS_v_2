@@ -25,8 +25,7 @@
         <!-- --- Section 3: Termination --- -->
         <h4>5. Termination of Access</h4>
         <p>Your access may be terminated at any time by the LMS administrators or by the organization for violation of these terms or loss of organizational affiliation.</p>
-        
-        <!-- Add padding space to ensure scroll bar is present on shorter content -->
+    
         <div style="height: 1px;"></div> 
     </div>
 
@@ -50,29 +49,21 @@
         const contentPane = document.getElementById('termsContentPane');
         const acknowledgeBtn = document.getElementById('termsAcknowledgeBtn');
         
-        // If contentPane doesn't exist (e.g., loaded in a non-modal context), enable immediately
-        if (!contentPane) {
-            acknowledgeBtn.disabled = false;
-            acknowledgeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            return;
-        }
-
-        // 1. Check if the user has scrolled to the bottom
+        if (!contentPane || !acknowledgeBtn) return;
+        
         function checkScroll() {
             // Check if scroll position + container height is greater than or equal to total scrollable height
-            if (contentPane.scrollTop + contentPane.clientHeight >= contentPane.scrollHeight) {
-                // User has reached the bottom
+            const isScrolledToBottom = (contentPane.scrollTop + contentPane.clientHeight + 1 >= contentPane.scrollHeight);
+
+            if (isScrolledToBottom) {
                 acknowledgeBtn.disabled = false;
                 acknowledgeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                // Remove the listener once accepted/enabled
+                
                 contentPane.removeEventListener('scroll', checkScroll);
             }
         }
 
-        // 2. Attach the scroll listener
         contentPane.addEventListener('scroll', checkScroll);
-        
-        // 3. Initial check (in case content is shorter than the max-h-80 setting)
         checkScroll();
         
     });
