@@ -191,10 +191,13 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'preference_setup'
 LOGOUT_REDIRECT_URL = 'login'
 
-# Optional security
-SECURE_SSL_REDIRECT = False # True in production
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SOCIAL_AUTH_REDIRECT_IS_HTTPS = True
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SOCIAL_AUTH_REDIRECT_IS_HTTPS = True
+else:
+    SECURE_PROXY_SSL_HEADER = None
+    SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
+    
 EMAIL_BACKEND = 'LMS.graph_email_backend.GraphEmailBackend'
 
 USE_AZURE_STORAGE = config("USE_AZURE_STORAGE", default=not DEBUG, cast=bool)

@@ -84,4 +84,7 @@ urlpatterns = [
     path('users/', views.user_management_view, name='user_management'),
     path('users/<int:pk>/toggle/', views.toggle_user_status, name='toggle_user_status'),
     path('users/<int:pk>/grant-admin/', views.grant_superuser_access, name='grant_superuser_access'),
+
+    # --- HR Dashboard
+    path('hr/appraisal-dashboard/', views.hr_appraisal_dashboard, name='hr_appraisal_dashboard'),
 ]

@@ -10,8 +10,9 @@
         <i class="fas fa-users-cog mr-2 sm:mr-3 text-indigo-600"></i> Platform User Management
     </h2>
 
-    <p class="text-gray-600 text-base sm:text-lg mb-6">Manage user roles (Student/Instructor) and access status across the entire LMS.</p>
+    <p class="text-gray-600 text-base sm:text-lg mb-6">Manage user roles (Student/Instructor/HR) and access status across the entire LMS.</p>
 
+    <!-- Search Form -->
     <form method="GET" action="{% url 'user_management' %}" class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-8">
         <div class="relative w-full">
             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -27,6 +28,7 @@
         </button>
     </form>
     
+    <!-- User Table -->
     <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -52,6 +54,8 @@
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-600 text-white">Superuser</span>
                         {% elif user_obj.is_staff %}
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-300 text-red-900">Staff</span>
+                        {% elif user_obj.is_hr %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">HR</span>
                         {% elif user_obj.is_instructor %}
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">Instructor</span>
                         {% elif user_obj.is_student %}
@@ -67,21 +71,32 @@
                             <i class="fas fa-times-circle text-red-500 mr-1"></i> Disabled
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center space-x-2">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center space-x-2 flex flex-wrap justify-center items-center gap-1">
                         
+                        <!-- Actions are restricted for Staff/Superusers -->
                         {% if not user_obj.is_superuser and not user_obj.is_staff %}
                             
+                            <!-- Toggle HR Role -->
+                            <button onclick="window.toggleRole({{ user_obj.pk }}, 'is_hr', '{{ user_obj.get_full_name|default:user_obj.email }}', '{{ user_obj.is_hr|lower }}')"
+                                    class="text-xs py-1 px-3 rounded-md transition duration-200 
+                                    {% if user_obj.is_hr %}bg-white text-purple-600 border border-purple-600 hover:bg-purple-50{% else %}bg-purple-600 text-white hover:bg-purple-700{% endif %}">
+                                {% if user_obj.is_hr %}Demote HR{% else %}Promote to HR{% endif %}
+                            </button>
+                            
+                            <!-- Toggle Instructor Role -->
                             <button onclick="window.toggleRole({{ user_obj.pk }}, 'is_instructor', '{{ user_obj.get_full_name|default:user_obj.email }}', '{{ user_obj.is_instructor|lower }}')"
                                     class="text-xs py-1 px-3 rounded-md transition duration-200 
                                     {% if user_obj.is_instructor %}bg-white text-indigo-600 border border-indigo-600 hover:bg-indigo-50{% else %}bg-indigo-600 text-white hover:bg-indigo-700{% endif %}">
-                                {% if user_obj.is_instructor %}Demote to Student{% else %}Promote to Instructor{% endif %}
+                                {% if user_obj.is_instructor %}Demote Instructor{% else %}Promote to Instructor{% endif %}
                             </button>
-                            
+
+                            <!-- Grant Full Admin (Superuser) Access -->
                             <button onclick="grantAdminAccess({{ user_obj.pk }}, '{{ user_obj.get_full_name|default:user_obj.email }}')"
                                     class="text-xs py-1 px-3 rounded-md transition duration-200 bg-red-700 text-white hover:bg-red-800">
                                 Grant Admin Access
                             </button>
 
+                            <!-- Toggle Active Status -->
                             <button onclick="window.toggleActive({{ user_obj.pk }}, '{{ user_obj.is_active|lower }}', '{{ user_obj.get_full_name|default:user_obj.email }}')"
                                     class="text-xs py-1 px-3 rounded-md transition duration-200 
                                     {% if user_obj.is_active %}bg-red-600 text-white hover:bg-red-700{% else %}bg-green-600 text-white hover:bg-green-700{% endif %}">
@@ -115,27 +130,21 @@
 {% block extra_scripts %}
 {{ block.super }}
 <script>
-    // Note: The global utility functions (showToast, performConfirmedAction, etc.)
-    // are assumed to be loaded by base.html.
-
-    // Extends the global action functions with specific superuser logic
+    
     function grantAdminAccess(pk, userName) {
         const url = "{% url 'grant_superuser_access' pk=0 %}".replace('/0/', `/${pk}/`);
         
         const body = `WARNING: Granting Superuser status gives ${userName} full, unrestricted access to the entire platform and database. Are you absolutely sure?`;
-        
-        // Use the global showConfirmationModal, overriding the button's action
+    
         window.showConfirmationModal(
             null, 
             `CRITICAL: Grant Admin Access`,
             body,
-            'bg-red-700' // Use a severe red color
+            'bg-red-700'
         );
         
-        // Override the default action button's behavior to call our custom executeToggle function
         const confirmButton = document.getElementById('confirm-modal-action-button');
         confirmButton.onclick = () => {
-             // We use performConfirmedAction because it handles the POST request and redirect/reload
              window.performConfirmedAction(url);
         };
         
@@ -178,17 +187,16 @@
         });
     }
 
-    window.toggleRole = function(pk, field, userName, isInstructorJs) {
-        const isInstructor = (isInstructorJs === 'true');
-        const newRole = isInstructor ? 'Student' : 'Instructor';
-        
-        const body = `Are you sure you want to change ${userName}'s role to ${newRole}? This will affect their permissions.`;
+    window.toggleRole = function(pk, field, userName, isRoleJs) {
+        const isCurrentlyActive = (isRoleJs === 'true');
+        const newRoleName = field === 'is_hr' ? 'HR Staff' : 'Instructor';
+        const body = `Are you sure you want to ${isCurrentlyActive ? 'demote' : 'promote'} ${userName} to ${newRoleName}? This will affect their permissions.`;
         
         const performAction = () => {
             window.executeToggle(pk, field); 
         };
 
-        const confirmColor = isInstructor ? 'bg-red-600' : 'bg-indigo-600';
+        const confirmColor = isCurrentlyActive ? 'bg-red-600' : (field === 'is_hr' ? 'bg-purple-600' : 'bg-indigo-600');
 
         window.showConfirmationModal(null, `Confirm Role Change`, body, confirmColor);
         

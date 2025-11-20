@@ -151,6 +151,12 @@
                             <span class="font-medium">Assessment</span>
                         </a>
 
+                    {% elif user.is_hr %}
+                    <a href="{% url 'hr_appraisal_dashboard' %}" class="{{ link_class }}">
+                            <i class="fa-solid fa-file-invoice fa-fw mr-3 text-lg"></i>
+                            <span class="font-medium">HR Appraisal</span>
+                    </a>
+
                     {% elif user.is_student %}
                         <a href="{% url 'all_courses' %}" class="{{ link_class }}">
                             <i class="fa-solid fa-book-open fa-fw mr-3 text-lg"></i>

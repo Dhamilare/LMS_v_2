@@ -124,7 +124,7 @@
                     </div>
                 </div>
             </div>
-            
+
         {% elif is_instructor %}
             <div class="bg-white border border-gray-200 rounded-xl shadow-lg p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start">
                 <i class="fas fa-chalkboard-teacher text-4xl text-indigo-500 mr-4 mt-1 hidden sm:block"></i>
@@ -265,7 +265,6 @@
             {% if available_courses %}
                 <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center mt-12">
                     <i class="fas fa-compass mr-3 text-indigo-600"></i>
-                    {# FIX 6: Use personalization variable in heading #}
                     {% if user_department %}
                         Courses Recommended for the {{ user_department|capfirst }} Team
                     {% elif search_query %}

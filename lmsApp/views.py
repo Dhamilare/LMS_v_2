@@ -34,9 +34,7 @@ def send_enrollment_email_to_instructor(request, enrollment):
     student = enrollment.student
     instructor = course.instructor
 
-    # Only send email if an instructor is assigned to the course
     if instructor:
-        # --- Get domain and protocol for email links ---
         current_site = get_current_site(request)
         protocol = 'https' if request.is_secure() else 'http'
         domain = current_site.domain
@@ -60,6 +58,36 @@ def send_enrollment_email_to_instructor(request, enrollment):
             [instructor.email],
             email_context
         )
+
+
+def send_completion_email_to_hr(request, enrollment):
+    """
+    Sends an email notification to all active HR users upon a student's course completion.
+    """
+    if enrollment.completed:
+        # Get all active users marked as HR
+        hr_users = User.objects.filter(is_hr=True, is_active=True).values_list('email', flat=True)
+        hr_emails = [email for email in hr_users if email]
+
+        if hr_emails:
+            course = enrollment.course
+            student = enrollment.student
+            
+            email_subject = f"ACTION REQUIRED: Course Completion for Appraisal - {course.title}"
+            email_context = {
+                'student_name': student.get_full_name() or student.email,
+                'course_title': course.title,
+                'completion_date': enrollment.completed_at.strftime('%Y-%m-%d'),
+                'enrollment_type': 'Self-Enrolled' if enrollment.enrolled_at == enrollment.completed_at else 'Assigned',
+                'dashboard_url': request.build_absolute_uri(reverse('hr_appraisal_dashboard')),
+            }
+            
+            send_templated_email(
+                'emails/hr_completion_notification.html',
+                email_subject,
+                hr_emails,
+                email_context
+            )
 
 
 @login_required
@@ -94,6 +122,9 @@ def is_instructor(user):
 
 def is_student(user):
     return user.is_authenticated and user.is_student
+
+def is_hr(user):
+    return user.is_authenticated and user.is_hr
 
 def is_ajax(request):
     return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
@@ -133,6 +164,7 @@ def dashboard(request):
         'is_admin': user.is_staff,
         'is_instructor': user.is_instructor,
         'is_student': user.is_student,
+        'is_hr': user.is_hr,
     }
 
     # --- ADMIN DASHBOARD LOGIC
@@ -213,6 +245,10 @@ def dashboard(request):
             'total_certificates': total_certificates
         })
 
+    # --- HR DASHBOARD LOGIC
+    if user.is_hr:
+        return redirect('hr_appraisal_dashboard')
+    
     # --- INSTRUCTOR DASHBOARD LOGIC
     elif user.is_instructor:
         all_courses = Course.objects.filter(instructor=user).order_by('-created_at')
@@ -1077,33 +1113,54 @@ def enroll_course(request, slug):
 @user_passes_test(is_student)
 @require_POST
 def mark_content_completed(request, course_slug, module_id, lesson_id, content_id):
-    if not is_ajax(request):
-        return JsonResponse({'success': False, 'error': 'Invalid request.'}, status=400)
 
-    course = get_object_or_404(Course, slug=course_slug)
-    content = get_object_or_404(Content, id=content_id, lesson__module__course=course)
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return JsonResponse({"success": False, "error": "Invalid request."}, status=400)
+
     student = request.user
 
-    if not Enrollment.objects.filter(student=student, course=course).exists():
-        return JsonResponse({'success': False, 'error': 'You must be enrolled in this course to mark content.'}, status=403)
+    content = get_object_or_404(
+        Content,
+        id=content_id,
+        lesson_id=lesson_id,
+        lesson__module_id=module_id,
+        lesson__module__course__slug=course_slug
+    )
+
+    course = content.lesson.module.course
 
     try:
-        progress, created = StudentContentProgress.objects.get_or_create(
-            student=student,
-            content=content,
-            defaults={'completed': True, 'completed_at': timezone.now()}
-        )
-        if not created:
-            progress.completed = not progress.completed
-            progress.completed_at = timezone.now() if progress.completed else None
-            progress.save()
+        enrollment = Enrollment.objects.get(student=student, course=course)
+    except Enrollment.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Not enrolled."}, status=403)
 
-        status_message = "marked as complete." if progress.completed else "marked as incomplete."
-        messages.success(request, f'Content "{content.title}" {status_message}')
-        return JsonResponse({'success': True, 'completed': progress.completed, 'message': f'Content {status_message}'})
+    was_completed_before = enrollment.completed
+
+    try:
+        with transaction.atomic():
+            progress, created = StudentContentProgress.objects.get_or_create(
+                student=student,
+                content=content,
+                defaults={"completed": True, "completed_at": timezone.now()},
+            )
+
+            if not created:
+                progress.completed = not progress.completed
+                progress.completed_at = timezone.now() if progress.completed else None
+                progress.save()
+
+            enrollment._sync_completion_status()
+
+            if not was_completed_before and enrollment.completed:
+                transaction.on_commit(lambda: send_completion_email_to_hr(request, enrollment))
 
     except Exception as e:
-        return JsonResponse({'success': False, 'error': f'Failed to update progress: {e}'}, status=500)
+        print(f"Error updating content progress: {e}")
+        return JsonResponse({"success": False, "error": "Failed to update progress."}, status=500)
+
+    msg = "marked as complete." if progress.completed else "marked as incomplete."
+    return JsonResponse({"success": True, "completed": progress.completed, "message": f"Content {msg}"})
+
 
 
 @login_required
@@ -2456,6 +2513,135 @@ def resolve_ticket(request, ticket_id):
     messages.error(request, "Invalid request method.")
     return redirect('admin_ticket_list')
 
+@login_required
+@user_passes_test(is_hr)
+def hr_appraisal_dashboard(request):
+    """
+    HR Dashboard showing enrollment, completion data, KPIs, and advanced filtering.
+    Progress percentage is now calculated safely in Python (in-memory) after fetching.
+    """
+
+    # --- 1. Filter Setup and Base Query ---
+    enrollments_queryset = Enrollment.objects.select_related(
+        'student',
+        'course',
+        'course__instructor'
+    ).prefetch_related(
+        'course__modules__lessons__contents',
+        'student__content_progress'
+    ).order_by('-completed_at', '-enrolled_at')
+
+    # Filtering parameters
+    search_query = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status')
+    department_filter = request.GET.get('department')
+    instructor_filter_id = request.GET.get('instructor')
+    sort_by = request.GET.get('sort', '-enrolled_at')
+
+    filters = Q()
+    if search_query:
+        filters &= (
+            Q(student__first_name__icontains=search_query) |
+            Q(student__last_name__icontains=search_query) |
+            Q(student__email__icontains=search_query) |
+            Q(course__title__icontains=search_query)
+        )
+    if status_filter:
+        if status_filter == 'completed':
+            filters &= Q(completed=True)
+        elif status_filter == 'in_progress':
+            filters &= Q(completed=False)
+    if department_filter:
+        filters &= Q(student__department__iexact=department_filter)
+    if instructor_filter_id:
+        filters &= Q(course__instructor__pk=instructor_filter_id)
+
+    # Apply filters
+    filtered_queryset = enrollments_queryset.filter(filters).order_by(sort_by)
+
+    # --- 2. Python Progress Calculation ---
+    for enrollment in filtered_queryset:
+        total_content = sum(
+            len(lesson.contents.all())
+            for module in enrollment.course.modules.all()
+            for lesson in module.lessons.all()
+        )
+
+        completed_content = enrollment.student.content_progress.filter(
+            content__lesson__module__course=enrollment.course,
+            completed=True
+        ).count()
+
+        enrollment.progress_perc = round((completed_content / total_content) * 100, 0) if total_content > 0 else 0
+
+    # --- 3. EXPORT LOGIC ---
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="hr_appraisal_data.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['Student Name', 'Student Email', 'Course Title', 'Department', 'Instructor', 'Progress (%)', 'Status', 'Enrolled On', 'Completed On'])
+
+        for enrollment in filtered_queryset:
+            writer.writerow([
+                enrollment.student.get_full_name() or enrollment.student.email,
+                enrollment.student.email,
+                enrollment.course.title,
+                enrollment.student.department or 'N/A',
+                enrollment.course.instructor.get_full_name() or enrollment.course.instructor.email,
+                enrollment.progress_perc,
+                'Completed' if enrollment.completed else 'In Progress',
+                enrollment.enrolled_at.strftime("%Y-%m-%d"),
+                enrollment.completed_at.strftime("%Y-%m-%d") if enrollment.completed_at else 'N/A'
+            ])
+        return response
+
+    # --- 4. KPI Calculation ---
+    total_enrollments = filtered_queryset.count()
+    completed_enrollments = filtered_queryset.filter(completed=True).count()
+    in_progress_enrollments = total_enrollments - completed_enrollments
+
+    avg_completion_rate = round((completed_enrollments / total_enrollments) * 100 if total_enrollments > 0 else 0, 2)
+
+    # --- 5. Chart Data (Average Progress per Department) ---
+    dept_stats = {}
+    for enrollment in filtered_queryset:
+        dept = enrollment.student.department or 'No Department Set'
+        if dept not in dept_stats:
+            dept_stats[dept] = {'total': 0, 'progress_sum': 0}
+
+        dept_stats[dept]['total'] += 1
+        dept_stats[dept]['progress_sum'] += enrollment.progress_perc
+
+    chart_labels = []
+    chart_percentages = []
+
+    for dept, stats in dept_stats.items():
+        avg_progress = round((stats['progress_sum'] / stats['total']), 2) if stats['total'] > 0 else 0
+        chart_labels.append(dept)
+        chart_percentages.append(avg_progress)
+
+    # --- 6. Pagination ---
+    paginator = Paginator(filtered_queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'status_filter': status_filter,
+        'department_filter': department_filter,
+        'instructor_filter': instructor_filter_id,
+        'sort_by': sort_by,
+
+        'department_choices': User.objects.values_list('department', flat=True).distinct().exclude(department__isnull=True).exclude(department='').order_by('department'),
+        'instructor_choices': User.objects.filter(is_instructor=True).order_by('email'),
+
+        'stats': {'total': total_enrollments, 'completed': completed_enrollments, 'in_progress': in_progress_enrollments, 'average_completion': avg_completion_rate},
+
+        'chart_data': {'labels': chart_labels, 'percentages': chart_percentages},
+    }
+
+    return render(request, 'admin/hr_appraisal_dashboard.html', context)
 
 
 @login_required
@@ -2500,31 +2686,44 @@ def user_management_view(request):
 @require_POST
 def toggle_user_status(request, pk):
     """
-    AJAX endpoint to promote/demote or disable/enable a user (for non-staff users).
+    AJAX endpoint to toggle is_instructor, is_hr, or is_active fields.
+    Ensures mutual exclusivity (HR/Instructor promotion removes Student status).
     """
     user_to_update = get_object_or_404(User, pk=pk)
-    field = request.POST.get('field') 
+    field = request.POST.get('field')
 
     if user_to_update == request.user and field == 'is_active':
         return JsonResponse({'success': False, 'error': "You cannot disable your own active status."}, status=403)
-    
-    # 1. Handle Role Toggle (is_instructor)
-    if field == 'is_instructor':
-        # Ensure only non-staff/non-superuser roles are managed here
-        if user_to_update.is_staff or user_to_update.is_superuser:
-            return JsonResponse({'success': False, 'error': "Cannot change the role of an Admin user via this button."}, status=403)
 
-        user_to_update.is_instructor = not user_to_update.is_instructor
-        
-        if user_to_update.is_instructor:
-            user_to_update.is_student = False # Promote: Remove Student status
+    # 1. Handle Role Toggles (is_instructor, is_hr)
+    if field in ['is_instructor', 'is_hr']:
+        # Prevent demoting Staff/Superuser via these toggles
+        if user_to_update.is_staff or user_to_update.is_superuser:
+            return JsonResponse({'success': False, 'error': "Cannot modify the base role of Admin/Superuser via simple toggles."}, status=403)
+
+        current_state = getattr(user_to_update, field)
+        new_state = not current_state
+
+        # Apply the toggle
+        setattr(user_to_update, field, new_state)
+
+        # Apply mutual exclusivity rules: If promoting to a specialized role, clean up others
+        if new_state:
+            if field == 'is_instructor':
+                user_to_update.is_hr = False
+            elif field == 'is_hr':
+                user_to_update.is_instructor = False
+            user_to_update.is_student = False # Always remove student status when promoting
         else:
-            user_to_update.is_student = True # Demote: Set back to Student status
-            
-        user_to_update.save()
+            # If demoting (from instructor or hr), set them back to standard student
+            user_to_update.is_student = True
         
-        status = "promoted to Instructor" if user_to_update.is_instructor else "demoted to Student"
-        return JsonResponse({'success': True, 'message': f'User {user_to_update.get_full_name() or user_to_update.email} {status} successfully.'})
+        user_to_update.save()
+
+        role_name = 'HR Staff' if field == 'is_hr' else 'Instructor'
+        status = "promoted to" if new_state else "demoted from"
+        
+        return JsonResponse({'success': True, 'message': f'User {user_to_update.get_full_name() or user_to_update.email} {status} {role_name} successfully.'})
 
     # 2. Handle Status Toggle (is_active)
     elif field == 'is_active':

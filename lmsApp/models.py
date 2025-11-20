@@ -65,7 +65,7 @@ class User(AbstractUser):
     """
     is_instructor = models.BooleanField(default=False)
     is_student = models.BooleanField(default=True)
-    
+    is_hr = models.BooleanField(default=False)
     username = models.CharField(
         _('username'),
         max_length=150,
@@ -96,6 +96,7 @@ class User(AbstractUser):
         self.is_superuser = True
         self.is_student = False
         self.is_instructor = False
+        self.is_hr = False
         self.save()
     
 
@@ -290,8 +291,8 @@ class Enrollment(models.Model):
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='enrollments', limit_choices_to={'is_student': True})
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollments')
     enrolled_at = models.DateTimeField(auto_now_add=True)
-    completed = models.BooleanField(default=False) # This will be managed by _sync_completion_status
-    completed_at = models.DateTimeField(null=True, blank=True) # This will be managed by _sync_completion_status
+    completed = models.BooleanField(default=False) 
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ('student', 'course')
@@ -410,8 +411,11 @@ class StudentContentProgress(models.Model):
         ).first()
 
         if enrollment:
+            was_completed = enrollment.completed
             enrollment._sync_completion_status()
 
+            if not was_completed and enrollment.completed:
+                pass
 
     def __str__(self):
         status = "Completed" if self.completed else "Incomplete"

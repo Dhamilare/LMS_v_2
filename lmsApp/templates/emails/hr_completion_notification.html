@@ -1,0 +1,35 @@
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+    <div style="background-color: #f5f5f5; padding: 20px; text-align: center; border-bottom: 3px solid #10b981;">
+        <h2 style="color: #10b981; margin: 0;">Course Completion Alert</h2>
+    </div>
+    <div style="padding: 30px;">
+        <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+            A student has successfully completed all requirements for a course. This data is now available for appraisal tracking.
+        </p>
+
+        <table width="100%" cellpadding="8" cellspacing="0" style="border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            <tr>
+                <td style="background-color: #f9f9f9; width: 35%;"><strong>Student Name:</strong></td>
+                <td>{{ student_name }}</td>
+            </tr>
+            <tr>
+                <td style="background-color: #f9f9f9;"><strong>Course Completed:</strong></td>
+                <td>{{ course_title }}</td>
+            </tr>
+            <tr>
+                <td style="background-color: #f9f9f9;"><strong>Completion Date:</strong></td>
+                <td>{{ completion_date }}</td>
+            </tr>
+        </table>
+        
+        <p style="margin-top: 25px; text-align: center;">
+            <a href="{{ dashboard_url }}" style="display: inline-block; padding: 10px 20px; background-color: #10b981; color: #ffffff !important; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                View Appraisal Dashboard
+            </a>
+        </p>
+
+        <p style="margin-top: 25px; font-size: 12px; color: #777;">
+            This notification was triggered because the student completed all mandatory content and assessments.
+        </p>
+    </div>
+</div>

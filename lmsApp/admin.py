@@ -30,19 +30,19 @@ class CustomUserAdmin(UserAdmin):
                 ),
             },
         ),
-        ("LMS Roles", {'fields': ('is_instructor', 'is_student')}), # Our custom fields
+        ("LMS Roles", {'fields': ('is_instructor', 'is_student', 'is_hr')}), 
         ("Important dates", {"fields": ("last_login", "date_joined")}),
     )
     
-    list_display = ('email', 'first_name', 'last_name', 'department', 'is_staff', 'is_instructor', 'is_student')
-    list_filter = ('is_staff', 'is_instructor', 'is_student', 'department')
+    list_display = ('email', 'first_name', 'last_name', 'department', 'is_hr', 'is_staff', 'is_instructor', 'is_student')
+    list_filter = ('is_staff', 'is_instructor', 'is_student', 'is_hr', 'department')
     search_fields = ('email', 'first_name', 'last_name', 'department')
     ordering = ('email',)
     
     add_fieldsets = UserAdmin.add_fieldsets + (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'first_name', 'last_name', 'department', 'is_instructor', 'is_student'),
+            'fields': ('email', 'first_name', 'last_name', 'department', 'is_instructor', 'is_student', 'is_hr'),
         }),
     )
 
