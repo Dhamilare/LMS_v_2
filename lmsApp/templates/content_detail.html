@@ -95,17 +95,21 @@
                     <i class="fas fa-trash-alt mr-2"></i> Delete Content
                 </button>
             </div>
-        {% elif request.user.is_student and student_progress and content.content_type != 'quiz' %}
-            <button id="markCompleteBtn"
-                    onclick="markContentCompleted('{% url 'mark_content_completed' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')"
-                    class="py-2 px-4 rounded-md transition duration-300 flex items-center shadow-md hover:shadow-lg
-                           {% if student_progress.completed %}bg-green-600 hover:bg-green-700 text-white{% else %}bg-gray-200 hover:bg-gray-300 text-gray-800{% endif %}">
-                {% if student_progress.completed %}
-                    <i class="fas fa-check-circle mr-2"></i> Mark as Incomplete
-                {% else %}
-                    <i class="fas fa-circle-notch mr-2"></i> Mark as Complete
-                {% endif %}
-            </button>
+        {% elif request.user.is_student and student_progress %}
+            
+            {% if student_progress.completed %}
+                <button id="markCompleteBtn"
+                        disabled
+                        class="py-2 px-4 rounded-md flex items-center shadow-md bg-green-600 text-white opacity-70 cursor-not-allowed">
+                    <i class="fas fa-check-circle mr-2"></i> Completed
+                </button>
+            {% elif content.content_type != 'quiz' %}
+                <button id="markCompleteBtn"
+                        onclick="markContentCompleted('{% url 'mark_content_completed' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')"
+                        class="py-2 px-4 rounded-md transition duration-300 flex items-center shadow-md hover:shadow-lg bg-indigo-600 hover:bg-indigo-700 text-white">
+                    <i class="fas fa-check-circle mr-2"></i> Mark as Complete
+                </button>
+            {% endif %}
         {% endif %}
     </div>
     <div class="mt-6 text-center">
@@ -121,13 +125,25 @@
 {% block extra_scripts %}
 {{ block.super }}
 <script>
-    // --- CRITICAL FIX: MARK CONTENT COMPLETED ---
+    function displayMessage(type, message) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded shadow text-white ${
+            type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        }`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+    window.displayMessage = displayMessage;
+
     async function markContentCompleted(url) {
         const markCompleteBtn = document.getElementById('markCompleteBtn');
         const originalHtml = markCompleteBtn.innerHTML;
-        
-        markCompleteBtn.disabled = true; // Disable button during request
-        markCompleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Updating...'; // Show loading state
+
+        markCompleteBtn.disabled = true;
+        markCompleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Updating...';
+        markCompleteBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+        markCompleteBtn.classList.add('bg-gray-400', 'text-white');
 
         try {
             const response = await fetch(url, {
@@ -135,52 +151,36 @@
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': window.getCookie('csrftoken') // Use global getCookie
+                    'X-CSRFToken': window.getCookie('csrftoken')
                 },
                 body: JSON.stringify({})
             });
 
             const result = await response.json();
 
-            if (response.ok) {
-                const newStatus = result.completed; 
-                
-                // 1. Update the UI directly
-                if (newStatus) {
-                    markCompleteBtn.classList.remove('bg-gray-200', 'hover:bg-gray-300', 'text-gray-800');
-                    markCompleteBtn.classList.add('bg-green-600', 'hover:bg-green-700', 'text-white');
-                    markCompleteBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Mark as Incomplete';
-                    
-                    // Show success toast (using global prefix)
-                    window.displayMessage('success', result.message || 'Content marked as complete!');
-                } else {
-                    markCompleteBtn.classList.remove('bg-green-600', 'hover:bg-green-700', 'text-white');
-                    markCompleteBtn.classList.add('bg-gray-200', 'hover:bg-gray-300', 'text-gray-800');
-                    markCompleteBtn.innerHTML = '<i class="fas fa-circle-notch mr-2"></i> Mark as Complete';
-                    
-                    // Show notification (using global prefix)
-                    window.displayMessage('default', result.message || 'Content marked as incomplete.');
-                }
-                
-                // 2. Refresh the parent course detail page after toast appears
-                // This updates the overall progress and module lock states.
-                setTimeout(() => {
-                    window.location.href = "{% url 'course_detail' slug=course.slug %}";
-                }, 1000); 
-
+            if (response.ok && result.completed) {
+                window.displayMessage('success', result.message || 'Content marked as complete!');
+                markCompleteBtn.classList.remove('bg-gray-400');
+                markCompleteBtn.classList.add('bg-green-600', 'opacity-70', 'cursor-not-allowed');
+                markCompleteBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Completed';
+                markCompleteBtn.disabled = true;
             } else {
-                window.displayMessage('error', result.error || 'Failed to update progress.');
-                markCompleteBtn.innerHTML = originalHtml; // Restore original HTML on error
+                window.displayMessage('error', result.error || 'Failed to update progress or already completed.');
+                markCompleteBtn.classList.remove('bg-gray-400', 'opacity-70', 'cursor-not-allowed');
+                markCompleteBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                markCompleteBtn.disabled = false;
+                markCompleteBtn.innerHTML = originalHtml;
             }
         } catch (error) {
             console.error('Error marking content completed:', error);
             window.displayMessage('error', 'A network error occurred while updating progress.');
-            markCompleteBtn.innerHTML = originalHtml; // Restore original HTML on network error
-        } finally {
-            markCompleteBtn.disabled = false; // Re-enable button
+            markCompleteBtn.classList.remove('bg-gray-400', 'opacity-70', 'cursor-not-allowed');
+            markCompleteBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+            markCompleteBtn.disabled = false;
+            markCompleteBtn.innerHTML = originalHtml;
         }
     }
-    window.markContentCompleted = markContentCompleted; // Attach to global window
-    
+    window.markContentCompleted = markContentCompleted;
 </script>
+
 {% endblock %}

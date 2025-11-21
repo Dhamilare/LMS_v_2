@@ -12,11 +12,6 @@ urlpatterns = [
     path('audit-logs/', views.audit_logs, name='audit_logs'),
     path('students/', views.student_list_view, name='student_list'),
 
-    path('groups/', views.group_list_view, name='group_list'),
-    path('groups/manage/new/', views.group_management_view, name='group_create'),
-    path('groups/manage/<int:pk>/', views.group_management_view, name='group_update'),
-    path('groups/delete/<int:pk>/', views.group_delete_view, name='group_delete'),
-
     # --- Instructor Course Management ---
     path('courses/', views.course_list, name='course_list'), # Instructor's list of courses
     path('courses/create/', views.course_create, name='course_create'),

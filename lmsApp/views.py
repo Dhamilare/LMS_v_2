@@ -1114,9 +1114,6 @@ def enroll_course(request, slug):
 @require_POST
 def mark_content_completed(request, course_slug, module_id, lesson_id, content_id):
 
-    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
-        return JsonResponse({"success": False, "error": "Invalid request."}, status=400)
-
     student = request.user
 
     content = get_object_or_404(
@@ -1144,10 +1141,17 @@ def mark_content_completed(request, course_slug, module_id, lesson_id, content_i
                 defaults={"completed": True, "completed_at": timezone.now()},
             )
 
-            if not created:
-                progress.completed = not progress.completed
-                progress.completed_at = timezone.now() if progress.completed else None
+            if not created and progress.completed:
+                status_message = "already marked as complete."
+                
+            elif not progress.completed:
+                progress.completed = True
+                progress.completed_at = timezone.now()
                 progress.save()
+                status_message = "marked as complete."
+                
+            else:
+                status_message = "marked as complete."
 
             enrollment._sync_completion_status()
 
@@ -1158,8 +1162,7 @@ def mark_content_completed(request, course_slug, module_id, lesson_id, content_i
         print(f"Error updating content progress: {e}")
         return JsonResponse({"success": False, "error": "Failed to update progress."}, status=500)
 
-    msg = "marked as complete." if progress.completed else "marked as incomplete."
-    return JsonResponse({"success": True, "completed": progress.completed, "message": f"Content {msg}"})
+    return JsonResponse({"success": True, "completed": True, "message": f"Content {status_message}"})
 
 
 
@@ -2756,45 +2759,3 @@ def grant_superuser_access(request, pk):
         'success': True, 
         'message': f'Admin access successfully granted to {user_to_update.get_full_name() or user_to_update.email}.'
     })
-
-
-@user_passes_test(is_admin)
-def group_management_view(request, pk=None):
-    if pk:
-        group = get_object_or_404(Group, pk=pk)
-        title = f"Edit Group: {group.name}"
-    else:
-        group = None
-        title = "Create New Group"
-
-    if request.method == 'POST':
-        form = GroupPermissionForm(request.POST, instance=group)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f"Group '{form.cleaned_data['name']}' saved successfully!")
-            return redirect('group_list')
-    else:
-        form = GroupPermissionForm(instance=group)
-
-    context = {
-        'form': form,
-        'title': title,
-        'group': group,
-    }
-    return render(request, 'admin/group_management.html', context)
-
-
-@user_passes_test(is_admin)
-def group_list_view(request):
-    groups = Group.objects.all().order_by('name')
-    context = {'groups': groups}
-    return render(request, 'admin/group_list.html', context)
-
-@user_passes_test(is_admin)
-@require_POST
-def group_delete_view(request, pk):
-    group = get_object_or_404(Group, pk=pk)
-    group_name = group.name
-    group.delete()
-    messages.success(request, f"Group '{group_name}' was deleted successfully.")
-    return redirect('group_list')
