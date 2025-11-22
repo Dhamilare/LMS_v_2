@@ -16,11 +16,12 @@
             <p class="text-gray-600 text-lg mb-4">{{ course.description }}</p>
             <div class="flex flex-wrap items-center text-gray-500 text-sm space-x-4">
                 <span class="flex items-center"><i class="fas fa-user-tie mr-2"></i> Instructor: <span class="font-medium text-indigo-600 ml-1">{{ course.instructor.get_full_name|default:course.instructor.email }}</span></span>
+                <span class="flex items-center mt-2"><i class="fas fa-clock mr-2"></i>Last updated: <span class="font-medium text-gray-700 ml-1">{{ course.updated_at|date:"F j, Y" }}</span></span>
                 <span class="flex items-center"><i class="fas fa-dollar-sign mr-2"></i> Price: <span class="font-medium text-green-600 ml-1">{% if course.price %}{{ course.price }}{% else %}Free{% endif %}</span></span>
                 <span class="flex items-center"><i class="fas fa-clock mr-2"></i> Duration: <span class="font-medium text-blue-600 ml-1">{{ course.duration|format_duration }}</span></span>
-                <span class="px-3 py-1 text-xs font-semibold rounded-full flex items-center {% if course.is_published %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                <!-- <span class="px-3 py-1 text-xs font-semibold rounded-full flex items-center {% if course.is_published %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
                     {% if course.is_published %}<i class="fas fa-check-circle mr-1"></i> Published{% else %}<i class="fas fa-hourglass-half mr-1"></i> Draft{% endif %}
-                </span>
+                </span> -->
             </div>
         </div>
 

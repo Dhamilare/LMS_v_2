@@ -445,6 +445,7 @@ def all_courses(request):
     """
     user = request.user
     search_query = request.GET.get('q', '').strip()
+    tag_filter = request.GET.get('tag', '').strip()
 
     # Base queryset: all published courses + their average ratings
     courses_list = (
@@ -454,11 +455,14 @@ def all_courses(request):
     )
 
     # --- Department Filter (Personalization) ---
-    if not search_query:
+    if not search_query and not tag_filter:
         if user.department and user.department != "General":
             courses_list = courses_list.filter(
                 tags__name__icontains=user.department
             ).distinct()
+
+    if tag_filter:
+        courses_list = courses_list.filter(tags__name__iexact=tag_filter).distinct()
 
     # --- Search Filter ---
     if search_query:
@@ -494,17 +498,19 @@ def all_courses(request):
     # --- Pagination ---
     paginator = Paginator(courses_with_status, 6)
     page_obj = paginator.get_page(request.GET.get('page'))
+    all_tags = Tag.objects.all().order_by('name')
 
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
+        'all_tags': all_tags,
+        'active_tag': tag_filter,
     }
 
     if user.department and user.department != "General":
         context['user_department'] = user.department
 
     return render(request, 'student/courses.html', context)
-
 
 
 @login_required

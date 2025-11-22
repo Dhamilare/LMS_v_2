@@ -16,7 +16,8 @@
             </p>
         </div>
         
-        <form action="{% url 'all_courses' %}" method="get" class="max-w-2xl mx-auto mb-10">
+        <!-- Search Form -->
+        <form action="{% url 'all_courses' %}" method="get" class="max-w-2xl mx-auto mb-6">
             <div class="flex items-stretch space-x-2 bg-white rounded-full shadow-lg border border-gray-200 p-2">
                 <input type="text" name="q" placeholder="Search courses, instructors..."
                         value="{{ search_query|default:'' }}"
@@ -33,10 +34,37 @@
                 </div>
             {% endif %}
         </form>
-
+        
+        {% if all_tags %}
+        <div class="max-w-5xl mx-auto mb-8 flex flex-wrap justify-center gap-3 p-4 bg-white rounded-xl shadow-lg border border-gray-100 transition duration-500">
+            <span class="text-gray-700 text-sm font-semibold pt-1 hidden sm:block">Filter by Tag:</span>
+            {% for tag in all_tags %}
+                <a href="{% url 'all_courses' %}?tag={{ tag.name }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                   class="px-4 py-1.5 rounded-full text-sm font-medium border transition-all duration-300 ease-in-out shadow-sm hover:shadow-lg hover:z-10
+                   {% if tag.name == active_tag %}
+                       bg-indigo-600 text-white border-indigo-700 scale-105 shadow-indigo-400/50
+                   {% else %}
+                       bg-gray-100 text-gray-700 border-gray-300 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300
+                   {% endif %}"
+                >
+                   #{{ tag.name }}
+                </a>
+            {% endfor %}
+        
+            {% if active_tag %}
+            <a href="{% url 'all_courses' %}?{% if search_query %}q={{ search_query }}{% endif %}"
+               class="px-4 py-1.5 rounded-full text-sm font-medium transition duration-300 border bg-red-100 text-red-700 border-red-300 hover:bg-red-200 shadow-sm">
+                <i class="fas fa-times mr-1"></i> Clear Filter
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+        
         <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 text-center mb-8">
-            {% if user_department %}
-                Courses Recommended for the {{ user_department|capfirst }} Team
+            {% if active_tag %}
+                 Courses on #{{ active_tag|capfirst }}
+            {% elif user_department %}
+                Courses Recommended for {{ user_department|capfirst }} Team
             {% elif search_query %}
                 Search Results
             {% else %}
@@ -51,6 +79,7 @@
                     <a href="{% url 'course_detail' slug=course.slug %}"
                         class="block relative bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 transform hover:scale-105 transition duration-300 ease-in-out">
                         
+                        <!-- ImageField Check -->
                         <img src="{% if course.thumbnail %}{{ course.thumbnail.url }}{% else %}https://placehold.co/600x400/F0F4FF/4F46E5?text=Course+Thumbnail{% endif %}"
                              alt="{{ course.title }} Thumbnail"
                              class="w-full h-48 object-cover"
@@ -130,7 +159,7 @@
             <div class="flex justify-center mt-12">
                 <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                     {% if page_obj.has_previous %}
-                        <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                        <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if active_tag %}&tag={{ active_tag }}{% endif %}"
                            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                             <span class="sr-only">Previous</span>
                             <i class="fas fa-chevron-left"></i>
@@ -144,12 +173,12 @@
 
                     {% for i in page_obj.paginator.page_range %}
                         {% if page_obj.number == i %}
-                            <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}" aria-current="page"
+                            <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if active_tag %}&tag={{ active_tag }}{% endif %}" aria-current="page"
                                class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-indigo-600 text-white text-sm font-semibold">
                                 {{ i }}
                             </a>
                         {% else %}
-                            <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                            <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if active_tag %}&tag={{ active_tag }}{% endif %}"
                                class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
                                 {{ i }}
                             </a>
@@ -157,7 +186,7 @@
                     {% endfor %}
 
                     {% if page_obj.has_next %}
-                        <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                        <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if active_tag %}&tag={{ active_tag }}{% endif %}"
                            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                             <span class="sr-only">Next</span>
                             <i class="fas fa-chevron-right"></i>
@@ -172,6 +201,7 @@
             </div>
 
         {% else %}
+            <!-- No Courses/Search Results Message -->
             <div class="max-w-2xl mx-auto text-center py-12 bg-white rounded-xl shadow-lg border border-gray-200">
                 <i class="fas fa-sad-cry text-5xl text-gray-400 mb-4"></i>
                 <p class="text-gray-600 text-lg mb-2">
