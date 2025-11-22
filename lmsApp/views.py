@@ -454,10 +454,11 @@ def all_courses(request):
     )
 
     # --- Department Filter (Personalization) ---
-    if user.department and user.department != "General":
-        courses_list = courses_list.filter(
-            tags__name__icontains=user.department
-        ).distinct()
+    if not search_query:
+        if user.department and user.department != "General":
+            courses_list = courses_list.filter(
+                tags__name__icontains=user.department
+            ).distinct()
 
     # --- Search Filter ---
     if search_query:
@@ -503,7 +504,6 @@ def all_courses(request):
         context['user_department'] = user.department
 
     return render(request, 'student/courses.html', context)
-
 
 
 
