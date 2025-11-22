@@ -2568,20 +2568,31 @@ def hr_appraisal_dashboard(request):
     # Apply filters
     filtered_queryset = enrollments_queryset.filter(filters).order_by(sort_by)
 
-    # --- 2. Python Progress Calculation ---
-    for enrollment in filtered_queryset:
-        total_content = sum(
-            len(lesson.contents.all())
-            for module in enrollment.course.modules.all()
-            for lesson in module.lessons.all()
+    # --- 2. Progress Calculation ---
+    course_content_counts = (
+        Content.objects
+        .values('lesson__module__course')
+        .annotate(total=Count('id'))
         )
-
+    
+    course_content_map = {
+        item['lesson__module__course']: item['total']
+        for item in course_content_counts
+        }
+    
+    for enrollment in filtered_queryset:
+        total_content = course_content_map.get(enrollment.course.id, 0)
         completed_content = enrollment.student.content_progress.filter(
-            content__lesson__module__course=enrollment.course,
-            completed=True
+        completed=True,
+        content__lesson__module__course=enrollment.course.id
+
         ).count()
 
-        enrollment.progress_perc = round((completed_content / total_content) * 100, 0) if total_content > 0 else 0
+        enrollment.progress_perc = (
+        round((completed_content / total_content) * 100, 0)
+        if total_content > 0 else 0
+
+        )
 
     # --- 3. EXPORT LOGIC ---
     if request.GET.get('export') == 'csv':
