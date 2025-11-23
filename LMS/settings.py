@@ -187,9 +187,6 @@ SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID = config('SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT
 GEMINI_API_KEY = config('GEMINI_API_KEY')
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+GEMINI_API_KEY
 
-AZURE_SPEECH_KEY = config('AZURE_SPEECH_KEY')
-AZURE_REGION = config('AZURE_REGION')
-
 # Login URLs
 LOGIN_URL = 'login'
 # LOGIN_REDIRECT_URL = 'dashboard'
