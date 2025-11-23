@@ -2,148 +2,336 @@
 {% load static %}
 {% load custom_filters %} 
 
-{% block title %}{{ content.title }}{% endblock %}
+{% block title %}{{ content.title }} - {{ lesson.title }}{% endblock %}
 
 {% block content %}
-<div class="bg-white p-4 sm:p-8 rounded-lg shadow-lg w-full md:max-w-7xl mx-auto my-8">
-    <h1 class="text-4xl font-bold text-gray-800 mb-4 flex items-center">
-        {% if content.content_type == 'video' %}<i class="fas fa-video mr-3 text-indigo-600"></i>
-        {% elif content.content_type == 'pdf' %}<i class="fas fa-file-pdf mr-3 text-red-600"></i>
-        {% elif content.content_type == 'text' %}<i class="fas fa-file-alt mr-3 text-blue-600"></i>
-        {% elif content.content_type == 'slide' %}<i class="fas fa-file-powerpoint mr-3 text-orange-600"></i>
-        {% elif content.content_type == 'quiz' %}<i class="fas fa-question-circle mr-3 text-green-600"></i>
-        {% elif content.content_type == 'assignment' %}<i class="fas fa-tasks mr-3 text-purple-600"></i>
-        {% endif %}
-        {{ content.title }}
-    </h1>
-    <p class="text-gray-600 text-lg mb-6">
-        <span class="font-medium">Lesson:</span> {{ lesson.title }} |
-        <span class="font-medium">Module:</span> {{ module.title }} |
-        <span class="font-medium">Course:</span> {{ course.title }}
-    </p>
+{% comment %} 
+    The main container uses a max-width and margin for centering, 
+    with a minimal shadow and rounded corners for a clean, modern feel.
+{% endcomment %}
+<div class="bg-white p-6 sm:p-10 rounded-xl shadow-2xl shadow-indigo-100 w-full md:max-w-7xl mx-auto my-8 border border-gray-100">
 
-    <div class="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+    {# --- HEADER SECTION: Title and Breadcrumb-style Context --- #}
+    <div class="mb-8 border-b pb-4 border-gray-200">
+        <div class="flex items-center justify-between">
+            {# Title and Icon #}
+            <h1 class="text-4xl font-extrabold text-gray-900 flex items-center">
+                {% if content.content_type == 'video' %}<i class="fas fa-video mr-3 text-indigo-600"></i>
+                {% elif content.content_type == 'pdf' %}<i class="fas fa-file-pdf mr-3 text-red-600"></i>
+                {% elif content.content_type == 'text' %}<i class="fas fa-file-alt mr-3 text-blue-600"></i>
+                {% elif content.content_type == 'slide' %}<i class="fas fa-file-powerpoint mr-3 text-orange-600"></i>
+                {% elif content.content_type == 'quiz' %}<i class="fas fa-question-circle mr-3 text-green-600"></i>
+                {% elif content.content_type == 'assignment' %}<i class="fas fa-tasks mr-3 text-purple-600"></i>
+                {% endif %}
+                {{ content.title }}
+            </h1>
+            
+            {# Instructor Actions (Moved to top-right for prominence) #}
+            {% if request.user.is_instructor and course.instructor == request.user %}
+                <div class="flex space-x-3">
+                    <button onclick="loadModalForm('{% url 'content_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}', 'Edit Content: {{ content.title }}')" 
+                        class="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition duration-300 shadow-md tooltip" data-tooltip="Edit Content">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="showConfirmationModal('{% url 'content_delete' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}', 'Delete Content', 'Are you sure you want to delete this content? This action cannot be undone.')" 
+                        class="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition duration-300 shadow-md tooltip" data-tooltip="Delete Content">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+        
+        {# Contextual Information (Course > Module > Lesson) #}
+        <div class="text-gray-500 text-base mt-2 flex flex-wrap items-center space-x-2">
+            <a href="{% url 'course_detail' slug=course.slug %}" class="text-indigo-600 hover:text-indigo-800 hover:underline transition duration-150 flex items-center">
+                <i class="fas fa-book mr-1"></i> {{ course.title }}
+            </a>
+            <i class="fas fa-chevron-right text-sm"></i>
+            <span class="font-medium text-gray-700">{{ module.title }}</span>
+            <i class="fas fa-chevron-right text-sm"></i>
+            <span>{{ lesson.title }}</span>
+        </div>
+    </div>
+
+    {# --- CONTENT DISPLAY AREA --- #}
+    <div class="mb-10 bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-inner">
         {% if content.content_type == 'video' %}
+            {# Video Content #}
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><i class="fas fa-video mr-2 text-indigo-600"></i> Video Lesson</h2>
             {% if content.video_url %}
-                <div class="relative" style="padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%;">
-                    <iframe class="absolute top-0 left-0 w-full h-full rounded-lg shadow-md"
+                <div class="relative rounded-xl overflow-hidden shadow-xl" style="padding-bottom: 56.25%; height: 0; max-width: 100%;">
+                    <iframe class="absolute top-0 left-0 w-full h-full"
                             src="{{ content.video_url|youtube_embed_url }}"
                             frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowfullscreen></iframe>
                 </div>
-                <p class="text-gray-600 mt-4">Video URL: <a href="{{ content.video_url }}" target="_blank" class="text-indigo-600 hover:underline">{{ content.video_url }}</a></p>
+                <p class="text-gray-500 text-sm mt-4">Source: <a href="{{ content.video_url }}" target="_blank" class="text-indigo-500 hover:underline truncate inline-block max-w-full">{{ content.video_url }}</a></p>
             {% elif content.file %}
-                <video controls class="w-full rounded-lg shadow-md">
+                <video controls class="w-full rounded-xl shadow-xl border border-gray-300">
                     <source src="{{ content.file.url }}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
-                <p class="text-gray-600 mt-4">
-                    Video content embedded.
-                    {# Download Video: <a href="{{ content.file.url }}" download class="text-indigo-600 hover:underline flex items-center"><i class="fas fa-download mr-2"></i> {{ content.file.name|split:'/'|last }}</a> #}
-                </p>
             {% else %}
-                <p class="text-red-600">No video content available.</p>
+                <div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg"><i class="fas fa-exclamation-triangle mr-2"></i> No video content available.</div>
             {% endif %}
+
         {% elif content.content_type == 'pdf' or content.content_type == 'slide' %}
+            {# Document Content (PDF/Slide) #}
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center">
+                <i class="{% if content.content_type == 'pdf' %}fas fa-file-pdf text-red-600{% else %}fas fa-file-powerpoint text-orange-600{% endif %} mr-2"></i> 
+                {{ content.get_content_type_display }} Document
+            </h2>
             {% if content.file %}
-                <div class="mb-4">
-                    <iframe src="{{ content.file.url|embed_document }}" class="w-full h-[600px] border-none rounded-lg shadow-md"></iframe>
+                <div class="mb-4 rounded-xl overflow-hidden shadow-xl border border-gray-300">
+                    <iframe src="{{ content.file.url|embed_document }}" class="w-full h-[600px] border-none"></iframe>
                 </div>
-                <p class="text-gray-600">
-                    Document embedded for viewing.
-                    {# Download {{ content.get_content_type_display }}: <a href="{{ content.file.url }}" download class="text-indigo-600 hover:underline flex items-center"><i class="fas fa-download mr-2"></i> {{ content.file.name|split:'/'|last }}</a> #}
-                </p>
             {% else %}
-                <p class="text-red-600">No {{ content.get_content_type_display }} file available.</p>
+                <div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg"><i class="fas fa-exclamation-triangle mr-2"></i> No {{ content.get_content_type_display }} file available.</div>
             {% endif %}
+
         {% elif content.content_type == 'text' %}
-            <div class="prose max-w-none text-gray-800">
+            {# Text Content #}
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><i class="fas fa-file-alt mr-2 text-blue-600"></i> Text Article</h2>
+            <div id="content-text-area" class="prose max-w-none text-gray-800 p-4 border rounded-lg bg-white shadow-inner">
                 {{ content.text_content|linebreaksbr }}
             </div>
+            
         {% elif content.content_type == 'quiz' %}
-            <p class="text-gray-700 text-lg mb-4 flex items-center"><i class="fas fa-question-circle mr-2 text-green-600"></i> This is a Quiz!</p>
-            {% if quiz_obj %}
-                <p class="text-gray-600 mb-4">Quiz Title: <span class="font-semibold">{{ quiz_obj.title }}</span></p>
-                {% if quiz_obj.description %}
-                    <p class="text-gray-600 mb-4">{{ quiz_obj.description }}</p>
+            {# Quiz Content #}
+            <div class="text-center p-8 bg-green-50 border border-green-300 rounded-xl shadow-md">
+                <i class="fas fa-question-circle text-6xl text-green-600 mb-4"></i>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Ready for the Quiz?</h2>
+                {% if quiz_obj %}
+                    <p class="text-gray-600 text-lg mb-4">
+                        <span class="font-semibold">{{ quiz_obj.title }}</span> 
+                        {% if quiz_obj.description %}- {{ quiz_obj.description }}{% endif %}
+                    </p>
+                    <a href="{% url 'quiz_take' course_slug=course.slug %}"
+                        class="inline-flex items-center px-8 py-3 border border-transparent text-lg font-medium rounded-full shadow-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-green-500 transition duration-300 transform hover:scale-105">
+                        <i class="fas fa-play-circle mr-3"></i> Start Quiz
+                    </a>
+                {% else %}
+                    <p class="text-red-600 flex items-center justify-center"><i class="fas fa-exclamation-triangle mr-2"></i> No quiz found linked to this content. Please link a quiz in the admin panel.</p>
                 {% endif %}
-                <a href="{% url 'quiz_take' course_slug=course.slug %}"
-                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                    <i class="fas fa-play-circle mr-2"></i> Take Quiz
-                </a>
-            {% else %}
-                <p class="text-red-600 flex items-center"><i class="fas fa-exclamation-triangle mr-2"></i> No quiz found linked to this content. Please link a quiz in the admin panel.</p>
-            {% endif %}
+            </div>
+
         {% elif content.content_type == 'assignment' %}
-            <p class="text-gray-700 text-lg"><i class="fas fa-tasks mr-2 text-purple-600"></i> This is an Assignment! Assignment submission functionality will be implemented here.</p>
+            {# Assignment Content #}
+            <div class="text-center p-8 bg-purple-50 border border-purple-300 rounded-xl shadow-md">
+                <i class="fas fa-tasks text-6xl text-purple-600 mb-4"></i>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Assignment Details</h2>
+                <p class="text-gray-700 text-lg">This is an **Assignment**! The submission interface (upload, instructions, due date) will be implemented here.</p>
+            </div>
         {% else %}
-            <p class="text-gray-700">Content type not supported for direct display yet.</p>
+            <div class="p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg"><i class="fas fa-info-circle mr-2"></i> Content type not supported for direct display yet.</div>
         {% endif %}
     </div>
 
-    <div class="flex justify-between items-center mt-8">
-        <a href="{% url 'course_detail' slug=course.slug %}" class="text-indigo-600 hover:underline flex items-center">
-            <i class="fas fa-arrow-left mr-2"></i> Back to Course Details
-        </a>
-        {% if request.user.is_instructor and course.instructor == request.user %}
-            <div class="flex space-x-2">
-                <button onclick="loadModalForm('{% url 'content_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}', 'Edit Content: {{ content.title }}')" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
-                    <i class="fas fa-edit mr-2"></i> Edit Content
-                </button>
-                <button onclick="showConfirmationModal('{% url 'content_delete' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}', 'Delete Content', 'Are you sure you want to delete this content? This action cannot be undone.')" 
-                        class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
-                    <i class="fas fa-trash-alt mr-2"></i> Delete Content
-                </button>
-            </div>
-        {% elif request.user.is_student and student_progress %}
-            
-            {% if student_progress.completed %}
-                <button id="markCompleteBtn"
-                        disabled
-                        class="py-2 px-4 rounded-md flex items-center shadow-md bg-green-600 text-white opacity-70 cursor-not-allowed">
-                    <i class="fas fa-check-circle mr-2"></i> Completed
-                </button>
-            {% elif content.content_type != 'quiz' %}
-                <button id="markCompleteBtn"
-                        onclick="markContentCompleted('{% url 'mark_content_completed' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')"
-                        class="py-2 px-4 rounded-md transition duration-300 flex items-center shadow-md hover:shadow-lg bg-indigo-600 hover:bg-indigo-700 text-white">
-                    <i class="fas fa-check-circle mr-2"></i> Mark as Complete
+    {# --- BOTTOM ACTIONS: Navigation, Completion, AI Summary --- #}
+    <div class="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 pt-4 border-t border-gray-200">
+        
+        {# Back Buttons #}
+        <div class="flex space-x-4">
+            <a href="{% url 'course_detail' slug=course.slug %}" class="text-gray-600 hover:text-indigo-600 transition duration-150 flex items-center font-medium">
+                <i class="fas fa-list-alt mr-2"></i> All Course Content
+            </a>
+            <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-indigo-600 transition duration-150 flex items-center font-medium">
+                <i class="fas fa-arrow-left mr-2"></i> Dashboard
+            </a>
+        </div>
+
+        <div class="flex space-x-3 items-center">
+            {# AI SUMMARIZATION BUTTON (Only for Text Content) #}
+            {% if content.content_type == 'text' %}
+                <button id="ai-summary-btn"
+                    data-title="{{ content.title|escapejs }}"
+                    class="bg-purple-600 text-white py-2 px-4 rounded-full hover:bg-purple-700 transition duration-300 flex items-center shadow-lg hover:shadow-xl text-sm font-semibold transform hover:scale-105">
+                    <i class="fas fa-brain mr-2"></i> AI Summary
                 </button>
             {% endif %}
-        {% endif %}
-    </div>
-    <div class="mt-6 text-center">
-        <a href="{% url 'dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-            <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
-        </a>
+
+            {# STUDENT PROGRESS BUTTON #}
+            {% if request.user.is_student and student_progress %}
+                {% if student_progress.completed %}
+                    <button id="markCompleteBtn"
+                            disabled
+                            class="py-2 px-4 rounded-full flex items-center shadow-lg bg-green-600 text-white opacity-90 cursor-not-allowed text-sm font-semibold">
+                        <i class="fas fa-check-circle mr-2"></i> Completed
+                    </button>
+                {% elif content.content_type != 'quiz' %}
+                    <button id="markCompleteBtn"
+                            onclick="markContentCompleted('{% url 'mark_content_completed' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')"
+                            class="py-2 px-4 rounded-full transition duration-300 flex items-center shadow-lg hover:shadow-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transform hover:scale-105">
+                        <i class="fas fa-check-circle mr-2"></i> Mark as Complete
+                    </button>
+                {% endif %}
+            {% endif %}
+        </div>
     </div>
 </div>
 
-
+{# Tooltip styles for instructor buttons (basic implementation) #}
+<style>
+    .tooltip {
+        position: relative;
+    }
+    .tooltip:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        z-index: 10;
+        margin-top: 5px;
+        pointer-events: none;
+    }
+</style>
 {% endblock %}
 
 {% block extra_scripts %}
 {{ block.super }}
 <script>
+    // NOTE: Assumes modal functions (loadModalForm, showConfirmationModal, 
+    // openModal, closeModal, getCookie) are defined in base.html or another included script.
+
+    const GEMINI_API_KEY = "{{ GEMINI_API_KEY }}";
+    
     function displayMessage(type, message) {
         const toast = document.createElement('div');
         toast.textContent = message;
-        toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded shadow text-white ${
-            type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        // Updated styling for a nicer toast notification
+        toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-lg text-white font-medium z-50 transform transition duration-300 ease-out translate-y-0 ${
+            type === 'success' ? 'bg-green-500' : 'bg-red-500'
         }`;
         document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
+        setTimeout(() => {
+            toast.classList.add('translate-y-full'); // Optional exit animation
+            setTimeout(() => toast.remove(), 500);
+        }, 3000);
     }
     window.displayMessage = displayMessage;
 
+    // A simpler version of showContentModal that doesn't rely on existing form-modal structure
+    function showContentModal(title, content) {
+        let modal = document.getElementById('simple-content-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'simple-content-modal';
+            modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-[100] transition-opacity duration-300 hidden';
+            modal.innerHTML = `
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all duration-300 scale-95">
+                    <div class="flex justify-between items-center p-4 border-b border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900" id="simple-modal-title"></h3>
+                        <button onclick="document.getElementById('simple-content-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-2xl"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 max-h-[80vh] overflow-y-auto" id="simple-modal-body"></div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        document.getElementById('simple-modal-title').textContent = title;
+        document.getElementById('simple-modal-body').innerHTML = content;
+
+        // Show the modal
+        modal.classList.remove('hidden');
+        document.querySelector('#simple-content-modal > div').classList.remove('scale-95');
+        document.querySelector('#simple-content-modal > div').classList.add('scale-100');
+    }
+
+    // ------------------------------
+    // AI Summary for Text
+    // ------------------------------
+    async function generateAISummary(contentTitle) {
+        const contentDiv = document.getElementById('content-text-area');
+        if (!contentDiv) return displayMessage('error', 'No text content found.');
+
+        // Get the content text while preserving line breaks from <br> and paragraph breaks
+        let rawText = contentDiv.innerText.trim();
+        // A simple text cleaning to ensure a minimum size for meaningful summary
+        if (rawText.length < 50) return displayMessage('error', 'Content too short for AI summary.');
+        
+        showContentModal(
+            `Generating AI Summary for: ${contentTitle}`,
+            `<div class="text-center py-10">
+                <i class="fas fa-brain fa-spin fa-3x text-purple-600"></i>
+                <p class="mt-3 text-gray-700 font-medium">Analyzing content, please wait...</p>
+            </div>`
+        );
+
+        const payload = {
+            // Updated prompt for better formatting and clarity in the response
+            contents: [{ 
+                role: "user", 
+                parts: [{ text: `Provide a concise, easy-to-read summary of the following educational content. Use bullet points if appropriate. Limit the summary to a maximum of 300 words. Content: ${rawText}` }] 
+            }],
+            generationConfig: { 
+                temperature: 0.1, 
+                candidateCount: 1, 
+                maxOutputTokens: 500 
+            }
+        };
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            
+            // Extract the summary text
+            const summary = result.candidates?.[0]?.content?.parts?.[0]?.text || "AI failed to generate summary. The content might be inappropriate or the service is temporarily unavailable.";
+            
+            // Basic Markdown to HTML conversion for bullet points/paragraphs
+            const formattedSummary = summary
+                .replace(/\*\s*/g, '<li>')  // Convert bullet points to list items
+                .replace(/\n\n/g, '</p><p>') // Convert double newlines to paragraphs
+                .replace(/\n/g, '<br>'); // Convert single newlines to line breaks
+            
+            let finalHtml = `<div class="prose max-w-none">${formattedSummary}</div>`;
+
+            // If it starts with a bullet point, wrap it in an unordered list
+            if (formattedSummary.startsWith('<li>')) {
+                 finalHtml = `<div class="prose max-w-none"><ul>${formattedSummary}</ul></div>`;
+            } else {
+                 finalHtml = `<div class="prose max-w-none"><p>${formattedSummary}</p></div>`;
+            }
+
+            showContentModal(`AI Summary: ${contentTitle}`, finalHtml);
+
+        } catch (err) {
+            console.error('AI Summary Error:', err);
+            showContentModal('Summary Failed', `<p class="text-red-600 font-medium">Error connecting to AI service. Please check your API key or network connection.</p>`);
+        }
+    }
+
+    const aiSummaryBtn = document.getElementById('ai-summary-btn');
+    if (aiSummaryBtn) {
+        aiSummaryBtn.addEventListener('click', () => generateAISummary(aiSummaryBtn.dataset.title));
+    }
+
+
+    // ------------------------------
+    // Mark content as completed
+    // ------------------------------
     async function markContentCompleted(url) {
         const markCompleteBtn = document.getElementById('markCompleteBtn');
         const originalHtml = markCompleteBtn.innerHTML;
+        const originalClasses = markCompleteBtn.className;
 
+        // Visual feedback for loading
         markCompleteBtn.disabled = true;
         markCompleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Updating...';
-        markCompleteBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-        markCompleteBtn.classList.add('bg-gray-400', 'text-white');
+        markCompleteBtn.className = 'py-2 px-4 rounded-full flex items-center shadow-lg bg-gray-400 text-white text-sm font-semibold cursor-wait';
 
         try {
             const response = await fetch(url, {
@@ -151,7 +339,8 @@
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': window.getCookie('csrftoken')
+                    // This assumes a global function `window.getCookie` exists and returns the CSRF token
+                    'X-CSRFToken': window.getCookie('csrftoken') 
                 },
                 body: JSON.stringify({})
             });
@@ -160,27 +349,23 @@
 
             if (response.ok && result.completed) {
                 window.displayMessage('success', result.message || 'Content marked as complete!');
-                markCompleteBtn.classList.remove('bg-gray-400');
-                markCompleteBtn.classList.add('bg-green-600', 'opacity-70', 'cursor-not-allowed');
+                markCompleteBtn.className = 'py-2 px-4 rounded-full flex items-center shadow-lg bg-green-600 text-white opacity-90 cursor-not-allowed text-sm font-semibold';
                 markCompleteBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Completed';
                 markCompleteBtn.disabled = true;
             } else {
                 window.displayMessage('error', result.error || 'Failed to update progress or already completed.');
-                markCompleteBtn.classList.remove('bg-gray-400', 'opacity-70', 'cursor-not-allowed');
-                markCompleteBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                markCompleteBtn.disabled = false;
+                markCompleteBtn.className = originalClasses;
                 markCompleteBtn.innerHTML = originalHtml;
+                markCompleteBtn.disabled = false;
             }
         } catch (error) {
             console.error('Error marking content completed:', error);
             window.displayMessage('error', 'A network error occurred while updating progress.');
-            markCompleteBtn.classList.remove('bg-gray-400', 'opacity-70', 'cursor-not-allowed');
-            markCompleteBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-            markCompleteBtn.disabled = false;
+            markCompleteBtn.className = originalClasses;
             markCompleteBtn.innerHTML = originalHtml;
+            markCompleteBtn.disabled = false;
         }
     }
     window.markContentCompleted = markContentCompleted;
 </script>
-
 {% endblock %}

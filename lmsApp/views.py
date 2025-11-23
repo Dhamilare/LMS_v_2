@@ -19,10 +19,13 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Prefetch
 import csv
 from django.db.models import Avg
-from django.contrib.auth.models import Group
 import random
 from .utils import *
+import os
 from django.contrib.sites.shortcuts import get_current_site 
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def send_enrollment_email_to_instructor(request, enrollment):
@@ -1031,6 +1034,7 @@ def content_detail(request, course_slug, module_id, lesson_id, content_id):
         'lesson': lesson,
         'content': content,
         'student_progress': student_progress,
+        'GEMINI_API_KEY': settings.GEMINI_API_KEY,
     }
     return render(request, 'content_detail.html', context)
 

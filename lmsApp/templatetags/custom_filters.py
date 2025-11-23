@@ -1,8 +1,15 @@
 from django import template
 from django.utils.safestring import mark_safe
 from urllib.parse import quote_plus
+import json
 
 register = template.Library()
+
+
+@register.filter
+def js(value):
+    """Safely escapes a value for use as a JavaScript string literal."""
+    return mark_safe(json.dumps(value))
 
 @register.filter
 def youtube_embed_url(url):
