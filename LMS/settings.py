@@ -242,9 +242,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    "https://hl-lms-axe9dzgve2e4d6gd.southafricanorth-01.azurewebsites.net",
+    "https://lms.ha-shem.com",
 ]
 
 
