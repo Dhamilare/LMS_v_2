@@ -93,7 +93,7 @@
             {# Text Content #}
             <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><i class="fas fa-file-alt mr-2 text-blue-600"></i> Text Article</h2>
             <div id="content-text-area" class="prose max-w-none text-gray-800 p-4 border rounded-lg bg-white shadow-inner">
-                {{ content.text_content|linebreaksbr }}
+                {{ content.text_content|safe|linebreaksbr }}
             </div>
             
         {% elif content.content_type == 'quiz' %}

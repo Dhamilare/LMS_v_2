@@ -7,7 +7,7 @@
     <title>LMS - {% block title %}{% endblock %}</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    
+    <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -152,9 +152,19 @@
                         </a>
 
                     {% elif user.is_hr %}
-                    <a href="{% url 'hr_appraisal_dashboard' %}" class="{{ link_class }}">
+                    <a href="{% url 'assign_course_page' %}" class="{{ link_class }}">
+                        <i class="fa-solid fa-user-plus fa-fw mr-3 text-lg"></i>
+                        <span class="font-medium">Assign Courses</span>
+                    </a>
+
+                    <!-- <a href="{% url 'hr_appraisal_dashboard' %}" class="{{ link_class }}">
                             <i class="fa-solid fa-file-invoice fa-fw mr-3 text-lg"></i>
                             <span class="font-medium">HR Appraisal</span>
+                    </a> -->
+
+                    <a href="{% url 'hr_course_feedback' %}" class="{{ link_class }}">
+                        <i class="fa-solid fa-comments fa-fw mr-3 text-lg"></i>
+                        <span class="font-medium">Course Feedback</span>
                     </a>
 
                     {% elif user.is_student %}
@@ -282,7 +292,7 @@
         </div>
     </div>
 
-    <script>
+     <script>
         // --- GLOBALIZED VARIABLES (Aliased for clarity) ---
         const menuToggle = document.getElementById('menu-toggle');
         const sidebar = document.getElementById('sidebar');
@@ -343,6 +353,7 @@
             }
             return cookieValue;
         }
+        window.getCookie = getCookie; 
 
         // --- TOAST NOTIFICATION (GLOBAL) ---
         function showToast(type, message) {
@@ -411,6 +422,9 @@
         }
 
         function closeModal() {
+            // CRITICAL FIX: Clean up CKEditor instances before closing modal
+            cleanupCKEditors(formModalBody);
+            
             formModalContainer.classList.remove('scale-100', 'opacity-100');
             formModalContainer.classList.add('scale-95', 'opacity-0');
             formModalBackdrop.classList.remove('opacity-100');
@@ -420,6 +434,90 @@
             }, 300);
         }
         window.closeModal = closeModal; 
+
+        // --- CKEditor Helper Functions ---
+        function initCKEditors(container) {
+            // Check if ClassicEditor is defined (i.e., if CKEditor script loaded)
+            if (typeof ClassicEditor === 'undefined') {
+                console.warn("CKEditor 5 is not loaded.");
+                return;
+            }
+            
+            // Look for any textarea that should be a rich editor
+            container.querySelectorAll("textarea").forEach((textarea) => {
+                // If textarea is named 'description' or 'text_content', assume it needs CKEditor
+                if ((textarea.name === 'description' || textarea.name === 'text_content') && !textarea.classList.contains("ck-editor-loaded")) {
+                    
+                    ClassicEditor
+                        .create(textarea)
+                        .then(editor => {
+                             // Store the editor instance on the textarea element itself
+                             textarea.editorInstance = editor; 
+                             textarea.classList.add("ck-editor-loaded");
+                        })
+                        .catch(error => console.error("CKEditor initialization failed:", error));
+                }
+            });
+        }
+        
+        function cleanupCKEditors(container) {
+            container.querySelectorAll("textarea.ck-editor-loaded").forEach((textarea) => {
+                if (textarea.editorInstance) {
+                    textarea.editorInstance.destroy()
+                        .then(() => {
+                            textarea.classList.remove("ck-editor-loaded");
+                            delete textarea.editorInstance;
+                        })
+                        .catch(error => console.warn("CKEditor cleanup failed:", error));
+                }
+            });
+        }
+        // --- END CKEDITOR HELPERS ---
+
+
+        // --- STAR RATING INITIALIZATION (New Global Function) ---
+        function initStarRating() {
+            const stars = document.querySelectorAll('.star-rating i');
+            const ratingInput = document.getElementById('rating-value');
+            
+            // CRITICAL: Check if elements exist before running logic
+            if (!stars.length || !ratingInput) return;
+            
+            let selectedRating = 0;
+
+            stars.forEach(star => {
+                // Hover effect
+                star.addEventListener('mouseenter', () => {
+                const value = parseInt(star.getAttribute('data-value'));
+                highlightStars(value);
+                });
+
+                // Reset hover when leaving container
+                star.parentElement.addEventListener('mouseleave', () => {
+                highlightStars(selectedRating);
+                });
+
+                // Click to select rating
+                star.addEventListener('click', () => {
+                selectedRating = parseInt(star.getAttribute('data-value'));
+                ratingInput.value = selectedRating;
+                highlightStars(selectedRating);
+                });
+            });
+
+            function highlightStars(count) {
+                stars.forEach(star => {
+                if (parseInt(star.getAttribute('data-value')) <= count) {
+                    star.classList.remove('far'); // Outline star
+                    star.classList.add('fas');    // Solid star
+                } else {
+                    star.classList.remove('fas');
+                    star.classList.add('far');
+                }
+                });
+            }
+        }
+        window.initStarRating = initStarRating;
         
         // This function handles the default success behavior (reload page)
         const defaultSuccessHandler = (data) => {
@@ -444,9 +542,16 @@
         async function handleModalFormSubmit(event, onSuccess, onError) {
             event.preventDefault();
             const form = event.target;
+            
+            form.querySelectorAll("textarea.ck-editor-loaded").forEach((textarea) => {
+                if (textarea.editorInstance) {
+                    textarea.value = textarea.editorInstance.getData();
+                }
+            });
+
             const url = form.action;
             const method = form.method;
-            const formData = new FormData(form);
+            const formData = new FormData(form); // Now reads the updated textarea value
 
             const submitButton = form.querySelector('button[type="submit"]');
             const originalButtonText = submitButton ? submitButton.innerHTML : '';
@@ -454,7 +559,8 @@
                 submitButton.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> Saving...`;
                 submitButton.disabled = true;
             }
-
+            
+            // ... (rest of AJAX submission logic remains the same)
             try {
                 const response = await fetch(url, {
                     method: method,
@@ -505,6 +611,7 @@
                 }
             }
         }
+        window.handleModalFormSubmit = handleModalFormSubmit;
         
         // Main function to load modals, uses default handlers unless overridden
         function loadModalForm(url, title = 'Form', successCallback = null, errorCallback = null) {
@@ -530,6 +637,9 @@
                     // Attach custom submission handler
                     form.addEventListener('submit', (e) => handleModalFormSubmit(e, onSuccess, onError));
                 }
+
+                initCKEditors(formModalBody);
+
             })
             .catch(error => {
                 console.error('Error loading modal content:', error);

@@ -26,6 +26,7 @@ urlpatterns = [
     path('courses/<slug:slug>/enroll/', views.enroll_course, name='enroll_course'),
     path('courses/<slug:course_slug>/transcript/', views.course_transcript, name='course_transcript'),
     path('course/<slug:course_slug>/rate/', views.rate_course, name='rate_course'),
+    path('courses/<slug:course_slug>/evaluate/', views.course_evaluation_view, name='course_evaluation'),
 
     # --- Progress Tracking (Content Completion) ---
     path('courses/<slug:course_slug>/modules/<int:module_id>/lessons/<int:lesson_id>/contents/<int:content_id>/mark-completed/', views.mark_content_completed, name='mark_content_completed'),
@@ -82,4 +83,5 @@ urlpatterns = [
 
     # --- HR Dashboard
     path('hr/appraisal-dashboard/', views.hr_appraisal_dashboard, name='hr_appraisal_dashboard'),
+    path('hr/course-feedback/', views.hr_course_feedback, name='hr_course_feedback'),
 ]

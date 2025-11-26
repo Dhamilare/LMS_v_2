@@ -16,9 +16,8 @@
             <h1 class="text-4xl lg:text-5xl font-extrabold text-gray-900 mb-2 flex items-center">
                 <i class="fas fa-book mr-4 text-indigo-600"></i> {{ course.title }}
             </h1>
-            <p class="text-gray-600 text-lg mb-4">{{ course.description }}</p>
+            <p class="text-gray-600 text-lg mb-4">{{ course.description|safe }}</p>
             
-            {# Meta Data #}
             <div class="flex flex-wrap items-center text-gray-500 text-sm space-x-6">
                 <span class="flex items-center font-medium"><i class="fas fa-user-tie mr-2 text-indigo-500"></i> Instructor: <span class="text-gray-700 ml-1 hover:text-indigo-600">{{ course.instructor.get_full_name|default:course.instructor.email }}</span></span>
                 <span class="flex items-center"><i class="fas fa-clock mr-2 text-blue-500"></i> Last updated: <span class="text-gray-700 ml-1">{{ course.updated_at|date:"F j, Y" }}</span></span>
@@ -32,7 +31,6 @@
                 <i class="fas fa-tag mr-2"></i> {% if course.price %}{{ course.price }}{% else %}FREE{% endif %}
             </div>
 
-            {# Enrollment/Management Button #}
             {% if request.user.is_instructor and course.instructor == request.user %}
                 <div class="flex space-x-2 w-full justify-start md:justify-end">
                     <button onclick="loadModalForm('{% url 'course_update' slug=course.slug %}', 'Edit Course Details')" class="bg-blue-600 text-white py-2 px-4 rounded-full hover:bg-blue-700 transition duration-300 flex items-center shadow-lg hover:shadow-xl font-medium w-full md:w-auto justify-center">
@@ -128,7 +126,7 @@
                             {% if module.is_accessible %}
                                 <div class="p-5 pt-0">
                                     {% if module.description %}
-                                        <p class="text-gray-600 italic mb-4 mt-2 border-l-4 border-indigo-200 pl-3 text-sm">{{ module.description }}</p>
+                                        <p class="text-gray-600 italic mb-4 mt-2 border-l-4 border-indigo-200 pl-3 text-sm">{{ module.description|safe }}</p>
                                     {% endif %}
 
                                     {% if module.lessons %}
@@ -269,9 +267,15 @@
 
                     {# Action Buttons #}
                     <div class="flex flex-col space-y-3">
+
+                        {% if enrollment.has_certificate %}
+                            {# Certificate already claimed #}
+                            <span class="bg-green-100 text-green-700 py-3 px-5 rounded-full flex items-center justify-center font-bold w-full text-center">
+                                <i class="fas fa-medal mr-2"></i> Certificate Claimed
+                            </span>
                         
-                        {% if enrollment.can_claim_certificate %}
-                            {# State 1: FULLY COMPLETED (Content + Quiz Passed or No Quiz) #}
+                        {% elif enrollment.can_claim_certificate %}
+                            {# State 1: FULLY COMPLETED (Content & Survey Completed + Quiz Passed or No Quiz) #}
                             <button onclick="showConfirmationModal('{% url 'issue_certificate' course_slug=course.slug %}', 'Claim Certificate', 'Are you sure you want to issue your certificate? This will be finalized.')"
                                     class="bg-green-600 text-white py-3 px-5 rounded-full hover:bg-green-700 transition duration-300 flex items-center justify-center font-bold shadow-lg w-full transform hover:scale-[1.01]">
                                 <i class="fas fa-medal mr-2"></i> Claim Certificate
@@ -290,13 +294,12 @@
                                 <i class="fas fa-play-circle mr-2"></i> Start Final Assessment
                             </a>
                         
-                        {% elif not course_quiz and enrollment.is_content_completed %}
-                            {# State 4: NO QUIZ REQUIRED (Content is 100%) #}
-                            <button onclick="showConfirmationModal('{% url 'issue_certificate' course_slug=course.slug %}', 'Claim Certificate', 'Are you sure you want to issue your certificate? This course requires no final quiz.')"
-                                    class="bg-green-600 text-white py-3 px-5 rounded-full hover:bg-green-700 transition duration-300 flex items-center justify-center font-bold shadow-lg w-full transform hover:scale-[1.01]">
-                                <i class="fas fa-medal mr-2"></i> Claim Certificate
-                            </button>
-                        
+                        {% elif enrollment.is_content_completed and not enrollment.has_completed_survey and not enrollment.can_claim_certificate %}
+                            <a href="{% url 'course_evaluation' course_slug=course.slug %}" 
+                            class="bg-yellow-600 text-white py-3 px-5 rounded-full hover:bg-yellow-700 transition duration-300 flex items-center justify-center font-bold shadow-lg w-full transform hover:scale-[1.01]">
+                                <i class="fas fa-clipboard-list mr-2"></i> Course Survey (Required)
+                            </a>
+                                          
                         {% else %}
                             {# State 5: LOCKED (Need Content) #}
                             <span class="bg-gray-200 text-gray-700 py-3 px-5 rounded-full flex items-center justify-center cursor-not-allowed font-bold shadow-md w-full">
@@ -398,63 +401,10 @@
 
 {% block extra_scripts %}
 <script>
-    // Star rating JavaScript for the review section
     document.addEventListener('DOMContentLoaded', function () {
-    const stars = document.querySelectorAll('.star-rating i');
-    const ratingInput = document.getElementById('rating-value');
-    let selectedRating = 0;
-
-    // Initialize selected rating if a previous submission failed or for pre-filled forms
-    if (ratingInput.value) {
-        selectedRating = parseInt(ratingInput.value);
-        highlightStars(selectedRating, true);
-    }
-
-
-    stars.forEach(star => {
-        // Hover effect
-        star.addEventListener('mouseenter', () => {
-        const value = parseInt(star.getAttribute('data-value'));
-        highlightStars(value, false);
-        });
-
-        // Reset hover when leaving container
-        star.parentElement.addEventListener('mouseleave', () => {
-        highlightStars(selectedRating, true);
-        });
-
-        // Click to select rating
-        star.addEventListener('click', () => {
-        selectedRating = parseInt(star.getAttribute('data-value'));
-        ratingInput.value = selectedRating;
-        highlightStars(selectedRating, true);
-        });
-    });
-
-    function highlightStars(count, isFinalSelection) {
-        stars.forEach(star => {
-        if (parseInt(star.getAttribute('data-value')) <= count) {
-            star.classList.remove('far'); // Outline star
-            star.classList.add('fas'); // Solid star
-            if (isFinalSelection) {
-                star.classList.add('text-yellow-500'); // Ensure color is applied on click
-            }
-        } else {
-            star.classList.remove('fas');
-            star.classList.add('far');
-            star.classList.remove('text-yellow-500');
+        if (window.initStarRating && document.getElementById('rating-value')) {
+            window.initStarRating();
         }
-        // Apply hover style (lighter yellow) during hover/reset
-        if (!isFinalSelection) {
-            star.classList.toggle('text-yellow-400', parseInt(star.getAttribute('data-value')) <= count);
-            star.classList.toggle('text-yellow-500', parseInt(star.getAttribute('data-value')) <= selectedRating);
-        } else {
-             star.classList.remove('text-yellow-400');
-             star.classList.toggle('text-yellow-500', parseInt(star.getAttribute('data-value')) <= count);
-        }
-        });
-    }
     });
-
 </script>
 {% endblock %}

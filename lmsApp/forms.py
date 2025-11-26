@@ -1,12 +1,10 @@
 from django import forms
 from django.contrib.auth.forms import UserChangeForm
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout, Submit, Field, HTML, Row, Column
+from crispy_forms.layout import Layout, Submit, Field
 from .models import *
-from django.forms import inlineformset_factory, BaseInlineFormSet
-from django.contrib.auth.models import Group, Permission
-from django.contrib.contenttypes.models import ContentType
-
+from django.forms import inlineformset_factory, BaseInlineFormSet, widgets, IntegerField, Textarea
+from django_ckeditor_5.widgets import CKEditor5Widget
 
 class InstructorCreationForm(forms.ModelForm):
     class Meta:
@@ -71,7 +69,7 @@ class CourseForm(forms.ModelForm):
         model = Course
         fields = ['title', 'description', 'category', 'instructor', 'price', 'is_published', 'thumbnail', 'tags']
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 4}),
+            'description': CKEditor5Widget(config_name='default', attrs={'data-type': 'ckeditor'}),
             'tags': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
 
@@ -87,7 +85,7 @@ class ModuleForm(forms.ModelForm):
         model = Module
         fields = ['title', 'description', 'order']
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 3}),
+            'description': CKEditor5Widget(config_name='default', attrs={'data-type': 'ckeditor'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -105,7 +103,7 @@ class LessonForm(forms.ModelForm):
         model = Lesson
         fields = ['title', 'description', 'order']
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 3}),
+            'description': CKEditor5Widget(config_name='default', attrs={'data-type': 'ckeditor'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -152,7 +150,7 @@ class QuizDetailsForm(forms.ModelForm):
         model = Quiz
         fields = ['title', 'description', 'pass_percentage', 'max_attempts', 'allow_multiple_correct']
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 4}),
+            'description': CKEditor5Widget(config_name='default', attrs={'data-type': 'ckeditor'}),
         }
 
 class OptionForm(forms.ModelForm):
@@ -389,11 +387,7 @@ class SupportTicketForm(forms.ModelForm):
                 'class': 'w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
                 'placeholder': 'Enter a brief subject'
             }),
-            'description': forms.Textarea(attrs={
-                'class': 'w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
-                'rows': 5,
-                'placeholder': 'Describe your issue in detail'
-            }),
+            'description': CKEditor5Widget(config_name='default'),
         }
 
 
@@ -416,3 +410,53 @@ class PreferenceForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ['department']
+
+
+class CourseEvaluationForm(forms.ModelForm):
+    # Standard choice list for 1-5 ratings
+    RATING_CHOICES = [(i, i) for i in range(1, 6)]
+    SELECT_WIDGET = widgets.Select(attrs={'class': 'w-full p-2 border rounded shadow-sm'})
+    TEXTAREA_WIDGET = Textarea(attrs={'rows': 4, 'class': 'w-full p-2 border rounded shadow-sm'})
+
+    career_relevance_rating = IntegerField(
+        label="1. How relevant is this course to your current career path? (1=Low, 5=High)",
+        widget=widgets.Select(choices=RATING_CHOICES, attrs={'class': 'w-full p-2 border rounded shadow-sm'})
+    )
+    course_quality_rating = IntegerField(
+        label="2. How would you rate the overall quality of the content? (1=Poor, 5=Excellent)",
+        widget=widgets.Select(choices=RATING_CHOICES, attrs={'class': 'w-full p-2 border rounded shadow-sm'})
+    )
+    instructor_effectiveness_rating = IntegerField(
+        label="3. Instructor Effectiveness (1=Poor, 5=Excellent)",
+        widget=widgets.Select(choices=RATING_CHOICES, attrs={'class': 'w-full p-2 border rounded shadow-sm'})
+    )
+    course_structure_rating = IntegerField(
+        label="4. Course Structure & Organization (1=Poor, 5=Excellent)",
+        widget=widgets.Select(choices=RATING_CHOICES, attrs={'class': 'w-full p-2 border rounded shadow-sm'})
+    )
+    actionable_feedback = forms.CharField(
+        label="5. How do you plan to apply this learning in your daily job responsibilities? (Required for Appraisal)",
+        widget=Textarea(attrs={'rows': 4, 'class': 'w-full p-2 border rounded shadow-sm'})
+    )
+    liked_most = forms.CharField(
+        label="6. What specific aspects of the course did you like most?",
+        required=False,
+        widget=TEXTAREA_WIDGET
+    )
+    improvement_suggestions = forms.CharField(
+        label="7. Suggestions for Improvement (Content, delivery, or structure)",
+        required=False,
+        widget=TEXTAREA_WIDGET
+    )
+
+    class Meta:
+        model = CourseEvaluation
+        fields = [
+            'career_relevance_rating', 
+            'course_quality_rating',
+            'instructor_effectiveness_rating',
+            'course_structure_rating',
+            'actionable_feedback',
+            'liked_most',
+            'improvement_suggestions',
+        ]

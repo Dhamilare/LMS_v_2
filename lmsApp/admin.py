@@ -2,6 +2,54 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import *
 from django.db.models import Count
+from django_ckeditor_5.widgets import CKEditor5Widget
+from django import forms
+
+
+# ==========================
+# CKEditor5 Admin Integration
+# ==========================
+class CourseAdminForm(forms.ModelForm):
+    class Meta:
+        model = Course
+        fields = '__all__'
+        widgets = {
+            'description': CKEditor5Widget(config_name='default'),
+        }
+
+class ModuleAdminForm(forms.ModelForm):
+    class Meta:
+        model = Module
+        fields = '__all__'
+        widgets = {
+            'description': CKEditor5Widget(config_name='default'),
+        }
+
+class LessonAdminForm(forms.ModelForm):
+    class Meta:
+        model = Lesson
+        fields = '__all__'
+        widgets = {
+            'description': CKEditor5Widget(config_name='default'),
+        }
+
+class QuizAdminForm(forms.ModelForm):
+    class Meta:
+        model = Quiz
+        fields = '__all__'
+        widgets = {
+            'description': CKEditor5Widget(config_name='default'),
+        }
+
+class SupportTicketAdminForm(forms.ModelForm):
+    class Meta:
+        model = SupportTicket
+        fields = '__all__'
+        widgets = {
+            'description': CKEditor5Widget(config_name='default'),
+        }
+
+
 
 # Custom User Admin
 @admin.register(User)
@@ -64,6 +112,7 @@ class QuestionInline(admin.StackedInline):
 
 @admin.register(Quiz)
 class QuizAdmin(admin.ModelAdmin):
+    form = QuizAdminForm
     list_display = ('title', 'course_link', 'pass_percentage', 'max_attempts', 'allow_multiple_correct', 'created_at')
     list_filter = ('course__title', 'pass_percentage', 'max_attempts', 'allow_multiple_correct')
     search_fields = ('title', 'description', 'course__title')
@@ -95,6 +144,7 @@ class QuestionAdmin(admin.ModelAdmin):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
+    form = CourseAdminForm
     list_display = ('title', 'category', 'instructor', 'price', 'is_published', 'created_at')
     list_filter = ('is_published', 'instructor')
     search_fields = ('title', 'category', 'description', 'instructor__email', 'instructor__first_name', 'instructor__last_name')
@@ -109,6 +159,7 @@ class LessonInline(admin.StackedInline):
 
 @admin.register(Module)
 class ModuleAdmin(admin.ModelAdmin):
+    form = ModuleAdminForm
     list_display = ('title', 'course', 'order')
     list_filter = ('course',)
     search_fields = ('title', 'description', 'course__title')
@@ -123,6 +174,7 @@ class ContentInline(admin.StackedInline):
 
 @admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
+    form = LessonAdminForm
     list_display = ('title', 'module', 'order')
     list_filter = ('module__course', 'module')
     search_fields = ('title', 'description', 'module__title', 'module__course__title')
@@ -181,6 +233,7 @@ class RatingAdmin(admin.ModelAdmin):
 
 @admin.register(SupportTicket)
 class SupportTicketAdmin(admin.ModelAdmin):
+    form = SupportTicketAdminForm
     list_display = ('id', 'subject', 'student', 'status', 'resolution_note', 'created_at')
     list_filter = ('status', 'created_at')
     search_fields = ('subject', 'description', 'student__email', 'student__first_name', 'student__last_name')
@@ -214,3 +267,76 @@ class TagAdmin(admin.ModelAdmin):
     def course_count(self, obj):
         return obj.course_count
     course_count.short_description = "Courses Using Tag"
+
+
+
+@admin.register(CourseEvaluation)
+class CourseEvaluationAdmin(admin.ModelAdmin):
+    """
+    Admin interface for reviewing mandatory course evaluations for appraisal.
+    All fields are read-only to preserve the integrity of the student's submission.
+    """
+    
+    # Columns shown in the main list view
+    list_display = (
+        'get_student_full_name',
+        'get_course_title',
+        'get_department',
+        'career_relevance_rating',
+        'course_quality_rating',
+        'submitted_at',
+    )
+    
+    # Filters available on the right sidebar
+    list_filter = (
+        'enrollment__course', 
+        'enrollment__student__department',
+        'submitted_at',
+    )
+    
+    # Fields that can be searched
+    search_fields = (
+        'enrollment__student__first_name',
+        'enrollment__student__last_name',
+        'enrollment__student__email',
+        'enrollment__course__title',
+    )
+    
+    ordering = ('-submitted_at',)
+    
+    fieldsets = (
+        (None, {
+            'fields': ('enrollment', 'submitted_at')
+        }),
+        ('Ratings (1-5)', {
+            'fields': ('career_relevance_rating', 'course_quality_rating', 'instructor_effectiveness_rating', 'course_structure_rating')
+        }),
+        ('Open Feedback (Qualitative)', {
+            'fields': ('actionable_feedback', 'liked_most', 'improvement_suggestions')
+        }),
+    )
+    
+    # --- Custom Methods for List Display ---
+    
+    def get_student_full_name(self, obj):
+        return obj.enrollment.student.get_full_name() or obj.enrollment.student.email
+    get_student_full_name.short_description = 'Student'
+    
+    def get_course_title(self, obj):
+        return obj.enrollment.course.title
+    get_course_title.short_description = 'Course'
+
+    def get_department(self, obj):
+        return obj.enrollment.student.department or 'N/A'
+    get_department.short_description = 'Department'
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser # Only superuser can delete evaluations
+
+    def get_readonly_fields(self, request, obj=None):
+        return [field.name for field in self.model._meta.fields]
+    
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False

@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Course Feedback Reports{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 sm:p-8 rounded-lg shadow-lg max-w-7xl mx-auto my-6 sm:my-8">
+    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
+        <i class="fas fa-comments mr-2 sm:mr-3 text-purple-600"></i> Course Evaluation & Feedback Analysis
+    </h2>
+
+    <p class="text-gray-600 text-base sm:text-lg mb-6">Comprehensive view of all student evaluations and feedback submitted across the platform.</p>
+
+    {# ========================================================================= #}
+    {# 1. KPI Summary Cards (Average Ratings) #}
+    {# ========================================================================= #}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-purple-50 p-4 rounded-xl shadow-md border border-purple-200">
+            <p class="text-sm text-purple-600">Total Submissions</p>
+            <h3 class="text-2xl font-bold text-purple-900 mt-1">{{ total_submissions }}</h3>
+        </div>
+
+        <div class="bg-indigo-50 p-4 rounded-xl shadow-md border border-indigo-200">
+            <p class="text-sm text-indigo-600">Avg. Career Relevance</p>
+            <h3 class="text-2xl font-bold text-indigo-900 mt-1">{{ overall_ratings.avg_relevance|floatformat:1 }} / 5</h3>
+        </div>
+
+        <div class="bg-blue-50 p-4 rounded-xl shadow-md border border-blue-200">
+            <p class="text-sm text-blue-600">Avg. Content Quality</p>
+            <h3 class="text-2xl font-bold text-blue-900 mt-1">{{ overall_ratings.avg_quality|floatformat:1 }} / 5</h3>
+        </div>
+
+        <div class="bg-green-50 p-4 rounded-xl shadow-md border border-green-200">
+            <p class="text-sm text-green-600">Avg. Instructor Effectiveness</p>
+            <h3 class="text-2xl font-bold text-green-900 mt-1">{{ overall_ratings.avg_instructor|floatformat:1 }} / 5</h3>
+        </div>
+    </div>
+    
+    {# New Row for the two extra ratings #}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-lg">
+        <div class="bg-gray-100 p-4 rounded-xl shadow-md border border-gray-300">
+            <p class="text-sm text-gray-600">Avg. Structure & Organization</p>
+            <h3 class="text-2xl font-bold text-gray-900 mt-1">{{ overall_ratings.avg_structure|floatformat:1 }} / 5</h3>
+        </div>
+    </div>
+
+
+    {# ========================================================================= #}
+    {# 2. Filter Form #}
+    {# ========================================================================= #}
+    <form method="GET" action="{% url 'hr_course_feedback' %}" class="bg-gray-100 p-4 rounded-lg shadow-inner mb-8 space-y-4 max-w-full">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            
+            {# --- Search Query --- #}
+            <div class="sm:col-span-3">
+                <label for="id_q" class="block text-sm font-medium text-gray-700">Search Student, Course, or Feedback (Comments)</label>
+                <input type="search" name="q" id="id_q" value="{{ search_query }}"
+                       class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm"
+                       placeholder="e.g., John Doe, Digital Marketing, great course structure...">
+            </div>
+
+            <div class="sm:col-span-3 flex justify-end">
+                <a href="{% url 'hr_course_feedback' %}" class="inline-block text-sm text-gray-500 hover:text-red-600 mr-4 self-center">
+                    <i class="fas fa-times-circle mr-1"></i> Clear Filters
+                </a>
+                <button type="submit" class="w-full sm:w-auto bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-200 shadow-md">
+                    <i class="fas fa-search mr-2"></i> Apply Search
+                </button>
+            </div>
+        </div>
+    </form>
+    
+    <!-- Results Table -->
+    <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student / Dept.</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course / Instructor</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Relevance (5)</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Quality (5)</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted On</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Application Feedback</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Full Details</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for evaluation in page_obj %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {{ evaluation.enrollment.student.get_full_name|default:evaluation.enrollment.student.email }}
+                        <div class="text-xs text-gray-500">{{ evaluation.enrollment.student.department|default:"N/A" }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {{ evaluation.enrollment.course.title }}
+                        <div class="text-xs text-gray-500">Instructor: {{ evaluation.enrollment.course.instructor.get_full_name|default:evaluation.enrollment.course.instructor.email }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        <span class="text-lg font-bold text-green-700">{{ evaluation.career_relevance_rating }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        <span class="text-lg font-bold text-blue-700">{{ evaluation.course_quality_rating }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center">
+                        {{ evaluation.submitted_at|date:"M d, Y" }}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600 max-w-sm overflow-hidden text-ellipsis">
+                        {{ evaluation.actionable_feedback|truncatechars:100 }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        {# CRITICAL FIX: Use |escapejs to pass multi-line text securely into the JS function #}
+                        <button onclick='showEvaluationDetails(
+                                "{{ evaluation.enrollment.student.get_full_name|default:evaluation.enrollment.student.email }}",
+                                "{{ evaluation.enrollment.course.title|escapejs }}",
+                                "{{ evaluation.career_relevance_rating }}",
+                                "{{ evaluation.course_quality_rating }}",
+                                "{{ evaluation.instructor_effectiveness_rating|default_if_none:"N/A" }}",
+                                "{{ evaluation.course_structure_rating|default_if_none:"N/A" }}",
+                                "{{ evaluation.actionable_feedback|escapejs }}",
+                                "{{ evaluation.liked_most|escapejs }}",
+                                "{{ evaluation.improvement_suggestions|escapejs }}"
+                            )' 
+                                class="text-indigo-600 hover:underline text-xs font-medium">
+                            View Details
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-6 py-10 text-center text-lg text-gray-500">
+                        No course evaluations found matching your criteria.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+        <div class="mt-6 flex justify-center">
+            {% include 'includes/pagination.html' with page_obj=page_obj page_param='page' %}
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+    // --- JavaScript Detail Modal Logic ---
+    
+    function showEvaluationDetails(studentName, courseTitle, rel, qual, instr, struct, feedback, liked, suggestions) {
+        
+        // Ensure null/None values are presented cleanly
+        const formatText = (text) => text.trim() === 'None' || text.trim() === '' || text.trim() === 'null' ? 'N/A' : text;
+        const formatRating = (rating) => {
+            const val = formatText(rating);
+            if (val === 'N/A') return 'N/A';
+            return `<span class="text-yellow-500">${val} / 5</span>`;
+        };
+
+
+        const modalContent = `
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Evaluation Details: ${courseTitle}</h3>
+            <div class="space-y-4 p-4 bg-gray-50 rounded-lg border">
+                
+                <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">Quantitative Ratings</h4>
+                
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-semibold text-gray-700">1. Relevance to Career Growth (5):</span>
+                    <span class="text-green-600 font-bold">${formatRating(rel)}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-semibold text-gray-700">2. Course Content Quality (5):</span>
+                    <span class="text-blue-600 font-bold">${formatRating(qual)}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-semibold text-gray-700">3. Instructor Effectiveness (5):</span>
+                    <span class="text-gray-800 font-bold">${formatRating(instr)}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-semibold text-gray-700">4. Structure & Organization (5):</span>
+                    <span class="text-gray-800 font-bold">${formatRating(struct)}</span>
+                </div>
+                
+                <h4 class="text-lg font-semibold text-gray-800 pt-3 border-t">Qualitative Feedback</h4>
+                
+                <p class="font-medium text-gray-700">5. Application to Job Role (Actionable Feedback):</p>
+                <div class="p-3 bg-white border rounded text-sm whitespace-pre-wrap">${formatText(feedback)}</div>
+                
+                <p class="font-medium text-gray-700">6. What did you like most?</p>
+                <div class="p-3 bg-white border rounded text-sm whitespace-pre-wrap">${formatText(liked)}</div>
+
+                <p class="font-medium text-gray-700">7. Suggestions for Improvement:</p>
+                <div class="p-3 bg-white border rounded text-sm whitespace-pre-wrap">${formatText(suggestions)}</div>
+            </div>
+        `;
+        
+        
+        // Set the modal title and body
+        const modalTitle = document.getElementById('form-modal-title');
+        const modalBody = document.getElementById('form-modal-body');
+
+        if (modalTitle && modalBody) {
+            modalTitle.textContent = `Evaluation Review: ${studentName}`;
+            modalBody.innerHTML = modalContent;
+            window.openModal(); 
+            
+            const confirmButton = document.getElementById('confirm-modal-action-button');
+            if (confirmButton) {
+                confirmButton.textContent = 'Close Review';
+                confirmButton.onclick = window.closeModal; 
+                confirmButton.classList.remove('bg-red-600', 'hover:bg-red-700');
+                confirmButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+            }
+        }
+    }
+    window.showEvaluationDetails = showEvaluationDetails;
+
+</script>
+{% endblock %}

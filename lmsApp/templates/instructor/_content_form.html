@@ -13,7 +13,7 @@
                   {% endif %}" 
           class="space-y-4">
         {% csrf_token %}
-
+        {{ form.media }}
         {{ form|crispy }}
 
         <div class="mt-6 flex justify-end space-x-3">

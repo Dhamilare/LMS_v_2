@@ -8,7 +8,10 @@ from django.db.models import Sum
 from django.core.validators import MinValueValidator, MaxValueValidator
 import random
 import string
+from django_ckeditor_5.fields import CKEditor5Field
 from django.utils.translation import gettext_lazy as _
+from django.db.models import Q
+
 
 
 class Tag(models.Model):
@@ -109,7 +112,7 @@ class Course(models.Model):
     ]
 
     title = models.CharField(max_length=200)
-    description = models.TextField()
+    description = CKEditor5Field(config_name='default')
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='beginner')
     instructor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='courses_taught', limit_choices_to={'is_instructor': True})
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -166,7 +169,7 @@ class Module(models.Model):
     """
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='modules')
     title = models.CharField(max_length=200)
-    description = models.TextField(blank=True, null=True)
+    description = CKEditor5Field(config_name='default')
     order = models.PositiveIntegerField(default=0, help_text="Order of the module within the course.")
 
     def __str__(self):
@@ -200,7 +203,7 @@ class Lesson(models.Model):
     """
     module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name='lessons')
     title = models.CharField(max_length=200)
-    description = models.TextField(blank=True, null=True)
+    description = CKEditor5Field(config_name='default')
     order = models.PositiveIntegerField(default=0, help_text="Order of the lesson within the module.")
 
     def __str__(self):
@@ -293,6 +296,15 @@ class Enrollment(models.Model):
     enrolled_at = models.DateTimeField(auto_now_add=True)
     completed = models.BooleanField(default=False) 
     completed_at = models.DateTimeField(null=True, blank=True)
+    has_completed_survey = models.BooleanField(default=False)
+    assigned_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_enrollments',
+        limit_choices_to=~Q(is_student=True)
+    )
 
     class Meta:
         unique_together = ('student', 'course')
@@ -380,7 +392,7 @@ class Enrollment(models.Model):
     @property
     def can_claim_certificate(self):
         """Checks if the student can claim a certificate for this enrollment."""
-        return self.completed and not self.has_certificate
+        return self.completed and self.has_completed_survey and not self.has_certificate
 
 
 class StudentContentProgress(models.Model):
@@ -431,7 +443,7 @@ class Quiz(models.Model):
                                     help_text="The course this quiz is the main assessment for.")
     title = models.CharField(max_length=255)
     allow_multiple_correct = models.BooleanField(default=False)
-    description = models.TextField(blank=True, null=True)
+    description = CKEditor5Field(config_name='default')
     pass_percentage = models.PositiveIntegerField(default=70)
     max_attempts = models.PositiveIntegerField(default=3, help_text="Maximum number of attempts allowed for this quiz.")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -598,7 +610,7 @@ class SupportTicket(models.Model):
 
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='support_tickets')
     subject = models.CharField(max_length=200)
-    description = models.TextField()
+    description = CKEditor5Field(config_name='default')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     resolution_note = models.TextField(verbose_name="Resolution Note", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -628,3 +640,33 @@ class SupportTicket(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+
+
+class CourseEvaluation(models.Model):
+    enrollment = models.OneToOneField(Enrollment, on_delete=models.CASCADE, related_name='evaluation')
+    
+    # Ratings (1–5)
+    career_relevance_rating = models.IntegerField(
+        choices=[(i, i) for i in range(1, 6)], verbose_name="1. Relevance to Career Growth"
+    )
+    course_quality_rating = models.IntegerField(
+        choices=[(i, i) for i in range(1, 6)], verbose_name="2. Course Content Quality"
+    )
+    instructor_effectiveness_rating = models.IntegerField(
+        choices=[(i, i) for i in range(1, 6)], verbose_name="3. Instructor Effectiveness", null=True, blank=True
+    )
+    course_structure_rating = models.IntegerField(
+        choices=[(i, i) for i in range(1, 6)], verbose_name="4. Course Structure & Organization", null=True, blank=True
+    )
+    
+    # Open-text feedback
+    actionable_feedback = models.TextField(
+        verbose_name="5. How will you apply this learning to your job role?"
+    )
+    liked_most = models.TextField(verbose_name="6. What did you like most?", null=True, blank=True)
+    improvement_suggestions = models.TextField(verbose_name="7. Suggestions for Improvement", null=True, blank=True)
+    
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Evaluation for {self.enrollment.course.title} by {self.enrollment.student.email}"

@@ -4,13 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assignment Confirmation</title>
+    <!-- Google Font: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* Basic email resets and modern font import */
+        /* Base email resets and modern font import */
         body, table, td, a { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
         table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
         img { -ms-interpolation-mode: bicubic; }
         body { margin: 0; padding: 0; width: 100% !important; font-family: 'Inter', Arial, sans-serif; }
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
 
         /* Main container styles */
         .container {
@@ -19,6 +22,7 @@
             margin: 0 auto;
             background-color: #ffffff;
             border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             overflow: hidden;
             border: 1px solid #e5e7eb; /* tailwind: border border-gray-200 */
         }
@@ -54,7 +58,7 @@
         .button {
             display: inline-block;
             background-color: #2563eb; /* tailwind: bg-blue-600 */
-            color: #ffffff !important; /* !important for email client compatibility */
+            color: #ffffff !important; 
             padding: 12px 24px;
             border-radius: 6px;
             text-decoration: none;
@@ -87,6 +91,7 @@
         }
         .details-box p {
             margin: 8px 0;
+            font-size: 15px;
         }
     </style>
 </head>
@@ -101,7 +106,7 @@
                     <!-- Header -->
                     <tr>
                         <td class="header" style="background-color: #111827; color: #ffffff; padding: 24px 32px; text-align: left;">
-                            <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #ffffff;">Ha-Shem LMS</h1>
+                            <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #ffffff;">Assignment Confirmation</h1>
                         </td>
                     </tr>
 
@@ -111,76 +116,63 @@
                             <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
                                 <tr>
                                     <td>
-                        <h2 style="font-size: 20px; font-weight: 600; color: #111827; margin-top: 0;">Assignment Confirmation</h2>
-                        
-                        <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 16px 0;">
-                            Hello {{ instructor_name|default:'Instructor' }},
-                        </p>
-                        <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 16px 0;">
-                            This is a confirmation that the following course has been successfully assigned:
-                        </p>
+                                        <h2 style="font-size: 20px; font-weight: 600; color: #111827; margin-top: 0;">Hello {{ assigner_name|default:'Assigner' }},</h2>
+                                        
+                                        <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 16px 0;">
+                                            This is a confirmation that the following course was successfully assigned by you on {{ assignment_date }}:
+                                        </p>
 
-                        <!-- Details Box -->
-                        <table class="details-box" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin-top: 24px; margin-bottom: 24px;">
-                            <tr>
-                                <td style="padding: 8px 0;">
-                                    <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 0;">
-                                        <strong>Course:</strong> {{ course_title }}
-                                    </p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0;">
-                                    <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 0;">
-                                        <strong>Student:</strong> {{ student_name }}
-                                    </p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0;">
-                                    <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 0;">
-                                        <strong>Date:</strong> {{ assignment_date }}
-                                    </p>
-                                </td>
-                            </tr>
-                        </table>
+                                        <!-- Details Box -->
+                                        <table class="details-box" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin-top: 24px; margin-bottom: 24px;">
+                                            <tr>
+                                                <td style="padding: 8px 0;">
+                                                    <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 0;">
+                                                        <strong>Course:</strong> {{ course_title }}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0;">
+                                                    <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 0;">
+                                                        <strong>Student:</strong> {{ student_name }}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0;">
+                                                    <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 0;">
+                                                        <strong>Assigned By Role:</strong> 
+                                                        <span style="font-weight: 700; color: #4F46E5;">{{ assigned_by_role|default:'System Admin' }}</span>
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
 
-                        <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 16px 0;">
-                            You can view the student's progress from your instructor dashboard.
-                        </p>
-                        
-                        <!-- Button -->
-                        <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-top: 24px; margin-bottom: 24px;">
-                            <tr>
-                                <td align="left">
-                                    <a href="{{ protocol }}://{{ domain }}{% url 'dashboard' %}" target="_blank" class="button" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 16px;">
-                                        Go to Your Dashboard
-                                    </a>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-
-    <!-- Footer -->
-    <tr>
-        <td class="footer" style="padding: 32px; text-align: center; font-size: 12px; color: #6b7280; background-color: #f9fafb; border-top: 1px solid #e5e7eb;">
-            <p style="font-size: 12px; line-height: 1.6; color: #6b7280; margin: 0 0 8px 0;">
-                &copy; {{ current_year|default:2024 }} Ha-Shem LMS. All rights reserved.
-            </p>
-            <p style="font-size: 12px; line-height: 1.6; color: #6b7280; margin: 0;">
-                This is an automated notification. Please do not reply.
-            </p>
-        </td>
-    </tr>
-
-</table>
-<!-- End Main Email Container -->
-</td>
-</tr>
-</table>
+                                        <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 16px 0;">
+                                            You can view the student's progress and manage assignments from your dashboard.
+                                        </p>
+                                        
+                                        <!-- Button -->
+                                        <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-top: 24px; margin-bottom: 24px;">
+                                            <tr>
+                                                <td align="left">
+                                                    <a href="{{ protocol }}://{{ domain }}{% url 'assign_course_page' %}" target="_blank" class="button" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 16px;">
+                                                        Go to Your Dashboard
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <p style="margin-bottom: 0;">Thank you,<br>The LMS Team</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+                <!-- End Main Email Container -->
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

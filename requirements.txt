@@ -15,6 +15,7 @@ cssselect2==0.8.0
 defusedxml==0.7.1
 dj-database-url==3.0.1
 Django==5.2.4
+django-ckeditor-5==0.2.18
 django-crispy-forms==2.4
 django-rest-auth==0.9.5
 django-storages==1.14.6

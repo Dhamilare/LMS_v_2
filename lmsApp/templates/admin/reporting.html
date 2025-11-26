@@ -4,7 +4,7 @@
 {% block title %}Audit Logs & Reports{% endblock %}
 
 {% block content %}
-<div class="bg-gray-50 min-h-screen font-inter text-gray-800 py-8">
+<div class="bg-gray-50 min-h-screen text-gray-800 py-8">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
 
         <header class="text-center mb-12">
@@ -123,9 +123,8 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed On</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <!-- New table header for assessment status -->
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessment</th>
-                            <!-- New table header for certificate status -->
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Certificate</th>
                         </tr>
                     </thead>
@@ -189,7 +188,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const completionLabels = getJsonData('completion-labels');
     const completionData = getJsonData('completion-data');
     
-    
     // Get all detailed logs from the JSON script
     const allDetailedLogs = getJsonData('detailed-logs');
 
@@ -231,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-   
+    
     // --- JavaScript Pagination & Search Logic ---
     const tableBody = document.getElementById('detailed-logs-body');
     const searchInput = document.getElementById('log-search');
@@ -243,6 +241,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const nextButton = document.getElementById('next-page');
     const pageNumbersContainer = document.getElementById('page-numbers');
 
+    // Function to truncate text and create a tooltip/modal button
+    function formatComment(comment) {
+        if (!comment) return 'N/A';
+        const maxLength = 30;
+        if (comment.length > maxLength) {
+            const shortComment = comment.substring(0, maxLength) + '...';
+            // Use a confirmation modal call for the full comment display
+            return `
+                <button onclick="showConfirmationModal(null, 'Full Review Comment', '${comment.replace(/'/g, "\\'")}', 'bg-indigo-600')"
+                        class="text-xs text-indigo-600 hover:underline">
+                    ${shortComment}
+                </button>`;
+        }
+        return comment;
+    }
+
+
     // Function to render the table rows from the filtered data
     function renderTable() {
         tableBody.innerHTML = '';
@@ -252,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (paginatedLogs.length === 0) {
             const noDataRow = document.createElement('tr');
-            noDataRow.innerHTML = `<td colspan="10" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+            noDataRow.innerHTML = `<td colspan="11" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
                 No enrollment data available.
             </td>`;
             tableBody.appendChild(noDataRow);
@@ -279,7 +294,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${start + index + 1}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm font-medium text-gray-900">
-                            ${log.student_first_name || log.student_last_name ? log.student_first_name + ' ' + log.student_last_name : log.student_username}
+                            ${log.student_first_name || log.student_last_name ? log.student_first_name + ' ' + log.student_last_name : log.student_email}
                         </div>
                         <div class="text-sm text-gray-500">${log.student_email}</div>
                     </td>
@@ -304,8 +319,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span class="text-yellow-500 font-bold">${log.rating}</span>
+                        <div class="text-xs text-gray-500">
+                            ${formatComment(log.comment)}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         ${log.certificate_link && log.certificate_link !== '#' ? 
-                            `<a href="#" class="text-indigo-600 hover:underline flex items-center">${log.certificate_status} <i class="fas fa-external-link-alt ml-1 text-xs"></i></a>` :
+                            `<a href="${log.certificate_link}" class="text-indigo-600 hover:underline flex items-center">${log.certificate_status} <i class="fas fa-external-link-alt ml-1 text-xs"></i></a>` :
                             `${log.certificate_status}`
                         }
                     </td>
@@ -322,15 +343,9 @@ document.addEventListener('DOMContentLoaded', function() {
             filteredLogs = allDetailedLogs;
         } else {
             filteredLogs = allDetailedLogs.filter(log => {
-                const studentName = (log.student_first_name + ' ' + log.student_last_name + ' ' + log.student_username).toLowerCase();
-                const courseTitle = log.course_title.toLowerCase();
-                const instructorName = log.instructor_name.toLowerCase();
-                const assessmentStatus = log.assessment_status.toLowerCase();
+                const searchString = `${log.student_first_name} ${log.student_last_name} ${log.student_email} ${log.course_title} ${log.instructor_name} ${log.assessment_status} ${log.comment}`.toLowerCase();
 
-                return studentName.includes(query) || 
-                       courseTitle.includes(query) || 
-                       instructorName.includes(query) ||
-                       assessmentStatus.includes(query);
+                return searchString.includes(query);
             });
         }
         currentPage = 1; // Reset to the first page for new search results
@@ -345,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
             prevButton.disabled = currentPage === 1;
         }
         if (nextButton) {
-            nextButton.disabled = currentPage === totalPages;
+            nextButton.disabled = currentPage === totalPages || totalPages === 0;
         }
     }
 
@@ -386,31 +401,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Event listener for the "Previous" button
-    if (prevButton) {
-        prevButton.addEventListener('click', () => {
-            if (currentPage > 1) {
-                currentPage--;
-                renderTable();
-                updateActivePageButton();
-            }
-        });
+    // Event listener for the search input
+    if (searchInput) {
+        searchInput.addEventListener('input', handleSearch);
     }
-
-    // Event listener for the "Next" button
+    if (prevButton) {
+        prevButton.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(); setupPagination(); } });
+    }
     if (nextButton) {
         nextButton.addEventListener('click', () => {
             const totalPages = Math.ceil(filteredLogs.length / rowsPerPage);
-            if (currentPage < totalPages) {
-                currentPage++;
-                renderTable();
-                updateActivePageButton();
-            }
+            if (currentPage < totalPages) { currentPage++; renderTable(); setupPagination(); }
         });
     }
-    
-    // Event listener for the search input
-    searchInput.addEventListener('input', handleSearch);
 
     // Initial setup on page load
     renderTable();

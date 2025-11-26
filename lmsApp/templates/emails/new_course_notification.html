@@ -1,0 +1,22 @@
+<div style="font-family: 'Poppins', sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <div style="background-color: #eef2ff; padding: 25px; text-align: center; border-bottom: 3px solid #4f46e5;">
+        <h2 style="color: #4f46e5; margin: 0; font-size: 26px;">New Course Alert!</h2>
+        <p style="color: #4338ca; margin: 5px 0 0;">Personalized for your department.</p>
+    </div>
+    <div style="padding: 30px; color: #374151;">
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            The course {{ course_title }} has been {{ action_type }} on the LMS platform. As this course aligns with your primary department's needs, we encourage you to enroll and start learning.
+        </p>
+
+        <h3 style="font-size: 18px; color: #4338ca; margin-bottom: 15px;">Course Overview</h3>
+        <p style="margin-bottom: 25px; border-left: 3px solid #ccc; padding-left: 10px;">
+            {{ course_description|truncatechars:150 }}
+        </p>
+        
+        <p style="text-align: center; margin-top: 25px;">
+            <a href="{{ course_url }}" style="display: inline-block; padding: 12px 25px; background-color: #10b981; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-transform: uppercase;">
+                View Course & Enroll
+            </a>
+        </p>
+    </div>
+</div>

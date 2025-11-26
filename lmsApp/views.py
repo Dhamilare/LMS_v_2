@@ -129,6 +129,9 @@ def is_student(user):
 def is_hr(user):
     return user.is_authenticated and user.is_hr
 
+def is_hr_or_instructor(user):
+    return user.is_hr or user.is_instructor
+
 def is_ajax(request):
     return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
@@ -1646,6 +1649,21 @@ def audit_logs(request):
     total_completed_enrollments = Enrollment.objects.filter(completed=True).count()
     total_certificates_issued = Certificate.objects.count()
 
+    rating_subquery = Subquery(
+        Rating.objects.filter(
+            user_id=OuterRef('student_id'),
+            course_id=OuterRef('course_id')
+        ).values('rating')[:1],
+        output_field=models.IntegerField()
+    )
+    comment_subquery = Subquery(
+        Rating.objects.filter(
+            user_id=OuterRef('student_id'),
+            course_id=OuterRef('course_id')
+        ).values('review')[:1],
+        output_field=models.TextField()
+    )
+
     enrollment_by_course_data = (
         Course.objects.annotate(
             enroll_count=Coalesce(Count('enrollments'), 0)
@@ -1700,6 +1718,10 @@ def audit_logs(request):
 
     all_enrollments = (
         Enrollment.objects.select_related('course', 'student', 'course__instructor')
+        .annotate(
+            rating_value=rating_subquery,    
+            review_comment=comment_subquery  
+        )
         .order_by('-enrolled_at')
     )
 
@@ -1730,10 +1752,8 @@ def audit_logs(request):
         detailed_logs.append({
             'student_first_name': enrollment.student.first_name,
             'student_last_name': enrollment.student.last_name,
-            # UPDATED: Use email as the key identifier, not username
             'student_email': enrollment.student.email,
             'course_title': enrollment.course.title,
-            # UPDATED: Use email-safe name
             'instructor_name': enrollment.course.instructor.get_full_name() or enrollment.course.instructor.email,
             'enrolled_at': enrollment.enrolled_at.strftime("%b %d, %Y"),
             'completed_at': enrollment.completed_at.strftime("%b %d, %Y") if enrollment.completed_at else 'N/A',
@@ -1742,6 +1762,8 @@ def audit_logs(request):
             'certificate_status': certificate_status,
             'certificate_link': certificate_link,
             'assessment_status': assessment_status,
+            'rating': enrollment.rating_value if enrollment.rating_value is not None else 'N/A',
+            'comment': enrollment.review_comment or '',
         })
 
     context = {
@@ -2171,7 +2193,7 @@ def course_transcript(request, course_slug):
     return render(request, 'student/course_transcript.html', context)
 
 
-@user_passes_test(is_instructor)
+@user_passes_test(is_hr_or_instructor)
 def assign_course_to_student_view(request):
     """
     Handles assigning a course to a student via AJAX form.
@@ -2186,10 +2208,13 @@ def assign_course_to_student_view(request):
             
             try:
                 with transaction.atomic():
+                    assigner = request.user
+                    assigner_role = 'HR' if assigner.is_hr else ('Admin' if assigner.is_staff else 'Instructor')
+                    
                     enrollment, created = Enrollment.objects.get_or_create(
                         student=form.cleaned_data['student'],
                         course=form.cleaned_data['course'],
-                        defaults={'completed': False}
+                        defaults={'completed': False, 'assigned_by': assigner,}
                     )
 
                     # Check if student is already enrolled
@@ -2202,7 +2227,6 @@ def assign_course_to_student_view(request):
                     # --- If we are here, the enrollment was just created ---
                     student = enrollment.student
                     course = enrollment.course
-                    assigner = request.user
                     
                     # --- Get domain and protocol for email links ---
                     current_site = get_current_site(request)
@@ -2216,6 +2240,7 @@ def assign_course_to_student_view(request):
                         'course_title': course.title,
                         'course_url': request.build_absolute_uri(course.get_absolute_url()),
                         'assigned_by': assigner.get_full_name() or assigner.email,
+                        'assigned_by_role': assigner_role,
                         'protocol': protocol,
                         'domain': domain,
                         'current_year': current_year,
@@ -2227,9 +2252,9 @@ def assign_course_to_student_view(request):
                         student_context
                     )
 
-                    # --- Email to instructor (assigner) ---
+                    # --- Email to assigner ---
                     instructor_context = {
-                        'instructor_name': assigner.get_full_name() or assigner.email,
+                        'assigner_name': assigner.get_full_name() or assigner.email,
                         'student_name': student.get_full_name() or student.email,
                         'course_title': course.title,
                         'assignment_date': timezone.now().strftime('%B %d, %Y'),
@@ -2237,6 +2262,8 @@ def assign_course_to_student_view(request):
                         'protocol': protocol,
                         'domain': domain,
                         'current_year': current_year,
+                        'assigned_by_role': assigner_role,
+                        
                     }
                     send_templated_email(
                         'emails/course_assigned_confirmation.html',
@@ -2259,16 +2286,26 @@ def assign_course_to_student_view(request):
     return render(request, 'instructor/student_assign_form.html', {'form': form})
 
 
-@user_passes_test(is_instructor)
+@user_passes_test(is_hr_or_instructor)
 def assign_course_page_view(request):
     all_enrollments = Enrollment.objects.filter(
         course__instructor=request.user
     ).select_related('student', 'course').order_by('-enrolled_at')
 
+    user = request.user
     search_query = request.GET.get('q', '')
+
+    if user.is_hr or user.is_superuser or user.is_staff:
+        # HR/Admin scope: See all enrollments
+        all_enrollments = Enrollment.objects.all()
+    else:
+        # Instructor scope: See courses they instruct OR courses they assigned (if assigned_by field exists)
+        all_enrollments = Enrollment.objects.filter(
+            Q(course__instructor=user) | Q(assigned_by=user)
+        ).distinct()
+
     if search_query:
         all_enrollments = all_enrollments.filter(
-            # UPDATED: Search by email/name
             Q(student__first_name__icontains=search_query) |
             Q(student__last_name__icontains=search_query) |
             Q(student__email__icontains=search_query) |
@@ -2780,3 +2817,138 @@ def grant_superuser_access(request, pk):
         'success': True, 
         'message': f'Admin access successfully granted to {user_to_update.get_full_name() or user_to_update.email}.'
     })
+
+
+def send_evaluation_email_to_hr(request, evaluation):
+    """
+    Collects emails of HR and Admin staff and sends the evaluation notification.
+    """
+    # 1. Gather all unique HR and Admin emails
+    hr_emails = list(User.objects.filter(is_hr=True, is_active=True).values_list('email', flat=True))
+    # admin_emails = list(User.objects.filter(Q(is_superuser=True) | Q(is_staff=True), is_active=True).values_list('email', flat=True))
+    recipient_list = list(set(hr_emails))
+
+    if not recipient_list:
+        print("Warning: No HR staff found to send evaluation notification.")
+        return
+
+    # 2. Build email context
+    context = {
+        'evaluation': evaluation,
+        'course_title': evaluation.enrollment.course.title,
+        'student_name': evaluation.enrollment.student.get_full_name() or evaluation.enrollment.student.email,
+        'dashboard_url': request.build_absolute_uri(reverse('hr_course_feedback')), 
+        'relevance': evaluation.career_relevance_rating,
+        'quality': evaluation.course_quality_rating,
+        'actionable_feedback': evaluation.actionable_feedback,
+        'liked_most': evaluation.liked_most or "N/A",
+        'suggestions': evaluation.improvement_suggestions or "N/A",
+    }
+    
+    # 3. Send email
+    send_templated_email(
+        'emails/evaluation_submission_notification.html',
+        f"NEW EVALUATION: {context['course_title']} Submitted by {context['student_name']}",
+        recipient_list,
+        context
+    )
+
+@login_required
+@user_passes_test(is_student)
+def course_evaluation_view(request, course_slug):
+    """
+    Handles displaying and submitting the mandatory course evaluation form.
+    """
+    course = get_object_or_404(Course, slug=course_slug)
+    student = request.user
+    enrollment = get_object_or_404(Enrollment, student=student, course=course)
+
+    # 1. Enforce Completion Gate
+    if not enrollment.completed:
+        messages.error(request, "You must fully complete the course before submitting the evaluation.")
+        return redirect('course_detail', slug=course_slug)
+    
+    # 2. Enforce One-Time Submission
+    if enrollment.has_completed_survey:
+        messages.info(request, "You have already submitted the course evaluation.")
+        return redirect('course_detail', slug=course_slug)
+
+    if request.method == 'POST':
+        form = CourseEvaluationForm(request.POST) 
+        
+        if form.is_valid():
+            with transaction.atomic():
+                # Save the evaluation record
+                evaluation = form.save(commit=False)
+                evaluation.enrollment = enrollment
+                evaluation.save()
+                
+                enrollment.has_completed_survey = True
+                enrollment.save(update_fields=['has_completed_survey'])
+
+                transaction.on_commit(lambda: send_evaluation_email_to_hr(request, evaluation))
+                
+            messages.success(request, "Thank you! Your course evaluation has been submitted.")
+            return redirect('course_detail', slug=course_slug)
+    else:
+        form = CourseEvaluationForm()
+        
+    context = {
+        'form': form,
+        'course': course,
+        'page_title': f"Mandatory Evaluation: {course.title}"
+    }
+    return render(request, 'student/course_evaluation_form.html', context)
+
+
+@login_required
+@user_passes_test(is_hr)
+def hr_course_feedback(request):
+    """
+    HR Dashboard showing all submitted course evaluations (ratings and comments)
+    with overall KPI metrics.
+    """
+    
+    # Base Query: Fetch all CourseEvaluation records
+    evaluations_queryset = CourseEvaluation.objects.select_related(
+        'enrollment__student', 
+        'enrollment__course',
+        'enrollment__course__instructor'
+    ).order_by('-submitted_at')
+    
+    # 1. KPI Calculation (Overall Averages)
+    overall_avg_ratings = evaluations_queryset.aggregate(
+        avg_relevance=Coalesce(Avg('career_relevance_rating'), 0.0),
+        avg_quality=Coalesce(Avg('course_quality_rating'), 0.0),
+        avg_instructor=Coalesce(Avg('instructor_effectiveness_rating'), 0.0),
+        avg_structure=Coalesce(Avg('course_structure_rating'), 0.0),
+    )
+    
+    # 2. Filtering
+    search_query = request.GET.get('q', '').strip()
+    
+    filters = Q()
+    if search_query:
+        # CRITICAL FIX 2: Include all new open-text fields in the search
+        filters &= (
+            Q(enrollment__student__first_name__icontains=search_query) |
+            Q(enrollment__student__last_name__icontains=search_query) |
+            Q(enrollment__student__email__icontains=search_query) |
+            Q(enrollment__course__title__icontains=search_query) |
+            Q(actionable_feedback__icontains=search_query) |
+            Q(liked_most__icontains=search_query) |
+            Q(improvement_suggestions__icontains=search_query)
+        )
+        
+    filtered_evaluations = evaluations_queryset.filter(filters)
+    
+    paginator = Paginator(filtered_evaluations, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'overall_ratings': overall_avg_ratings,
+        'total_submissions': filtered_evaluations.count(),
+    }
+    return render(request, 'admin/hr_course_feedback.html', context)

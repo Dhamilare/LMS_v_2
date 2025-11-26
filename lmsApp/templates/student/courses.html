@@ -105,7 +105,7 @@
 
                         <div class="p-6">
                             <h3 class="text-xl font-bold text-gray-900 mb-2 truncate">{{ course.title }}</h3>
-                            <p class="text-gray-500 text-sm mb-4 line-clamp-2">{{ course.description }}</p>
+                            <p class="text-gray-500 text-sm mb-4 line-clamp-2">{{ course.description|safe }}</p>
                             <div class="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center text-sm text-gray-500 mb-4 space-y-2 sm:space-y-0 sm:space-x-4">
                                 <div class="flex items-center">
                                     <i class="fas fa-user-tie text-indigo-500 mr-2"></i>
