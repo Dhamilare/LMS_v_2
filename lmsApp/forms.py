@@ -6,6 +6,8 @@ from .models import *
 from django.forms import inlineformset_factory, BaseInlineFormSet, widgets, IntegerField, Textarea
 from django_ckeditor_5.widgets import CKEditor5Widget
 
+INTEGER_WIDGET = widgets.NumberInput(attrs={'class': 'w-full p-2 border rounded shadow-sm', 'min': 1, 'max': 365})
+
 class InstructorCreationForm(forms.ModelForm):
     class Meta:
         model = User
@@ -67,11 +69,18 @@ class InstructorUpdateForm(UserChangeForm):
 class CourseForm(forms.ModelForm):
     class Meta:
         model = Course
-        fields = ['title', 'description', 'category', 'instructor', 'price', 'is_published', 'thumbnail', 'tags']
+        fields = ['title', 'description', 'category', 'instructor', 'default_duration_days','price', 'is_published', 'thumbnail', 'tags']
         widgets = {
             'description': CKEditor5Widget(config_name='default', attrs={'data-type': 'ckeditor'}),
             'tags': forms.SelectMultiple(attrs={'class': 'form-control'}),
         }
+
+    default_duration_days = IntegerField(
+        label="Default Completion Duration (Days)",
+        widget=INTEGER_WIDGET,
+        required=False,
+        initial=30
+    )
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)

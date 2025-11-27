@@ -6,7 +6,6 @@ from django.contrib.sites.shortcuts import get_current_site
 import traceback
 from django.contrib.sites.shortcuts import get_current_site
 from django.http import HttpRequest
-from django.core.mail import EmailMultiAlternatives
 from django.urls import reverse
 
 def send_templated_email(template_name, subject, recipient_list, context, attachments=None):

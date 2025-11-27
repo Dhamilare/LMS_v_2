@@ -158,7 +158,7 @@
                                  onerror="this.src='https://placehold.co/600x400/E0E7FF/4338CA?text=Image+Missing';">
                             <div class="p-5">
                                 <h3 class="text-xl font-semibold text-gray-800 mb-2 truncate">{{ course.title }}</h3>
-                                <p class="text-gray-600 text-sm mb-4 line-clamp-3">{{ course.description }}</p>
+                                <p class="text-gray-600 text-sm mb-4 line-clamp-3">{{ course.description|striptags|safe }}</p>
                                 <div class="flex flex-col space-y-2 text-sm text-gray-500 mb-4">
                                     <span class="flex items-center"><i class="fas fa-user-tie text-indigo-500 mr-2"></i> {{ course.instructor.get_full_name|default:course.instructor.email }}</span>
                                     <span class="flex items-center"><i class="fas fa-clock text-blue-500 mr-2"></i> {{ course.duration|format_duration }}</span>

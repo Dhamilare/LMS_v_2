@@ -11,6 +11,7 @@ import string
 from django_ckeditor_5.fields import CKEditor5Field
 from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
+from datetime import timedelta
 
 
 
@@ -128,6 +129,10 @@ class Course(models.Model):
     duration = models.PositiveIntegerField(
         default=0, 
         help_text="Total estimated duration of the course in minutes."
+    )
+    default_duration_days = models.IntegerField(
+        default=30, 
+        help_text="Default days allowed for a student to complete this course."
     )
     tags = models.ManyToManyField(Tag, related_name='courses', blank=True, help_text="Select relevant departments or skills for this course.")
     slug = models.SlugField(unique=True, max_length=255, blank=True)
@@ -305,6 +310,7 @@ class Enrollment(models.Model):
         related_name='assigned_enrollments',
         limit_choices_to=~Q(is_student=True)
     )
+    due_date = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ('student', 'course')
@@ -378,6 +384,11 @@ class Enrollment(models.Model):
             self.completed = False
             self.completed_at = None
             self.save(update_fields=['completed', 'completed_at'])
+
+    def save(self, *args, **kwargs):
+        if not self.pk and not self.due_date:
+            self.due_date = timezone.now() + timedelta(days=30)
+        super().save(*args, **kwargs)
 
     @property
     def has_certificate(self):
