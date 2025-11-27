@@ -2210,11 +2210,13 @@ def assign_course_to_student_view(request):
                 with transaction.atomic():
                     assigner = request.user
                     assigner_role = 'HR' if assigner.is_hr else ('Admin' if assigner.is_staff else 'Instructor')
+                    duration_days = course.default_duration_days if course.default_duration_days > 0 else 30
+                    calculated_due_date = timezone.now() + timedelta(days=duration_days)
                     
                     enrollment, created = Enrollment.objects.get_or_create(
                         student=form.cleaned_data['student'],
                         course=form.cleaned_data['course'],
-                        defaults={'completed': False, 'assigned_by': assigner,}
+                        defaults={'completed': False, 'assigned_by': assigner,'due_date': calculated_due_date}
                     )
 
                     # Check if student is already enrolled
@@ -2241,6 +2243,7 @@ def assign_course_to_student_view(request):
                         'course_url': request.build_absolute_uri(course.get_absolute_url()),
                         'assigned_by': assigner.get_full_name() or assigner.email,
                         'assigned_by_role': assigner_role,
+                        'due_date': calculated_due_date.strftime('%B %d, %Y'),
                         'protocol': protocol,
                         'domain': domain,
                         'current_year': current_year,

@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>You've Been Assigned a Course!</title>
-    <!-- Google Font: Poppins -->
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    
     <style>
         /* Base styles */
         body {
@@ -18,14 +19,18 @@
             -webkit-text-size-adjust: 100%;
             -ms-text-size-adjust: 100%;
         }
+        
+        /* [2] Targetting the main container table */
         .container {
-            max-width: 600px;
+            width: 600px; /* Fixed width for desktop */
             margin: 20px auto;
             background-color: #ffffff;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             overflow: hidden;
             border: 1px solid #e5e7eb;
+            /* Outlook fallback for margins/padding */
+            mso-padding-alt: 0; 
         }
         
         /* Header: Revamped with new dark theme */
@@ -64,11 +69,21 @@
             display: inline-block;
             padding: 12px 24px;
             background-color: #3b82f6; /* New standard blue */
-            color: #ffffff !important; /* !important for email clients */
+            color: #ffffff !important; 
             text-decoration: none;
             font-weight: 600;
-            border-radius: 6px; /* Matching our site's style */
+            border-radius: 6px; 
             transition: background-color 0.3s ease;
+        }
+
+        /* Details Box */
+        .details-box {
+            background-color: #f9fafb; /* tailwind: bg-gray-50 */
+            border: 1px solid #e5e7eb; /* tailwind: border border-gray-200 */
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 24px;
+            margin-bottom: 24px;
         }
         
         /* Footer */
@@ -79,49 +94,86 @@
             font-size: 12px;
             border-top: 1px solid #e5e7eb;
         }
-        .footer p {
-            margin: 0 0 5px 0;
+
+        /* Responsive Styles */
+        @media only screen and (max-width: 620px) {
+            .container {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+            }
+            .content {
+                padding: 20px !important;
+            }
+            .header {
+                padding: 30px 20px !important;
+            }
         }
     </style>
 </head>
-<body style="font-family: 'Poppins', sans-serif; background-color: #f3f4f6; margin: 0; padding: 0;">
+<body style="font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0;">
 
-    <div class="container" style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); overflow: hidden; border: 1px solid #e5e7eb;">
-        
-        <!-- Header -->
-        <div class="header" style="background-color: #1f2937; color: #ffffff; padding: 40px 30px; text-align: center;">
-            <h1 style="margin: 0; font-size: 28px; font-weight: 700;">You've Been Assigned a Course!</h1>
-        </div>
+    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f3f4f6;">
+        <tr>
+            <td align="center">
+                <table class="container" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); overflow: hidden; border: 1px solid #e5e7eb;">
+                    
+                    <tr>
+                        <td class="header" align="center" style="background-color: #1f2937; color: #ffffff; padding: 40px 30px; text-align: center;">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #ffffff;">You've Been Assigned a Course!</h1>
+                        </td>
+                    </tr>
 
-        <!-- Content -->
-        <div class="content" style="padding: 40px; color: #374151; line-height: 1.6;">
-            <h2 style="font-size: 24px; color: #1f2937; margin-top: 0; margin-bottom: 20px; font-weight: 600;">Hi {{ student_name }},</h2>
-            
-            <p style="margin-bottom: 20px;">
-                Great news! You have been assigned to a new course, {{ course_title }}, by <strong>{{ assigned_by }} ({{ assigned_by_role }})</strong> on the Ha-Shem LMS portal.
-                This course may be a mandatory part of your current job or professional development path.
-            </p>
-            
-            <p style="margin-bottom: 20px;">You can enroll in this course and get started by clicking the button below.</p>
-            
-            <!-- Button -->
-            <div class="button-container" style="text-align: center; margin: 30px 0;">
-                <a href="{{ course_url }}" class="button" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: #ffffff !important; text-decoration: none; font-weight: 600; border-radius: 6px;">
-                    Go to Course
-                </a>
-            </div>
+                    <tr>
+                        <td class="content" style="padding: 40px; color: #374151; line-height: 1.6; font-size: 16px;">
+                            
+                            <h2 style="font-size: 24px; color: #1f2937; margin-top: 0; margin-bottom: 20px; font-weight: 600;">Hi {{ student_name }},</h2>
+                            
+                            <p style="margin-bottom: 20px; line-height: 1.6;">
+                                Great news! You have been assigned to a new course by <strong style="font-weight: 700;">{{ assigned_by }} ({{ assigned_by_role }})</strong> on the Ha-Shem LMS portal.
+                            </p>
+                            
+                            <table class="details-box" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 0; margin-top: 24px; margin-bottom: 24px;">
+                                <tr>
+                                    <td style="padding: 16px;">
+                                        <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 8px 0;">
+                                            <strong style="font-weight: 700;">Course:</strong> {{ course_title }}
+                                        </p>
+                                        <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 8px 0;">
+                                            <strong style="font-weight: 700;">Completion Deadline:</strong> 
+                                            <span style="font-weight: 700; color: #dc2626;">{{ due_date }}</span>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
 
-            <p style="margin-bottom: 20px;">If you have any questions, please contact your supervisor or HR team.</p>
-            
-            <p style="margin-bottom: 0;">Thank you,<br>The LMS Team</p>
-        </div>
+                            <p style="margin-bottom: 20px; line-height: 1.6;">Please start this training as soon as possible to meet your deadline.</p>
+                            
+                            <table class="button-container" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center" style="padding: 0;">
+                                        <a href="{{ course_url }}" class="button" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: #ffffff !important; text-decoration: none; font-weight: 600; border-radius: 6px; font-size: 16px; mso-hide: all;">
+                                            Go to Course
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
 
-        <!-- Footer -->
-        <div class="footer" style="padding: 30px; text-align: center; color: #6b7280; font-size: 12px; border-top: 1px solid #e5e7eb;">
-            <p style="margin: 0 0 5px 0;">&copy; 2025 Ha-Shem LMS. All rights reserved.</p>
-            <p style_margin="margin: 0;">This is an automated notification. Please do not reply.</p>
-        </div>
-    </div>
+                            <p style="margin-bottom: 20px; line-height: 1.6;">If you have any questions, please contact your supervisor or HR team.</p>
+                            
+                            <p style="margin-bottom: 0; line-height: 1.6;">Thank you,<br>The LMS Team</p>
+                        </td>
+                    </tr>
 
-</body>
+                    <tr>
+                        <td class="footer" align="center" style="padding: 30px; text-align: center; color: #6b7280; font-size: 12px; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0 0 5px 0; line-height: 1.4;">&copy; 2025 Ha-Shem LMS. All rights reserved.</p>
+                            <p style="margin: 0; line-height: 1.4;">This is an automated notification. Please do not reply.</p>
+                        </td>
+                    </tr>
+                </table>
+                </td>
+        </tr>
+    </table>
+    </body>
 </html>
