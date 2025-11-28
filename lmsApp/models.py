@@ -621,7 +621,7 @@ class SupportTicket(models.Model):
 
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='support_tickets')
     subject = models.CharField(max_length=200)
-    description = CKEditor5Field(config_name='default')
+    description = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     resolution_note = models.TextField(verbose_name="Resolution Note", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

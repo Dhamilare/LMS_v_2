@@ -309,6 +309,4 @@ CKEDITOR_5_CONFIGS = {
     }
 }
 
-
-
-
+CKEDITOR_5_UPLOAD_PATH = "uploads/"

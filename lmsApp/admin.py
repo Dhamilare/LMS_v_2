@@ -41,14 +41,6 @@ class QuizAdminForm(forms.ModelForm):
             'description': CKEditor5Widget(config_name='default'),
         }
 
-class SupportTicketAdminForm(forms.ModelForm):
-    class Meta:
-        model = SupportTicket
-        fields = '__all__'
-        widgets = {
-            'description': CKEditor5Widget(config_name='default'),
-        }
-
 
 
 # Custom User Admin
@@ -233,7 +225,6 @@ class RatingAdmin(admin.ModelAdmin):
 
 @admin.register(SupportTicket)
 class SupportTicketAdmin(admin.ModelAdmin):
-    form = SupportTicketAdminForm
     list_display = ('id', 'subject', 'student', 'status', 'resolution_note', 'created_at')
     list_filter = ('status', 'created_at')
     search_fields = ('subject', 'description', 'student__email', 'student__first_name', 'student__last_name')
