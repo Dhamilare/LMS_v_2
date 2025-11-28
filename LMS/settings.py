@@ -332,3 +332,10 @@ LOGGING = {
         },
     }
 }
+
+if not DEBUG:
+    ABSOLUTE_URL_DOMAIN = 'lms.ha-shem.com'
+    ABSOLUTE_URL_PROTOCOL = 'https'
+else:
+    ABSOLUTE_URL_DOMAIN = 'localhost:8000' 
+    ABSOLUTE_URL_PROTOCOL = 'http'

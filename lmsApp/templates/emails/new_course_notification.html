@@ -1,22 +1,54 @@
-<div style="font-family: 'Poppins', sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-    <div style="background-color: #eef2ff; padding: 25px; text-align: center; border-bottom: 3px solid #4f46e5;">
-        <h2 style="color: #4f46e5; margin: 0; font-size: 26px;">New Course Alert!</h2>
-        <p style="color: #4338ca; margin: 5px 0 0;">Personalized for your department.</p>
+<div style="font-family: 'Poppins', sans-serif; max-width: 600px; margin: 20px auto; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);">
+    
+    <div style="background-color: #4f46e5; padding: 30px 25px; text-align: center; border-bottom: 5px solid #10b981;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">
+            🔔 Course Alert!
+        </h1>
+        <p style="color: #eef2ff; margin: 8px 0 0; font-size: 16px;">
+            A course relevant to your department has been made available.
+        </p>
     </div>
+    
     <div style="padding: 30px; color: #374151;">
-        <p style="font-size: 16px; margin-bottom: 20px;">
-            The course {{ course_title }} has been {{ action_type }} on the LMS platform. As this course aligns with your primary department's needs, we encourage you to enroll and start learning.
+        
+        <p style="font-size: 16px; margin-bottom: 25px;">
+            Hello {{ student_name }},
         </p>
 
-        <h3 style="font-size: 18px; color: #4338ca; margin-bottom: 15px;">Course Overview</h3>
-        <p style="margin-bottom: 25px; border-left: 3px solid #ccc; padding-left: 10px;">
-            {{ course_description|truncatechars:150 }}
+        <p style="font-size: 16px; line-height: 1.6; margin-bottom: 25px;">
+            The course, {{ course_title }}, has been {{ action_type }} on the LMS platform. This resource is highly relevant to your primary department's focus, and we encourage you to start learning promptly.
         </p>
+
+        <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 30px; background-color: #ffffff;">
+            <h3 style="font-size: 20px; color: #4f46e5; margin-top: 0; margin-bottom: 10px;">
+                📚 {{ course_title }}
+            </h3>
+            
+            <p style="font-size: 14px; color: #6b7280; margin-bottom: 15px;">
+                Instructor: {{ instructor_name|default:"[LMS Team]" }}
+            </p>
+            
+            <hr style="border: 0; height: 1px; background: #e5e7eb; margin: 15px 0;">
+            
+            <p style="font-size: 15px; line-height: 1.5; color: #4b5563;">
+                Overview: {{ course_description|safe|truncatechars:180 }}
+            </p>
+        </div>
         
-        <p style="text-align: center; margin-top: 25px;">
-            <a href="{{ course_url }}" style="display: inline-block; padding: 12px 25px; background-color: #10b981; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-transform: uppercase;">
-                View Course & Enroll
+        <p style="text-align: center; margin-top: 30px; margin-bottom: 30px;">
+            <a href="{{ course_url }}" style="display: inline-block; padding: 14px 30px; background-color: #10b981; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4); text-transform: uppercase; letter-spacing: 0.5px;">
+                Start Learning Now &rarr;
             </a>
         </p>
+
+        <p style="font-size: 14px; color: #9ca3af; text-align: center; border-top: 1px dashed #e5e7eb; padding-top: 20px;">
+            This course was highlighted because it matches the requirements for your department. If you have any questions, please contact the LMS support team.
+        </p>
+
     </div>
+    
+    <div style="background-color: #eef2ff; padding: 15px; text-align: center; font-size: 12px; color: #6366f1;">
+        &copy; {{ current_year }} Ha-Shem LMS Portal. All rights reserved.
+    </div>
+
 </div>

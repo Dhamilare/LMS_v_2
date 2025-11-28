@@ -7,6 +7,8 @@ import traceback
 from django.contrib.sites.shortcuts import get_current_site
 from django.http import HttpRequest
 from django.urls import reverse
+from urllib.parse import urljoin
+
 
 def send_templated_email(template_name, subject, recipient_list, context, attachments=None):
 
@@ -43,28 +45,27 @@ def send_templated_email(template_name, subject, recipient_list, context, attach
         return False
     
 
+def build_absolute_url(request=None, url_path=""):
 
-def build_absolute_url(request, url_path):
-    """
-    Safely builds a full absolute URL whether request is available or not.
-    """
-
-    # If request was passed → use it (most accurate)
     if request:
         try:
             return request.build_absolute_uri(url_path)
-        except:
+        except Exception:
             pass
 
-    # If no request → fallback to Sites framework
-    try:
-        fake_request = HttpRequest()
-        domain = get_current_site(fake_request).domain
-    except:
-        domain = "localhost"
+    domain = getattr(settings, 'ABSOLUTE_URL_DOMAIN', 'localhost')
+    
+    if not settings.DEBUG:
+        default_protocol = 'https'
+    else:
+        default_protocol = 'http'
+        
+    protocol = getattr(settings, 'ABSOLUTE_URL_PROTOCOL', default_protocol)
 
-    protocol = "https"
-    return f"{protocol}://{domain}{url_path}"
+    base_url = f"{protocol}://{domain}"
+    return urljoin(base_url, url_path)
+
+
 
 def send_course_notification(course, matching_students, action_type, request=None):
     """
@@ -74,17 +75,35 @@ def send_course_notification(course, matching_students, action_type, request=Non
     if not recipient_list:
         return
 
+    url_path = reverse('course_detail', args=[course.slug])
+    course_url = build_absolute_url(request, url_path)
+
     subject = f"New Course Alert: {course.title} is now {action_type}!"
+
+    for student in matching_students:
+        subject = f"New Course Alert: {course.title} is now {action_type}!"
+        student_name = student.get_full_name() or student.first_name or student.email.split('@')[0]
+        
+        try:
+            if hasattr(course, 'instructor') and callable(getattr(course.instructor, 'get_full_name', None)):
+                instructor_name = course.instructor.get_full_name()
+            else:
+                instructor_name = 'The LMS Team'
+        except Exception:
+            instructor_name = 'The LMS Team'
+
     context = {
         'course_title': course.title,
+        'student_name': student_name,
+        'instructor_name': instructor_name,
         'action_type': action_type,
         'course_description': course.description,
-        'course_url': request.build_absolute_url(reverse('course_detail', args=[course.slug])) if request else settings.BASE_URL + reverse('course_detail', args=[course.slug])
+        'course_url': course_url,
     }
 
     send_templated_email(
         template_name='emails/new_course_notification.html',
         subject=subject,
-        recipient_list=recipient_list,
+        recipient_list=[student.email],
         context=context
     )
