@@ -4,11 +4,108 @@
 
 {% block title %}{{ content.title }} - {{ lesson.title }}{% endblock %}
 
+{% block extra_head %}
+ {{ block.super }}
+
+<!-- PDF.js Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pdfUrl = document.getElementById('pdf-url')?.value;
+    if (!pdfUrl) return;
+
+    const pdfjsLib = window['pdfjsLib'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+    // Set the worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+    const viewerContainer = document.getElementById('pdf-viewer');
+    const prevButton = document.getElementById('pdf-prev');
+    const nextButton = document.getElementById('pdf-next');
+    const pageIndicator = document.getElementById('pdf-page-indicator');
+
+    let pdfDoc = null;
+    let pageNum = 1;
+    let rendering = false;
+
+    function renderPage(num) {
+        if (!pdfDoc || rendering) return;
+        rendering = true;
+
+        viewerContainer.innerHTML = `
+            <div class="text-center py-20">
+                <i class="fas fa-spinner fa-spin fa-3x text-indigo-600"></i>
+                <p class="mt-3 text-gray-700 font-medium">Loading page...</p>
+            </div>
+        `;
+
+        pdfDoc.getPage(num).then(page => {
+            const containerWidth = document.getElementById('pdf-viewer-container')?.clientWidth || 800;
+            const viewport = page.getViewport({ scale: 1 });
+            const scale = containerWidth / viewport.width;
+            const scaledViewport = page.getViewport({ scale });
+
+            const canvas = document.createElement('canvas');
+            canvas.width = scaledViewport.width;
+            canvas.height = scaledViewport.height;
+            const context = canvas.getContext('2d');
+
+            page.render({ canvasContext: context, viewport: scaledViewport }).promise
+                .then(() => {
+                    viewerContainer.innerHTML = '';
+                    viewerContainer.appendChild(canvas);
+                    updateControls();
+                    rendering = false;
+                })
+                .catch(err => {
+                    console.error('Render error:', err);
+                    viewerContainer.innerHTML = '<p class="text-red-600 mt-20">Error rendering page.</p>';
+                    rendering = false;
+                });
+        });
+    }
+
+    function updateControls() {
+        if (!pdfDoc) return;
+        prevButton.disabled = pageNum <= 1;
+        nextButton.disabled = pageNum >= pdfDoc.numPages;
+        pageIndicator.textContent = `Page ${pageNum} of ${pdfDoc.numPages}`;
+    }
+
+    // Load the PDF
+    pdfjsLib.getDocument(pdfUrl).promise
+        .then(doc => {
+            pdfDoc = doc;
+            pageNum = 1;
+            renderPage(pageNum);
+
+            prevButton.onclick = () => {
+                if (pageNum > 1) { pageNum--; renderPage(pageNum); }
+            };
+            nextButton.onclick = () => {
+                if (pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); }
+            };
+        })
+        .catch(err => {
+            console.error('PDF load error:', err);
+            viewerContainer.innerHTML = `
+                <p class="text-red-600 mt-20 text-center">
+                    <i class="fas fa-exclamation-triangle mr-2"></i> Failed to load document.
+                </p>
+            `;
+        });
+});
+</script>
+<!-- Splide Slider Library -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@latest/dist/css/splide.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@latest/dist/js/splide.min.js"></script>
+{% endblock %}
+
+
 {% block content %}
-{% comment %} 
-    The main container uses a max-width and margin for centering, 
-    with a minimal shadow and rounded corners for a clean, modern feel.
-{% endcomment %}
 <div class="bg-white p-6 sm:p-10 rounded-xl shadow-2xl shadow-indigo-100 w-full md:max-w-7xl mx-auto my-8 border border-gray-100">
 
     {# --- HEADER SECTION: Title and Breadcrumb-style Context --- #}
@@ -76,17 +173,37 @@
             {% endif %}
 
         {% elif content.content_type == 'pdf' or content.content_type == 'slide' %}
-            {# Document Content (PDF/Slide) #}
+        
             <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center">
-                <i class="{% if content.content_type == 'pdf' %}fas fa-file-pdf text-red-600{% else %}fas fa-file-powerpoint text-orange-600{% endif %} mr-2"></i> 
-                {{ content.get_content_type_display }}
+                {% if content.content_type == 'pdf' %}
+                    <i class="fas fa-file-pdf text-red-600 mr-2"></i> PDF Document
+                {% else %}
+                    <i class="fas fa-file-powerpoint text-orange-600 mr-2"></i> Presentation (via PDF Viewer)
+                {% endif %}
             </h2>
-            {% if content.file %}
-                <div class="mb-4 rounded-xl overflow-hidden shadow-xl border border-gray-300">
-                    <iframe src="{{ content.file.url|embed_document }}" class="w-full h-[600px] border-none"></iframe>
+            
+            {% if content_file_url %}
+                <div class="flex justify-center space-x-4 mb-4">
+                    <button id="pdf-prev" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center">
+                        <i class="fas fa-chevron-left mr-2"></i> Previous
+                    </button>
+                    <span id="pdf-page-indicator" class="px-4 py-2 text-gray-700 font-medium bg-gray-200 rounded-lg flex items-center">Page 1 of ?</span>
+                    <button id="pdf-next" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center">
+                        Next <i class="fas fa-chevron-right ml-2"></i>
+                    </button>
                 </div>
+                
+                <div id="pdf-viewer-container" class="bg-white rounded-xl shadow-2xl border border-gray-300">
+                    <div id="pdf-viewer" class="w-full h-[600px] overflow-auto flex justify-center items-start p-4">
+                        <div class="text-center py-20">
+                            <i class="fas fa-spinner fa-spin fa-3x text-indigo-600"></i>
+                            <p class="mt-3 text-gray-700 font-medium">Loading Document...</p>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="pdf-url" value="{{ content_file_url }}">
             {% else %}
-                <div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg"><i class="fas fa-exclamation-triangle mr-2"></i> No {{ content.get_content_type_display }} file available.</div>
+                <div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg"><i class="fas fa-exclamation-triangle mr-2"></i> File processing failed or no document available.</div>
             {% endif %}
 
         {% elif content.content_type == 'text' %}
@@ -368,6 +485,6 @@
             markCompleteBtn.disabled = false;
         }
     }
-    window.markContentCompleted = markContentCompleted;
+    window.markContentCompleted = markContentCompleted; 
 </script>
 {% endblock %}

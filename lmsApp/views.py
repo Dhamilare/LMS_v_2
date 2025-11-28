@@ -23,6 +23,78 @@ import random
 from .utils import *
 from django.contrib.sites.shortcuts import get_current_site 
 import logging
+import sys
+import os
+import subprocess
+from urllib.parse import quote
+
+if sys.platform.startswith('win'):
+    import comtypes.client
+
+CONVERTED_PDF_DIR = 'converted_pdfs'
+CONVERTED_PDF_PATH = os.path.join(settings.MEDIA_ROOT, CONVERTED_PDF_DIR)
+
+# --- Cross-Platform PPTX to PDF Conversion ---
+
+def convert_pptx_to_pdf(pptx_file_path, request=None):
+    """
+    Convert PPTX to PDF using LibreOffice (Linux) or MS Office COM (Windows).
+    Returns: Public URL of the converted PDF or None on failure.
+    """
+    if not os.path.exists(pptx_file_path):
+        return None
+
+    os.makedirs(CONVERTED_PDF_PATH, exist_ok=True)
+
+    base_name = os.path.basename(pptx_file_path).rsplit('.', 1)[0]
+    pdf_filename = f"{base_name}_{os.getpid()}_{os.urandom(4).hex()}.pdf"
+    pdf_file_path_abs = os.path.join(CONVERTED_PDF_PATH, pdf_filename)
+    pdf_file_url = settings.MEDIA_URL + os.path.join(CONVERTED_PDF_DIR, pdf_filename).replace('\\', '/')
+
+    try:
+        if sys.platform.startswith('linux'):
+            print("Attempting conversion using LibreOffice (Linux)...")
+            command = [
+                'libreoffice', '--headless', '--convert-to', 'pdf',
+                '--outdir', CONVERTED_PDF_PATH, pptx_file_path
+            ]
+            subprocess.run(command, capture_output=True, text=True, check=True, timeout=60)
+
+            default_pdf_name = base_name + '.pdf'
+            default_pdf_path_abs = os.path.join(CONVERTED_PDF_PATH, default_pdf_name)
+
+            if os.path.exists(default_pdf_path_abs):
+                os.rename(default_pdf_path_abs, pdf_file_path_abs)
+                return pdf_file_url
+            else:
+                raise FileNotFoundError(f"LibreOffice failed to produce {default_pdf_name}")
+
+        elif sys.platform.startswith('win'):
+            print("Attempting conversion using MS Office COM (Windows)...")
+            ppSaveAsPDF = 32
+            powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
+            powerpoint.Visible = False
+            try:
+                presentation = powerpoint.Presentations.Open(pptx_file_path, False, False, False)
+                presentation.SaveAs(pdf_file_path_abs, ppSaveAsPDF)
+                presentation.Close()
+            finally:
+                powerpoint.Quit()
+
+            if os.path.exists(pdf_file_path_abs):
+                return pdf_file_url
+
+    except subprocess.CalledProcessError as e:
+        print(f"Linux Conversion Error: {e.stderr}")
+        if request:
+            messages.error(request, f"Linux Conversion failed (Code {e.returncode}): {e.stderr}")
+    except Exception as e:
+        print("General Conversion Error:", traceback.format_exc())
+        if request:
+            messages.error(request, f"Conversion failed: {e}")
+
+    return None
+
 
 logger = logging.getLogger(__name__)
 
@@ -1029,6 +1101,27 @@ def content_detail(request, course_slug, module_id, lesson_id, content_id):
     if not can_view_content_page:
         messages.error(request, "You do not have permission to view this content.")
         return redirect('dashboard')
+    
+    # --- CONTENT DISPLAY LOGIC ---
+    content_file_url = None
+    slide_images = [] 
+
+    if content.file:
+        file_path = content.file.path
+        
+        if content.content_type == 'pdf':
+            content_file_url = request.build_absolute_uri(quote(content.file.url))
+        
+        elif content.content_type == 'slide':
+            pdf_url = convert_pptx_to_pdf(file_path, request)
+            if pdf_url:
+                content_file_url = request.build_absolute_uri(quote(pdf_url))
+            else:
+                messages.warning(request, "Server failed to render the presentation for inline viewing. Please download the original file.")
+                content_file_url = request.build_absolute_uri(quote(content.file.url))
+        
+        elif content.content_type == 'video' and not content.video_url:
+            content_file_url = request.build_absolute_uri(quote(content.file.url))
 
     context = {
         'course': course,
@@ -1037,6 +1130,8 @@ def content_detail(request, course_slug, module_id, lesson_id, content_id):
         'content': content,
         'student_progress': student_progress,
         'GEMINI_API_KEY': settings.GEMINI_API_KEY,
+        'content_file_url': content_file_url,
+        'slide_images': slide_images,
     }
     return render(request, 'content_detail.html', context)
 
@@ -1967,7 +2062,6 @@ def question_update(request, quiz_id, question_id):
 @login_required
 @user_passes_test(is_instructor)
 def question_delete(request, quiz_id, question_id):
-    # UPDATED: Simplified quiz lookup
     quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user)
     question = get_object_or_404(Question, id=question_id, quiz=quiz)
 
@@ -1984,8 +2078,7 @@ def question_delete(request, quiz_id, question_id):
 @login_required
 @user_passes_test(is_instructor)
 def quiz_assign_to_course(request, quiz_id):
-    quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user) # Can only assign quizzes you created
-
+    quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user)
     if request.method == 'POST':
         form = QuizAssignmentForm(request.POST, instructor_user=request.user)
         if form.is_valid():
@@ -2314,7 +2407,6 @@ def assign_course_page_view(request):
 
     enrollment_list = list(all_enrollments)
     for enrollment in enrollment_list:
-        # UPDATED: Use email-safe name
         student_name = enrollment.student.get_full_name() or enrollment.student.email
         chart_labels.append(student_name)
 

@@ -54,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
 ]
 
 ROOT_URLCONF = 'LMS.urls'
@@ -134,7 +135,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-MEDIA_URL = 'media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
@@ -339,3 +340,7 @@ if not DEBUG:
 else:
     ABSOLUTE_URL_DOMAIN = 'localhost:8000' 
     ABSOLUTE_URL_PROTOCOL = 'http'
+
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
