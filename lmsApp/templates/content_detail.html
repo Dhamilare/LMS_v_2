@@ -292,20 +292,22 @@
             const summary = result.candidates?.[0]?.content?.parts?.[0]?.text || "AI failed to generate summary. The content might be inappropriate or the service is temporarily unavailable.";
             
             // Basic Markdown to HTML conversion for bullet points/paragraphs
+
             const formattedSummary = summary
-                .replace(/\*\s*/g, '<li>')  // Convert bullet points to list items
-                .replace(/\n\n/g, '</p><p>') // Convert double newlines to paragraphs
-                .replace(/\n/g, '<br>'); // Convert single newlines to line breaks
+                .replace(/(What they are:)/g, '\n\n$1')
+                .replace(/(Syntax:)/g, '\n\n$1')
+                .replace(/(Key Features:)/g, '\n\n$1')
+                .replace(/(Use Cases:)/g, '\n\n$1')
+                .replace(/(Limitations:)/g, '\n\n$1')
+                .replace(/(Benefits:)/g, '\n\n$1');
             
-            let finalHtml = `<div class="prose max-w-none">${formattedSummary}</div>`;
-
-            // If it starts with a bullet point, wrap it in an unordered list
-            if (formattedSummary.startsWith('<li>')) {
-                 finalHtml = `<div class="prose max-w-none"><ul>${formattedSummary}</ul></div>`;
-            } else {
-                 finalHtml = `<div class="prose max-w-none"><p>${formattedSummary}</p></div>`;
-            }
-
+            const cleanedSummary = formattedSummary
+            .replace(/\n{2,}/g, '</p><p>')
+            .replace(/\n/g, ' ')
+            .replace(/[\*-]\s*/g, '');
+            
+            let finalHtml = `<div class="prose max-w-none">${cleanedSummary}</div>`;
+            
             showContentModal(`AI Summary: ${contentTitle}`, finalHtml);
 
         } catch (err) {
