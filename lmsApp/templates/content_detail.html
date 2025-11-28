@@ -79,7 +79,7 @@
             {# Document Content (PDF/Slide) #}
             <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center">
                 <i class="{% if content.content_type == 'pdf' %}fas fa-file-pdf text-red-600{% else %}fas fa-file-powerpoint text-orange-600{% endif %} mr-2"></i> 
-                {{ content.get_content_type_display }} Document
+                {{ content.get_content_type_display }}
             </h2>
             {% if content.file %}
                 <div class="mb-4 rounded-xl overflow-hidden shadow-xl border border-gray-300">

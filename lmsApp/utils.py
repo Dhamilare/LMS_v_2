@@ -43,6 +43,29 @@ def send_templated_email(template_name, subject, recipient_list, context, attach
         return False
     
 
+
+def build_absolute_url(request, url_path):
+    """
+    Safely builds a full absolute URL whether request is available or not.
+    """
+
+    # If request was passed → use it (most accurate)
+    if request:
+        try:
+            return request.build_absolute_uri(url_path)
+        except:
+            pass
+
+    # If no request → fallback to Sites framework
+    try:
+        fake_request = HttpRequest()
+        domain = get_current_site(fake_request).domain
+    except:
+        domain = "localhost"
+
+    protocol = "https"
+    return f"{protocol}://{domain}{url_path}"
+
 def send_course_notification(course, matching_students, action_type, request=None):
     """
     Sends a personalized email notification to matching students using send_templated_email.
@@ -56,7 +79,7 @@ def send_course_notification(course, matching_students, action_type, request=Non
         'course_title': course.title,
         'action_type': action_type,
         'course_description': course.description,
-        'course_url': request.build_absolute_uri(reverse('course_detail', args=[course.slug])) if request else settings.BASE_URL + reverse('course_detail', args=[course.slug])
+        'course_url': request.build_absolute_url(reverse('course_detail', args=[course.slug])) if request else settings.BASE_URL + reverse('course_detail', args=[course.slug])
     }
 
     send_templated_email(
