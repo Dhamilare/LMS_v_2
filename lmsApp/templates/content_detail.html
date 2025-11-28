@@ -26,7 +26,7 @@
                 {{ content.title }}
             </h1>
             
-            {# Instructor Actions (Moved to top-right for prominence) #}
+            <!-- {# Instructor Actions (Moved to top-right for prominence) #}
             {% if request.user.is_instructor and course.instructor == request.user %}
                 <div class="flex space-x-3">
                     <button onclick="loadModalForm('{% url 'content_update' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}', 'Edit Content: {{ content.title }}')" 
@@ -38,7 +38,7 @@
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
-            {% endif %}
+            {% endif %} -->
         </div>
         
         {# Contextual Information (Course > Module > Lesson) #}

@@ -90,12 +90,17 @@ class CourseForm(forms.ModelForm):
         self.fields['tags'].queryset = Tag.objects.all().order_by('name')
 
 class ModuleForm(forms.ModelForm):
+    description = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'django_ckeditor_5',
+            'rows': 5,
+        }),
+        required=False
+    )
     class Meta:
         model = Module
         fields = ['title', 'description', 'order']
-        widgets = {
-            'description': CKEditor5Widget(config_name='default', attrs={'data-type': 'ckeditor'}),
-        }
+        
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -108,12 +113,16 @@ class ModuleForm(forms.ModelForm):
         )
 
 class LessonForm(forms.ModelForm):
+    description = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'django_ckeditor_5',
+            'rows': 5,
+        }),
+        required=False
+    )
     class Meta:
         model = Lesson
         fields = ['title', 'description', 'order']
-        widgets = {
-            'description': CKEditor5Widget(config_name='default', attrs={'data-type': 'ckeditor'}),
-        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -155,12 +164,18 @@ class QuizDetailsForm(forms.ModelForm):
             attrs={'class': 'form-checkbox h-5 w-5 text-indigo-600'}
         )
     )
+
+    description = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'django_ckeditor_5',
+            'rows': 5,
+        }),
+        required=False
+    )
+
     class Meta:
         model = Quiz
         fields = ['title', 'description', 'pass_percentage', 'max_attempts', 'allow_multiple_correct']
-        widgets = {
-            'description': CKEditor5Widget(config_name='default', attrs={'data-type': 'ckeditor'}),
-        }
 
 class OptionForm(forms.ModelForm):
     class Meta:

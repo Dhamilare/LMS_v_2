@@ -308,3 +308,27 @@ CKEDITOR_5_CONFIGS = {
         'media_embed': {'previewsInData': True},
     }
 }
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'sensitive_url_filter': {
+            '()': 'LMS.log_filters.SensitiveURLFilter', 
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'filters': ['sensitive_url_filter'],
+            'propagate': False,
+        },
+    }
+}
