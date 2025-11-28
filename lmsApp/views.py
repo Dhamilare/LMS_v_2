@@ -12,16 +12,15 @@ from django.urls import reverse
 from .forms import *
 from .models import *
 from io import BytesIO
-from xhtml2pdf import pisa
+import weasyprint
 from django.conf import settings
-import os
+import re
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Prefetch
 import csv
 from django.db.models import Avg
 import random
 from .utils import *
-import os
 from django.contrib.sites.shortcuts import get_current_site 
 import logging
 
@@ -1496,39 +1495,24 @@ def issue_certificate(request, course_slug):
                 'current_year': current_year, 
             }
             template = get_template(template_path)
-            html = template.render(context)
-
+            html_string = template.render(context)
+            
             result_file = BytesIO()
             
-            # Helper function for resource paths during PDF generation (essential for logos/images)
-            def link_callback(uri, rel):
-                sUrl = settings.STATIC_URL
-                sRoot = settings.STATIC_ROOT
-                mUrl = settings.MEDIA_URL
-                mRoot = settings.MEDIA_ROOT
-                
-                if uri.startswith(mUrl):
-                    path = os.path.join(mRoot, uri.replace(mUrl, ""))
-                elif uri.startswith(sUrl):
-                    path = os.path.join(sRoot, uri.replace(sUrl, ""))
-                    if not os.path.exists(path):
-                        path = os.path.join(settings.BASE_DIR, 'static', uri.replace(sUrl, ""))
-                else:
-                    path = uri
-                return path
-
-            pisa_status = pisa.CreatePDF(
-                html,
-                dest=result_file,
-                link_callback=link_callback
+            # 1. Create the HTML object, using request.build_absolute_uri() as the base_url
+            html_object = weasyprint.HTML(
+                string=html_string, 
+                base_url=request.build_absolute_uri()
             )
 
-            if pisa_status.err:
-                raise Exception(f"PDF generation error: {pisa_status.err}")
-            
-            result_file.seek(0)
+            # 2. Write the PDF output to the BytesIO buffer
+            html_object.write_pdf(result_file)
 
-            file_name = f'certificate_{certificate.certificate_id}.pdf'
+            # 3. Handle result file and save
+            result_file.seek(0)
+            safe_course_title = re.sub(r'[^A-Za-z0-9_-]', '_', course.title)
+
+            file_name = f"{safe_course_title}.pdf"
             certificate.pdf_file.save(file_name, result_file)
             certificate.save()
             
@@ -1548,7 +1532,7 @@ def issue_certificate(request, course_slug):
             # Open the saved file from storage/disk for reading
             with certificate.pdf_file.open('rb') as f:
                 pdf_attachment = (
-                    f"{course.title}_Certificate_{certificate.certificate_id}.pdf",
+                    file_name,
                     f.read(),
                     'application/pdf'
                 )
@@ -1560,8 +1544,6 @@ def issue_certificate(request, course_slug):
                     email_context,
                     attachments=[pdf_attachment]
                 )
-
-            # --- End Email Send ---
 
             if is_ajax(request):
                 return JsonResponse({
@@ -1917,7 +1899,6 @@ def quiz_detail_manage(request, quiz_id):
 @login_required
 @user_passes_test(is_instructor)
 def question_create(request, quiz_id):
-    # UPDATED: Simplified quiz lookup
     quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user)
 
     if request.method == 'POST':
@@ -2932,7 +2913,7 @@ def hr_course_feedback(request):
     
     filters = Q()
     if search_query:
-        # CRITICAL FIX 2: Include all new open-text fields in the search
+        # Include all new open-text fields in the search
         filters &= (
             Q(enrollment__student__first_name__icontains=search_query) |
             Q(enrollment__student__last_name__icontains=search_query) |

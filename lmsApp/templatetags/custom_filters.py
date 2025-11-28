@@ -2,7 +2,6 @@ from django import template
 from django.utils.safestring import mark_safe
 from urllib.parse import quote_plus
 import json
-import re
 
 register = template.Library()
 
