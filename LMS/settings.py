@@ -308,5 +308,3 @@ CKEDITOR_5_CONFIGS = {
         'media_embed': {'previewsInData': True},
     }
 }
-
-CKEDITOR_5_UPLOAD_PATH = "uploads/"
