@@ -2466,7 +2466,7 @@ def ticket_list(request):
     if status_filter:
         tickets = tickets.filter(status=status_filter)
 
-    paginator = Paginator(tickets, 10)
+    paginator = Paginator(tickets, 5)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -2504,7 +2504,7 @@ def admin_ticket_list(request):
     if status_filter:
         tickets = tickets.filter(status=status_filter)
 
-    paginator = Paginator(tickets, 10)
+    paginator = Paginator(tickets, 3)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 

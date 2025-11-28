@@ -388,6 +388,15 @@ class RatingForm(forms.ModelForm):
 
 
 class SupportTicketForm(forms.ModelForm):
+    description = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'django_ckeditor_5',
+            'rows': 5,
+            'placeholder': 'Describe your issue in detail',
+        }),
+        required=False
+    )
+
     class Meta:
         model = SupportTicket
         fields = ['subject', 'description']
@@ -396,8 +405,13 @@ class SupportTicketForm(forms.ModelForm):
                 'class': 'w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
                 'placeholder': 'Enter a brief subject'
             }),
-            'description': CKEditor5Widget(config_name='default'),
         }
+
+    def clean_description(self):
+        description = self.cleaned_data.get('description', '').strip()
+        if not description:
+            raise forms.ValidationError("Description is required.")
+        return description
 
 
 class PreferenceForm(forms.ModelForm):
@@ -405,7 +419,8 @@ class PreferenceForm(forms.ModelForm):
         ('IT', 'IT / Software Development'),
         ('Marketing', 'Marketing & Communications'),
         ('Sales', 'Sales & Business Development'),
-        ('HR', 'Human Resources'),
+        ('People Ops', 'People Operations'),
+        ('Business Applications', 'Business Applications'),
         ('Finance', 'Finance & Accounting'),
         ('General', 'General / All Departments'),
     ]

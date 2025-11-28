@@ -151,6 +151,13 @@
                                             <tr>
                                                 <td style="padding: 8px 0;">
                                                     <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 0;">
+                                                        <strong>Description:</strong> {{ ticket.description|safe }}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0;">
+                                                    <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 0;">
                                                         <strong>Status:</strong> <span style="color: #2563eb; font-weight: 500;">{{ ticket.get_status_display }}</span>
                                                     </p>
                                                 </td>
