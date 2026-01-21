@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     'social_django',
     "storages",
     'django_ckeditor_5',
+    'django_celery_results',
+    'django_celery_beat',
     
 ]
 
@@ -78,26 +80,13 @@ TEMPLATES = [
 WSGI_APPLICATION = 'LMS.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# if config('DATABASE_URL', default=None):
-#     # Production: Use Postgres
-#     DATABASES = {
-#         'default': dj_database_url.config(
-#             default=config('DATABASE_URL'),
-#             conn_max_age=600,
-#             ssl_require=True
-#         )
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
 #     }
-# else:
-#     # Development: Use SQLite
-#     DATABASES = {
-#         'default': {
-#             'ENGINE': 'django.db.backends.sqlite3',
-#             'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-#         }
-#     }
+# }
 
 
 DATABASES = {
@@ -217,12 +206,8 @@ LOGIN_REDIRECT_URL = 'preference_setup'
 LOGOUT_REDIRECT_URL = 'login'
 
 
-if not DEBUG:
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SOCIAL_AUTH_REDIRECT_IS_HTTPS = True
-else:
-    SECURE_PROXY_SSL_HEADER = None
-    SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
     
 EMAIL_BACKEND = 'LMS.graph_email_backend.GraphEmailBackend'
 
@@ -262,15 +247,27 @@ if USE_AZURE_STORAGE and not DEBUG:
 
 AZURE_OVERWRITE_FILES = False
 
-SECURE_SSL_REDIRECT = False
+SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://lms.ha-shem.com",
+    "https://ottotechnologies.org",
 ]
 
+
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+CELERY_TASK_TIME_LIMIT = 30 * 60 
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60
+
+SESSION_COOKIE_AGE = 60 * 30
 
 # ---------------------------------------------------------
 # CKEditor 5 Configuration
