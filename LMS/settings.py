@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from decouple import config
-import dj_database_url
+# import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,6 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config("SECRET_KEY")
 DEBUG = config("DEBUG", cast=bool)
+
 
 ALLOWED_HOSTS = ['*']
 
@@ -80,24 +81,44 @@ WSGI_APPLICATION = 'LMS.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-if config('DATABASE_URL', default=None):
-    # Production: Use Postgres
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=config('DATABASE_URL'),
-            conn_max_age=600,
-            ssl_require=True
-        )
-    }
-else:
-    # Development: Use SQLite
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-        }
+# if config('DATABASE_URL', default=None):
+#     # Production: Use Postgres
+#     DATABASES = {
+#         'default': dj_database_url.config(
+#             default=config('DATABASE_URL'),
+#             conn_max_age=600,
+#             ssl_require=True
+#         )
+#     }
+# else:
+#     # Development: Use SQLite
+#     DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.sqlite3',
+#             'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+#         }
+#     }
+
+
+DATABASES = {
+
+    'default': {
+
+        'ENGINE': 'django.db.backends.postgresql',
+
+        'NAME': 'lms_db',
+
+        'USER': 'postgres',
+
+        'PASSWORD': 'Klassnics@1759',
+
+        'HOST': 'localhost',
+
+        'PORT': '5432',
+
     }
 
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -195,6 +216,7 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'preference_setup'
 LOGOUT_REDIRECT_URL = 'login'
 
+
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SOCIAL_AUTH_REDIRECT_IS_HTTPS = True
@@ -211,8 +233,8 @@ if USE_AZURE_STORAGE and not DEBUG:
     AZURE_ACCOUNT_NAME = config("AZURE_ACCOUNT_NAME")
     AZURE_ACCOUNT_KEY = config("AZURE_ACCOUNT_KEY")
     AZURE_CONNECTION_STRING = config("AZURE_CONNECTION_STRING")
-    AZURE_STATIC_CONTAINER = config("AZURE_STATIC_CONTAINER", default="staticfiles") # To rename later
-    AZURE_MEDIA_CONTAINER = config("AZURE_MEDIA_CONTAINER", default="mediafiles") # To rename later
+    AZURE_STATIC_CONTAINER = config("AZURE_STATIC_CONTAINER", default="staticfiles") 
+    AZURE_MEDIA_CONTAINER = config("AZURE_MEDIA_CONTAINER", default="mediafiles") 
 
     STATIC_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_STATIC_CONTAINER}/"
     MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_MEDIA_CONTAINER}/"
@@ -238,11 +260,13 @@ if USE_AZURE_STORAGE and not DEBUG:
         },
     }
 
-AZURE_OVERWRITE_FILES = True
+AZURE_OVERWRITE_FILES = False
 
+SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
 CSRF_TRUSTED_ORIGINS = [
     "https://lms.ha-shem.com",
 ]
