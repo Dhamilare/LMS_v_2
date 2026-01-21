@@ -196,6 +196,16 @@ SOCIAL_AUTH_AZUREAD_OAUTH2_KEY = config('SOCIAL_AUTH_AZUREAD_OAUTH2_KEY')
 SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET = config('SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET')
 SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID = config('SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID')
 
+SOCIAL_AUTH_AZUREAD_OAUTH2_AUTHORIZATION_URL = (
+    f"https://login.microsoftonline.com/{SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID}/oauth2/v2.0/authorize"
+)
+
+SOCIAL_AUTH_AZUREAD_OAUTH2_ACCESS_TOKEN_URL = (
+    f"https://login.microsoftonline.com/{SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID}/oauth2/v2.0/token"
+)
+
+
+
 GEMINI_API_KEY = config('GEMINI_API_KEY')
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+GEMINI_API_KEY
 
@@ -253,7 +263,7 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://ottotechnologies.org",
+    "https://tekmaverickhq.com",
 ]
 
 
@@ -356,7 +366,7 @@ LOGGING = {
 }
 
 if not DEBUG:
-    ABSOLUTE_URL_DOMAIN = 'lms.ha-shem.com'
+    ABSOLUTE_URL_DOMAIN = 'tekmaverickhq.com'
     ABSOLUTE_URL_PROTOCOL = 'https'
 else:
     ABSOLUTE_URL_DOMAIN = 'localhost:8000' 
