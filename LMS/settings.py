@@ -259,8 +259,13 @@ AZURE_OVERWRITE_FILES = False
 
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SAMESITE = 'Lax'
+<<<<<<< HEAD
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+=======
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+>>>>>>> 8425c8c (new changes)
 
 CSRF_TRUSTED_ORIGINS = [
     "https://tekmaverickhq.com",

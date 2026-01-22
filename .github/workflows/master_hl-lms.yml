@@ -45,7 +45,7 @@ jobs:
           path: |
             .
             !antenv/
-            startup.sh
+            
 
       # 🚫 Opting Out of Oryx Build
       # If you prefer to disable the Oryx build process during deployment, follow these steps:
