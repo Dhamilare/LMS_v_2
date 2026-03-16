@@ -160,13 +160,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     <iframe class="absolute top-0 left-0 w-full h-full"
                             src="{{ content.video_url|youtube_embed_url }}"
                             frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowfullscreen></iframe>
+                            allowfullscreen>
+                        </iframe>
                 </div>
                 <p class="text-gray-500 text-sm mt-4">Source: <a href="{{ content.video_url }}" target="_blank" class="text-indigo-500 hover:underline truncate inline-block max-w-full">{{ content.video_url }}</a></p>
             {% elif content.file %}
                 <video controls class="w-full rounded-xl shadow-xl border border-gray-300">
-                    <source src="{{ content.file.url }}" type="video/mp4">
-                    Your browser does not support the video tag.
+                    <source src="{{ content_file_url }}" 
+                    type="{% if content.file.name|lower|slice:'-4:' == '.mp4' %}video/mp4
+                        {% elif content.file.name|lower|slice:'-5:' == '.webm' %}video/webm
+                        {% elif content.file.name|lower|slice:'-4:' == '.ogg' %}video/ogg
+                        {% else %}video/mp4{% endif %}">
                 </video>
             {% else %}
                 <div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg"><i class="fas fa-exclamation-triangle mr-2"></i> No video content available.</div>

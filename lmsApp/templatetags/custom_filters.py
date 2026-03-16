@@ -2,6 +2,7 @@ from django import template
 from django.utils.safestring import mark_safe
 from urllib.parse import quote_plus
 import json
+from urllib.parse import urlparse, parse_qs
 
 register = template.Library()
 
@@ -10,14 +11,36 @@ def js(value):
     """Safely escapes a value for use as a JavaScript string literal."""
     return mark_safe(json.dumps(value))
 
+register = template.Library()
+
 @register.filter
 def youtube_embed_url(url):
-    """
-    Converts a standard YouTube watch URL to an embed URL.
-    """
-    if url and "youtube.com/watch?v=" in url:
-        return url.replace("watch?v=", "embed/")
-    return url
+    if not url:
+        return ""
+
+    parsed = urlparse(url)
+    video_id = None
+
+    # Handle standard youtube.com URLs (like the one in your database)
+    if parsed.hostname in ["www.youtube.com", "youtube.com"]:
+        if "/shorts/" in parsed.path:
+            video_id = parsed.path.split("/")[-1]
+        else:
+            # parse_qs returns {'v': ['h95cQkEWBx0']}. We need the [0] element.
+            video_ids = parse_qs(parsed.query).get("v")
+            if video_ids:
+                video_id = video_ids[0]
+
+    # Handle youtu.be short URLs
+    elif parsed.hostname == "youtu.be":
+        video_id = parsed.path.lstrip("/")
+
+    if video_id:
+        # Return the clean URL: https://www.youtube.com/embed/h95cQkEWBx0
+        return mark_safe(f"https://www.youtube.com/embed/{video_id}")
+
+    return ""
+
 
 @register.filter
 def split(value, arg):

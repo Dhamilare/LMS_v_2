@@ -27,6 +27,7 @@ import sys
 import os
 import subprocess
 from urllib.parse import quote
+logger = logging.getLogger(__name__)
 
 if sys.platform.startswith('win'):
     import comtypes.client
@@ -34,14 +35,23 @@ if sys.platform.startswith('win'):
 CONVERTED_PDF_DIR = 'converted_pdfs'
 CONVERTED_PDF_PATH = os.path.join(settings.MEDIA_ROOT, CONVERTED_PDF_DIR)
 
+LIBREOFFICE_PATH = (
+    r"C:\Program Files\LibreOffice\program\soffice.exe"
+    if sys.platform.startswith('win')
+    else 'libreoffice'
+)
+
 # --- Cross-Platform PPTX to PDF Conversion ---
 
 def convert_pptx_to_pdf(pptx_file_path, request=None):
     """
-    Convert PPTX to PDF using LibreOffice (Linux) or MS Office COM (Windows).
+    Convert PPTX to PDF using LibreOffice (Windows & Linux).
     Returns: Public URL of the converted PDF or None on failure.
     """
     if not os.path.exists(pptx_file_path):
+        logger.error(f"File not found: {pptx_file_path}")
+        if request:
+            messages.error(request, "Presentation file not found on server.")
         return None
 
     os.makedirs(CONVERTED_PDF_PATH, exist_ok=True)
@@ -52,51 +62,68 @@ def convert_pptx_to_pdf(pptx_file_path, request=None):
     pdf_file_url = settings.MEDIA_URL + os.path.join(CONVERTED_PDF_DIR, pdf_filename).replace('\\', '/')
 
     try:
-        if sys.platform.startswith('linux'):
-            print("Attempting conversion using LibreOffice (Linux)...")
-            command = [
-                'libreoffice', '--headless', '--convert-to', 'pdf',
-                '--outdir', CONVERTED_PDF_PATH, pptx_file_path
-            ]
-            subprocess.run(command, capture_output=True, text=True, check=True, timeout=60)
+        platform_label = "Windows" if sys.platform.startswith('win') else "Linux"
+        print(f"Attempting PPTX → PDF conversion using LibreOffice ({platform_label})...")
 
-            default_pdf_name = base_name + '.pdf'
-            default_pdf_path_abs = os.path.join(CONVERTED_PDF_PATH, default_pdf_name)
+        # Verify LibreOffice is actually installed / path is correct
+        if sys.platform.startswith('win') and not os.path.exists(LIBREOFFICE_PATH):
+            raise FileNotFoundError(
+                f"LibreOffice not found at: {LIBREOFFICE_PATH}\n"
+                "Download it from https://www.libreoffice.org/download/download-libreoffice/"
+            )
 
-            if os.path.exists(default_pdf_path_abs):
-                os.rename(default_pdf_path_abs, pdf_file_path_abs)
-                return pdf_file_url
-            else:
-                raise FileNotFoundError(f"LibreOffice failed to produce {default_pdf_name}")
+        command = [
+            LIBREOFFICE_PATH,
+            '--headless',
+            '--convert-to', 'pdf',
+            '--outdir', CONVERTED_PDF_PATH,
+            pptx_file_path
+        ]
 
-        elif sys.platform.startswith('win'):
-            print("Attempting conversion using MS Office COM (Windows)...")
-            ppSaveAsPDF = 32
-            powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
-            powerpoint.Visible = False
-            try:
-                presentation = powerpoint.Presentations.Open(pptx_file_path, False, False, False)
-                presentation.SaveAs(pdf_file_path_abs, ppSaveAsPDF)
-                presentation.Close()
-            finally:
-                powerpoint.Quit()
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
 
-            if os.path.exists(pdf_file_path_abs):
-                return pdf_file_url
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"LibreOffice exited with code {result.returncode}.\n"
+                f"STDOUT: {result.stdout}\n"
+                f"STDERR: {result.stderr}"
+            )
 
-    except subprocess.CalledProcessError as e:
-        print(f"Linux Conversion Error: {e.stderr}")
+        default_pdf_name = base_name + '.pdf'
+        default_pdf_path_abs = os.path.join(CONVERTED_PDF_PATH, default_pdf_name)
+
+        if not os.path.exists(default_pdf_path_abs):
+            raise FileNotFoundError(
+                f"LibreOffice ran successfully but PDF not found at: {default_pdf_path_abs}\n"
+                f"STDOUT: {result.stdout}"
+            )
+
+        # Rename to our unique filename to avoid collisions
+        os.rename(default_pdf_path_abs, pdf_file_path_abs)
+        logger.info(f"Conversion successful: {pdf_file_path_abs}")
+        return pdf_file_url
+
+    except FileNotFoundError as e:
+        logger.error(f"LibreOffice Not Found: {e}")
         if request:
-            messages.error(request, f"Linux Conversion failed (Code {e.returncode}): {e.stderr}")
+            messages.error(request, f"LibreOffice is not installed or not found. {e}")
+
+    except subprocess.TimeoutExpired:
+        logger.error("Conversion timed out after 120 seconds.")
+        if request:
+            messages.error(request, "Presentation conversion timed out. Try a smaller file.")
+
     except Exception as e:
-        print("General Conversion Error:", traceback.format_exc())
+        print(f"Conversion Error:\n{traceback.format_exc()}")
         if request:
             messages.error(request, f"Conversion failed: {e}")
 
     return None
-
-
-logger = logging.getLogger(__name__)
 
 
 def send_enrollment_email_to_instructor(request, enrollment):
@@ -1121,7 +1148,8 @@ def content_detail(request, course_slug, module_id, lesson_id, content_id):
                 content_file_url = request.build_absolute_uri(quote(content.file.url))
         
         elif content.content_type == 'video' and not content.video_url:
-            content_file_url = request.build_absolute_uri(quote(content.file.url))
+            if content.file: 
+                content_file_url = request.build_absolute_uri(quote(content.file.url))
 
     context = {
         'course': course,
@@ -2941,12 +2969,12 @@ def course_evaluation_view(request, course_slug):
 
     # 1. Enforce Completion Gate
     if not enrollment.completed:
-        messages.error(request, "You must fully complete the course before submitting the evaluation.")
+        messages.error(request, "You must fully complete the course before submitting the evaluation form.")
         return redirect('course_detail', slug=course_slug)
     
     # 2. Enforce One-Time Submission
     if enrollment.has_completed_survey:
-        messages.info(request, "You have already submitted the course evaluation.")
+        messages.info(request, "You have already submitted the course evaluation form.")
         return redirect('course_detail', slug=course_slug)
 
     if request.method == 'POST':

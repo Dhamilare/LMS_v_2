@@ -81,33 +81,33 @@ WSGI_APPLICATION = 'LMS.wsgi.application'
 
 
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-#     }
-# }
-
-
 DATABASES = {
-
     'default': {
-
-        'ENGINE': 'django.db.backends.postgresql',
-
-        'NAME': 'lms_db',
-
-        'USER': 'postgres',
-
-        'PASSWORD': 'Klassnics@1759',
-
-        'HOST': 'localhost',
-
-        'PORT': '5432',
-
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
-
 }
+
+
+# DATABASES = {
+
+#     'default': {
+
+#         'ENGINE': 'django.db.backends.postgresql',
+
+#         'NAME': 'lms_db',
+
+#         'USER': 'postgres',
+
+#         'PASSWORD': 'Klassnics@1759',
+
+#         'HOST': 'localhost',
+
+#         'PORT': '5432',
+
+#     }
+
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -257,19 +257,14 @@ if USE_AZURE_STORAGE and not DEBUG:
 
 AZURE_OVERWRITE_FILES = False
 
-SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SAMESITE = 'Lax'
-<<<<<<< HEAD
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-=======
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
->>>>>>> 8425c8c (new changes)
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://tekmaverickhq.com",
-]
+
+# CSRF_TRUSTED_ORIGINS = [
+#     "https://tekmaverickhq.com",
+# ]
 
 
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
@@ -281,6 +276,9 @@ CELERY_TIMEZONE = TIME_ZONE
 
 CELERY_TASK_TIME_LIMIT = 30 * 60 
 CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = 524288000   # 500 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 524288000   # 500 MB
 
 SESSION_COOKIE_AGE = 60 * 30
 
