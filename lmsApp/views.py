@@ -12,7 +12,12 @@ from django.urls import reverse
 from .forms import *
 from .models import *
 from io import BytesIO
-import weasyprint
+try:
+    import weasyprint
+    WEASYPRINT_AVAILABLE = True
+except OSError:
+    WEASYPRINT_AVAILABLE = False
+    print("WARNING: WeasyPrint system libraries not available.")
 from django.conf import settings
 import re
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -1575,6 +1580,10 @@ def issue_certificate(request, course_slug):
     student = request.user
 
     enrollment = get_object_or_404(Enrollment, student=student, course=course)
+
+    if not WEASYPRINT_AVAILABLE:
+        messages.error(request, "Certificate generation is currently unavailable. Please contact support.")
+        return redirect('dashboard')
 
     if not enrollment.completed:
         messages.error(request, "You must complete the course to claim a certificate.")
