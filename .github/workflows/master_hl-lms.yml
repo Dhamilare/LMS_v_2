@@ -25,15 +25,15 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: hllmsacr.azurecr.io/
-          username: ${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_2350475C69D94B91ADCFAB4FCD59D4FE }}
-          password: ${{ secrets.AZUREAPPSERVICE_CONTAINERPASSWORD_43AFB80FBB6747ACB4116C1C78B215A7 }}
+          username: ${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_16ABC203A7644A42A41259F3E8BC87B1 }}
+          password: ${{ secrets.AZUREAPPSERVICE_CONTAINERPASSWORD_A4E8B33D4126407BAC76755BED9EF039 }}
 
       - name: Build and push container image to registry
         uses: docker/build-push-action@v3
         with:
           context: .
           push: true
-          tags: hllmsacr.azurecr.io/${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_2350475C69D94B91ADCFAB4FCD59D4FE }}/myapp:${{ github.sha }}
+          tags: hllmsacr.azurecr.io/${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_16ABC203A7644A42A41259F3E8BC87B1 }}/myapp:${{ github.sha }}
           file: ./Dockerfile
 
   deploy:
@@ -49,5 +49,5 @@ jobs:
         with:
           app-name: 'HL-LMS'
           slot-name: 'Production'
-          images: 'hllmsacr.azurecr.io/${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_2350475C69D94B91ADCFAB4FCD59D4FE }}/myapp:${{ github.sha }}'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_309ECC9EBBFA4996AE72D3FD65658D5E }}
+          images: 'hllmsacr.azurecr.io/${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_16ABC203A7644A42A41259F3E8BC87B1 }}/myapp:${{ github.sha }}'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_691001A9FEAD4CAEAF206A848AB6FD60 }}
