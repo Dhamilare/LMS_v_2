@@ -35,7 +35,10 @@ from urllib.parse import quote
 logger = logging.getLogger(__name__)
 
 if sys.platform.startswith('win'):
-    import comtypes.client
+    try:
+        import comtypes.client
+    except ImportError:
+        pass
 
 CONVERTED_PDF_DIR = 'converted_pdfs'
 CONVERTED_PDF_PATH = os.path.join(settings.MEDIA_ROOT, CONVERTED_PDF_DIR)

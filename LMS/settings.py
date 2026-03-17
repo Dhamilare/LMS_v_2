@@ -81,7 +81,7 @@ WSGI_APPLICATION = 'LMS.wsgi.application'
 
 
 
-DATABASE_URL = config('DATABASE_URL')
+DATABASE_URL = config('DATABASE_URL', default=None)
 
 if DATABASE_URL:
     DATABASES = {
