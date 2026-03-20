@@ -264,8 +264,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="flex space-x-3 items-center">
             {# AI SUMMARIZATION BUTTON (Only for Text Content) #}
             {% if content.content_type == 'text' %}
-                <button id="ai-summary-btn"
-                    data-title="{{ content.title|escapejs }}"
+                <button onclick="generateAISummary('{{ content.title|escapejs }}')"
                     class="bg-purple-600 text-white py-2 px-4 rounded-full hover:bg-purple-700 transition duration-300 flex items-center shadow-lg hover:shadow-xl text-sm font-semibold transform hover:scale-105">
                     <i class="fas fa-brain mr-2"></i> AI Summary
                 </button>
@@ -375,11 +374,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const contentDiv = document.getElementById('content-text-area');
         if (!contentDiv) return displayMessage('error', 'No text content found.');
 
-        // Get the content text while preserving line breaks from <br> and paragraph breaks
-        let rawText = contentDiv.innerText.trim();
-        // A simple text cleaning to ensure a minimum size for meaningful summary
+        const rawText = contentDiv.innerText.trim();
         if (rawText.length < 50) return displayMessage('error', 'Content too short for AI summary.');
-        
+
         showContentModal(
             `Generating AI Summary for: ${contentTitle}`,
             `<div class="text-center py-10">
@@ -389,59 +386,79 @@ document.addEventListener('DOMContentLoaded', function() {
         );
 
         const payload = {
-            // Updated prompt for better formatting and clarity in the response
-            contents: [{ 
-                role: "user", 
-                parts: [{ text: `Provide a concise, easy-to-read summary of the following educational content. Use bullet points if appropriate. Limit the summary to a maximum of 300 words. Content: ${rawText}` }] 
+            contents: [{
+                role: "user",
+                parts: [{ text: `Provide a concise summary of the following educational content. Use bullet points. Max 300 words.\n\nContent:\n${rawText}` }]
             }],
-            generationConfig: { 
-                temperature: 0.1, 
-                candidateCount: 1, 
-                maxOutputTokens: 500 
-            }
+            generationConfig: { temperature: 0.1, maxOutputTokens: 500 }
         };
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-            
-            // Extract the summary text
-            const summary = result.candidates?.[0]?.content?.parts?.[0]?.text || "AI failed to generate summary. The content might be inappropriate or the service is temporarily unavailable.";
-            
-            // Basic Markdown to HTML conversion for bullet points/paragraphs
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${GEMINI_API_KEY}`,
+                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+            );
 
-            const formattedSummary = summary
-                .replace(/(What they are:)/g, '\n\n$1')
-                .replace(/(Syntax:)/g, '\n\n$1')
-                .replace(/(Key Features:)/g, '\n\n$1')
-                .replace(/(Use Cases:)/g, '\n\n$1')
-                .replace(/(Limitations:)/g, '\n\n$1')
-                .replace(/(Benefits:)/g, '\n\n$1');
-            
-            const cleanedSummary = formattedSummary
-            .replace(/\n{2,}/g, '</p><p>')
-            .replace(/\n/g, ' ')
-            .replace(/[\*-]\s*/g, '');
-            
-            let finalHtml = `<div class="prose max-w-none">${cleanedSummary}</div>`;
-            
-            showContentModal(`AI Summary: ${contentTitle}`, finalHtml);
+            const result = await response.json();
+
+            if (!response.ok) {
+                const apiError = result?.error?.message || `API error ${response.status}`;
+                console.error('Gemini API error:', result);
+                return showContentModal('Summary Failed',
+                    `<p class="text-red-600 font-medium">Gemini API returned an error: ${apiError}</p>`
+                );
+            }
+
+            const finishReason = result.candidates?.[0]?.finishReason;
+            if (finishReason && finishReason !== 'STOP') {
+                return showContentModal('Summary Blocked',
+                    `<p class="text-yellow-700 font-medium">The AI declined to summarize this content (reason: ${finishReason}).</p>`
+                );
+            }
+
+            const summary = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!summary) {
+                console.error('Unexpected Gemini response shape:', result);
+                return showContentModal('Summary Failed',
+                    `<p class="text-red-600 font-medium">Received an empty response from the AI. Please try again.</p>`
+                );
+            }
+
+            // Line-by-line markdown → HTML conversion
+            const lines = summary.split('\n');
+            let htmlSummary = '';
+            let inList = false;
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) {
+                    if (inList) { htmlSummary += '</ul>'; inList = false; }
+                    continue;
+                }
+                if (/^[\*\-]\s+/.test(trimmed)) {
+                    if (!inList) { htmlSummary += '<ul class="list-disc space-y-1 my-2 pl-5">'; inList = true; }
+                    const text = trimmed.replace(/^[\*\-]\s+/, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    htmlSummary += `<li>${text}</li>`;
+                } else {
+                    if (inList) { htmlSummary += '</ul>'; inList = false; }
+                    const text = trimmed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    htmlSummary += `<p class="mb-2">${text}</p>`;
+                }
+            }
+            if (inList) htmlSummary += '</ul>';
+
+            showContentModal(
+                `AI Summary: ${contentTitle}`,
+                `<div class="prose max-w-none text-gray-800 leading-relaxed">${htmlSummary}</div>`
+            );
 
         } catch (err) {
-            console.error('AI Summary Error:', err);
-            showContentModal('Summary Failed', `<p class="text-red-600 font-medium">Error connecting to AI service. Please check your API key or network connection.</p>`);
+            console.error('AI Summary network error:', err);
+            showContentModal('Summary Failed',
+                `<p class="text-red-600 font-medium">Network error connecting to AI service. Check your connection.</p>`
+            );
         }
     }
-
-    const aiSummaryBtn = document.getElementById('ai-summary-btn');
-    if (aiSummaryBtn) {
-        aiSummaryBtn.addEventListener('click', () => generateAISummary(aiSummaryBtn.dataset.title));
-    }
-
 
     // ------------------------------
     // Mark content as completed

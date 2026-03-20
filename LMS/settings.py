@@ -218,7 +218,7 @@ SOCIAL_AUTH_AZUREAD_OAUTH2_ACCESS_TOKEN_URL = (
 
 
 GEMINI_API_KEY = config('GEMINI_API_KEY')
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+GEMINI_API_KEY
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=" + GEMINI_API_KEY
 
 # Login URLs
 LOGIN_URL = 'login'
@@ -380,7 +380,7 @@ LOGGING = {
 }
 
 if not DEBUG:
-    ABSOLUTE_URL_DOMAIN = 'tekmaverickhq.com'
+    ABSOLUTE_URL_DOMAIN = 'hl-lms.azurewebsites.net'
     ABSOLUTE_URL_PROTOCOL = 'https'
 else:
     ABSOLUTE_URL_DOMAIN = 'localhost:8000' 
