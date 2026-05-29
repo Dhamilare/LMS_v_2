@@ -69,7 +69,7 @@ class InstructorUpdateForm(UserChangeForm):
 class CourseForm(forms.ModelForm):
     class Meta:
         model = Course
-        fields = ['title', 'description', 'category', 'instructor', 'default_duration_days','price', 'is_published', 'thumbnail', 'tags']
+        fields = ['title', 'description', 'category', 'instructor', 'duration', 'default_duration_days','price', 'is_published', 'thumbnail', 'tags']
         widgets = {
             'description': CKEditor5Widget(config_name='default', attrs={'data-type': 'ckeditor'}),
             'tags': forms.SelectMultiple(attrs={'class': 'form-control'}),
