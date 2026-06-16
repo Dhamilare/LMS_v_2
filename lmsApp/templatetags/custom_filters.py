@@ -16,25 +16,35 @@ def youtube_embed_url(url):
     if not url:
         return ""
 
+    url = url.strip() 
+
+    if url.startswith('<iframe'):
+        import re
+        match = re.search(r'src=["\']([^"\']+)["\']', url)
+        if match:
+            url = match.group(1)
+        else:
+            return ""
+
     parsed = urlparse(url)
     video_id = None
 
-    # Handle standard youtube.com URLs (like the one in your database)
     if parsed.hostname in ["www.youtube.com", "youtube.com"]:
         if "/shorts/" in parsed.path:
             video_id = parsed.path.split("/")[-1]
         else:
-            # parse_qs returns {'v': ['h95cQkEWBx0']}. We need the [0] element.
             video_ids = parse_qs(parsed.query).get("v")
             if video_ids:
                 video_id = video_ids[0]
 
-    # Handle youtu.be short URLs
     elif parsed.hostname == "youtu.be":
-        video_id = parsed.path.lstrip("/")
+        video_id = parsed.path.lstrip("/").split("?")[0]  # extra safety
+
+    elif parsed.hostname in ["www.youtube.com", "youtube.com"] and "/embed/" in parsed.path:
+        video_id = parsed.path.split("/embed/")[-1].split("?")[0]
 
     if video_id:
-        # Return the clean URL: https://www.youtube.com/embed/h95cQkEWBx0
+        video_id = video_id.strip()
         return mark_safe(f"https://www.youtube.com/embed/{video_id}")
 
     return ""
