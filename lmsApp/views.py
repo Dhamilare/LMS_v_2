@@ -30,6 +30,8 @@ from django.contrib.sites.shortcuts import get_current_site
 import logging
 import sys
 import os
+import tempfile
+from django.core.files.base import ContentFile
 import subprocess
 from urllib.parse import quote
 logger = logging.getLogger(__name__)
@@ -49,89 +51,170 @@ LIBREOFFICE_PATH = (
     else 'libreoffice'
 )
 
-# --- Cross-Platform PPTX to PDF Conversion ---
+USE_AZURE = getattr(settings, 'USE_AZURE_STORAGE', False) and not settings.DEBUG
 
-def convert_pptx_to_pdf(pptx_file_path, request=None):
+# -------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------
+def _run_libreoffice(input_path: str, output_dir: str) -> str:
     """
-    Convert PPTX to PDF using LibreOffice (Windows & Linux).
-    Returns: Public URL of the converted PDF or None on failure.
+    Run LibreOffice headless conversion.
+    Returns the absolute path of the generated PDF.
+    Raises on any failure.
     """
-    if not os.path.exists(pptx_file_path):
-        logger.error(f"File not found: {pptx_file_path}")
-        if request:
-            messages.error(request, "Presentation file not found on server.")
-        return None
-
-    os.makedirs(CONVERTED_PDF_PATH, exist_ok=True)
-
-    base_name = os.path.basename(pptx_file_path).rsplit('.', 1)[0]
-    pdf_filename = f"{base_name}_{os.getpid()}_{os.urandom(4).hex()}.pdf"
-    pdf_file_path_abs = os.path.join(CONVERTED_PDF_PATH, pdf_filename)
-    pdf_file_url = settings.MEDIA_URL + os.path.join(CONVERTED_PDF_DIR, pdf_filename).replace('\\', '/')
-
-    try:
-        platform_label = "Windows" if sys.platform.startswith('win') else "Linux"
-        print(f"Attempting PPTX → PDF conversion using LibreOffice ({platform_label})...")
-
-        # Verify LibreOffice is actually installed / path is correct
-        if sys.platform.startswith('win') and not os.path.exists(LIBREOFFICE_PATH):
-            raise FileNotFoundError(
-                f"LibreOffice not found at: {LIBREOFFICE_PATH}\n"
-                "Download it from https://www.libreoffice.org/download/download-libreoffice/"
-            )
-
-        command = [
-            LIBREOFFICE_PATH,
-            '--headless',
-            '--convert-to', 'pdf',
-            '--outdir', CONVERTED_PDF_PATH,
-            pptx_file_path
-        ]
-
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=120
+    if sys.platform.startswith('win') and not os.path.exists(LIBREOFFICE_PATH):
+        raise FileNotFoundError(
+            f"LibreOffice not found at: {LIBREOFFICE_PATH}\n"
+            "Download from https://www.libreoffice.org/download/download-libreoffice/"
         )
 
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"LibreOffice exited with code {result.returncode}.\n"
-                f"STDOUT: {result.stdout}\n"
-                f"STDERR: {result.stderr}"
-            )
+    command = [
+        LIBREOFFICE_PATH,
+        '--headless',
+        '--convert-to', 'pdf',
+        '--outdir', output_dir,
+        input_path,
+    ]
 
-        default_pdf_name = base_name + '.pdf'
-        default_pdf_path_abs = os.path.join(CONVERTED_PDF_PATH, default_pdf_name)
+    result = subprocess.run(command, capture_output=True, text=True, timeout=120)
 
-        if not os.path.exists(default_pdf_path_abs):
-            raise FileNotFoundError(
-                f"LibreOffice ran successfully but PDF not found at: {default_pdf_path_abs}\n"
-                f"STDOUT: {result.stdout}"
-            )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"LibreOffice exited with code {result.returncode}.\n"
+            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
 
-        # Rename to our unique filename to avoid collisions
-        os.rename(default_pdf_path_abs, pdf_file_path_abs)
-        logger.info(f"Conversion successful: {pdf_file_path_abs}")
-        return pdf_file_url
+    base_name = os.path.basename(input_path).rsplit('.', 1)[0]
+    pdf_path = os.path.join(output_dir, base_name + '.pdf')
 
-    except FileNotFoundError as e:
-        logger.error(f"LibreOffice Not Found: {e}")
-        if request:
-            messages.error(request, f"LibreOffice is not installed or not found. {e}")
+    if not os.path.exists(pdf_path):
+        raise FileNotFoundError(
+            f"LibreOffice ran but PDF not found at: {pdf_path}\nSTDOUT: {result.stdout}"
+        )
 
-    except subprocess.TimeoutExpired:
-        logger.error("Conversion timed out after 120 seconds.")
-        if request:
-            messages.error(request, "Presentation conversion timed out. Try a smaller file.")
+    return pdf_path
 
-    except Exception as e:
-        print(f"Conversion Error:\n{traceback.format_exc()}")
-        if request:
-            messages.error(request, f"Conversion failed: {e}")
+# --- Cross-Platform PPTX to PDF Conversion ---
 
-    return None
+def convert_pptx_to_pdf(content_file_field, request=None):
+    """
+    Convert a PPTX FileField to PDF.
+
+    - Local (DEBUG=True):  reads from disk, writes PDF to MEDIA_ROOT/converted_pdfs/,
+                           returns a local media URL.
+    - Production (Azure):  downloads blob to a temp file, converts, uploads PDF back
+                           to Azure Blob under converted_pdfs/, returns the blob URL.
+
+    Returns the URL string on success, or None on failure.
+    """
+    unique_suffix = f"{os.getpid()}_{os.urandom(4).hex()}"
+
+    # ------------------------------------------------------------------
+    # PRODUCTION PATH — Azure Blob Storage
+    # ------------------------------------------------------------------
+    if USE_AZURE:
+        tmp_pptx = None
+        tmp_pdf_dir = None
+        try:
+            # 1. Download the PPTX from blob to a local temp file
+            tmp_pptx = tempfile.NamedTemporaryFile(suffix='.pptx', delete=False)
+            with content_file_field.open('rb') as blob_file:
+                tmp_pptx.write(blob_file.read())
+            tmp_pptx.flush()
+            tmp_pptx.close()
+
+            # 2. Convert using LibreOffice into a temp output directory
+            tmp_pdf_dir = tempfile.mkdtemp()
+            pdf_local_path = _run_libreoffice(tmp_pptx.name, tmp_pdf_dir)
+
+            # 3. Upload the resulting PDF back to Azure Blob
+            base_name = os.path.basename(content_file_field.name).rsplit('.', 1)[0]
+            blob_pdf_name = f"{CONVERTED_PDF_DIR}/{base_name}_{unique_suffix}.pdf"
+
+            with open(pdf_local_path, 'rb') as pdf_file:
+                pdf_content = ContentFile(pdf_file.read(), name=blob_pdf_name)
+
+            # Use the default storage backend (AzureStorage) to save
+            from django.core.files.storage import default_storage
+            saved_path = default_storage.save(blob_pdf_name, pdf_content)
+            pdf_url = default_storage.url(saved_path)
+
+            logger.info(f"Azure conversion successful. Blob URL: {pdf_url}")
+            return pdf_url
+
+        except FileNotFoundError as e:
+            logger.error(f"LibreOffice Not Found: {e}")
+            if request:
+                messages.error(request, f"LibreOffice is not installed or not found. {e}")
+
+        except subprocess.TimeoutExpired:
+            logger.error("Conversion timed out after 120 seconds.")
+            if request:
+                messages.error(request, "Presentation conversion timed out. Try a smaller file.")
+
+        except Exception as e:
+            logger.error(f"Azure conversion error:\n{traceback.format_exc()}")
+            if request:
+                messages.error(request, f"Conversion failed: {e}")
+
+        finally:
+            # clean up local temp files
+            if tmp_pptx and os.path.exists(tmp_pptx.name):
+                os.unlink(tmp_pptx.name)
+            if tmp_pdf_dir and os.path.isdir(tmp_pdf_dir):
+                import shutil
+                shutil.rmtree(tmp_pdf_dir, ignore_errors=True)
+
+        return None
+
+    # ------------------------------------------------------------------
+    # LOCAL PATH — Filesystem Storage
+    # ------------------------------------------------------------------
+    else:
+        pptx_file_path = content_file_field.path  # safe locally
+
+        if not os.path.exists(pptx_file_path):
+            logger.error(f"File not found: {pptx_file_path}")
+            if request:
+                messages.error(request, "Presentation file not found on server.")
+            return None
+
+        os.makedirs(CONVERTED_PDF_PATH, exist_ok=True)
+
+        base_name = os.path.basename(pptx_file_path).rsplit('.', 1)[0]
+        pdf_filename = f"{base_name}_{unique_suffix}.pdf"
+        pdf_file_path_abs = os.path.join(CONVERTED_PDF_PATH, pdf_filename)
+
+        try:
+            raw_pdf_path = _run_libreoffice(pptx_file_path, CONVERTED_PDF_PATH)
+
+            # Rename to unique name to avoid collisions
+            os.rename(raw_pdf_path, pdf_file_path_abs)
+
+            # Build a relative media URL
+            relative = os.path.join(CONVERTED_PDF_DIR, pdf_filename).replace('\\', '/')
+            pdf_url = settings.MEDIA_URL + relative
+
+            logger.info(f"Local conversion successful: {pdf_file_path_abs}")
+            return pdf_url
+
+        except FileNotFoundError as e:
+            logger.error(f"LibreOffice Not Found: {e}")
+            if request:
+                messages.error(request, f"LibreOffice is not installed or not found. {e}")
+
+        except subprocess.TimeoutExpired:
+            logger.error("Conversion timed out after 120 seconds.")
+            if request:
+                messages.error(request, "Presentation conversion timed out. Try a smaller file.")
+
+        except Exception as e:
+            logger.error(f"Local conversion error:\n{traceback.format_exc()}")
+            if request:
+                messages.error(request, f"Conversion failed: {e}")
+
+        return None
+    
 
 
 def send_enrollment_email_to_instructor(request, enrollment):
@@ -1142,22 +1225,29 @@ def content_detail(request, course_slug, module_id, lesson_id, content_id):
     slide_images = [] 
 
     if content.file:
-        file_path = content.file.path
-        
+
         if content.content_type == 'pdf':
             content_file_url = request.build_absolute_uri(quote(content.file.url))
-        
+
         elif content.content_type == 'slide':
-            pdf_url = convert_pptx_to_pdf(file_path, request)
+            # Pass the FileField itself — convert_pptx_to_pdf handles both backends
+            pdf_url = convert_pptx_to_pdf(content.file, request)
             if pdf_url:
-                content_file_url = request.build_absolute_uri(quote(pdf_url))
+                # Azure returns a full https:// URL; local returns a /media/... path
+                if pdf_url.startswith('http'):
+                    content_file_url = pdf_url
+                else:
+                    content_file_url = request.build_absolute_uri(quote(pdf_url))
             else:
-                messages.warning(request, "Server failed to render the presentation for inline viewing. Please download the original file.")
+                messages.warning(
+                    request,
+                    "Server failed to render the presentation for inline viewing. "
+                    "Please download the original file."
+                )
                 content_file_url = request.build_absolute_uri(quote(content.file.url))
-        
+
         elif content.content_type == 'video' and not content.video_url:
-            if content.file: 
-                content_file_url = request.build_absolute_uri(quote(content.file.url))
+            content_file_url = request.build_absolute_uri(quote(content.file.url))
 
     context = {
         'course': course,
