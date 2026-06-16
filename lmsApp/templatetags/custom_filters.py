@@ -11,8 +11,6 @@ def js(value):
     """Safely escapes a value for use as a JavaScript string literal."""
     return mark_safe(json.dumps(value))
 
-register = template.Library()
-
 @register.filter
 def youtube_embed_url(url):
     if not url:
