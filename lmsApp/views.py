@@ -1227,7 +1227,11 @@ def content_detail(request, course_slug, module_id, lesson_id, content_id):
     if content.file:
 
         if content.content_type == 'pdf':
-            content_file_url = request.build_absolute_uri(quote(content.file.url))
+            file_url = content.file.url
+            if file_url.startswith('http'):
+                content_file_url = file_url
+            else:
+                content_file_url = request.build_absolute_uri(quote(file_url))
 
         elif content.content_type == 'slide':
             # Pass the FileField itself — convert_pptx_to_pdf handles both backends
@@ -1247,7 +1251,11 @@ def content_detail(request, course_slug, module_id, lesson_id, content_id):
                 content_file_url = request.build_absolute_uri(quote(content.file.url))
 
         elif content.content_type == 'video' and not content.video_url:
-            content_file_url = request.build_absolute_uri(quote(content.file.url))
+            file_url = content.file.url
+            if file_url.startswith('http'):
+                content_file_url = file_url
+            else:
+                content_file_url = request.build_absolute_uri(quote(file_url))
 
     context = {
         'course': course,
