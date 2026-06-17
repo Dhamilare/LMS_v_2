@@ -279,39 +279,50 @@
                     <div class="flex flex-col space-y-3">
 
                         {% if enrollment.has_certificate %}
-                            {# Certificate already claimed #}
+                            {# FINAL STATE: Certificate already claimed #}
                             <span class="bg-green-100 text-green-700 py-3 px-5 rounded-full flex items-center justify-center font-bold w-full text-center">
                                 <i class="fas fa-medal mr-2"></i> Certificate Claimed
                             </span>
-                        
+
                         {% elif enrollment.can_claim_certificate %}
-                            {# State 1: FULLY COMPLETED (Content & Survey Completed + Quiz Passed or No Quiz) #}
+                            {# State: All done — content + quiz passed + survey filled #}
                             <button onclick="showConfirmationModal('{% url 'issue_certificate' course_slug=course.slug %}', 'Claim Certificate', 'Are you sure you want to issue your certificate? This will be finalized.')"
                                     class="bg-green-600 text-white py-3 px-5 rounded-full hover:bg-green-700 transition duration-300 flex items-center justify-center font-bold shadow-lg w-full transform hover:scale-[1.01]">
                                 <i class="fas fa-medal mr-2"></i> Claim Certificate
                             </button>
 
                         {% elif has_failed_course %}
-                            {# State 2: FAILED (Max Attempts Reached) #}
+                            {# State: Max attempts reached, did not pass #}
                             <span class="bg-red-100 text-red-700 py-3 px-5 rounded-full flex items-center justify-center border border-red-300 font-bold w-full text-center">
                                 <i class="fas fa-times-circle mr-2"></i> Final Assessment Failed (Max Attempts)
                             </span>
 
-                        {% elif course_quiz and enrollment.is_content_completed %}
-                            {# State 3: READY FOR QUIZ #}
-                            <a href="{% url 'quiz_take' course_slug=course.slug %}" 
-                               class="bg-indigo-600 text-white py-3 px-5 rounded-full hover:bg-indigo-700 transition duration-300 flex items-center justify-center font-bold shadow-lg w-full transform hover:scale-[1.01]">
-                                <i class="fas fa-play-circle mr-2"></i> Start Final Assessment
-                            </a>
-                        
-                        {% elif enrollment.is_content_completed and not enrollment.has_completed_survey and not enrollment.can_claim_certificate %}
-                            <a href="{% url 'course_evaluation' course_slug=course.slug %}" 
+                        {% elif has_passed_final_quiz and enrollment.is_content_completed and not enrollment.has_completed_survey %}
+                            {# State: Passed quiz but survey not done yet — show survey button #}
+                            <span class="bg-green-100 text-green-700 py-2 px-4 rounded-full flex items-center justify-center font-medium w-full text-center text-sm border border-green-300">
+                                <i class="fas fa-check-circle mr-2"></i> Assessment Passed
+                            </span>
+                            <a href="{% url 'course_evaluation' course_slug=course.slug %}"
                             class="bg-yellow-600 text-white py-3 px-5 rounded-full hover:bg-yellow-700 transition duration-300 flex items-center justify-center font-bold shadow-lg w-full transform hover:scale-[1.01]">
                                 <i class="fas fa-clipboard-list mr-2"></i> Course Survey (Required)
                             </a>
-                                          
+
+                        {% elif course_quiz and enrollment.is_content_completed %}
+                            {# State: Content done, quiz exists but not yet passed — show start assessment #}
+                            <a href="{% url 'quiz_take' course_slug=course.slug %}"
+                            class="bg-indigo-600 text-white py-3 px-5 rounded-full hover:bg-indigo-700 transition duration-300 flex items-center justify-center font-bold shadow-lg w-full transform hover:scale-[1.01]">
+                                <i class="fas fa-play-circle mr-2"></i> Start Final Assessment
+                            </a>
+
+                        {% elif not course_quiz and enrollment.is_content_completed and not enrollment.has_completed_survey %}
+                            {# State: No quiz, content done, survey not filled #}
+                            <a href="{% url 'course_evaluation' course_slug=course.slug %}"
+                            class="bg-yellow-600 text-white py-3 px-5 rounded-full hover:bg-yellow-700 transition duration-300 flex items-center justify-center font-bold shadow-lg w-full transform hover:scale-[1.01]">
+                                <i class="fas fa-clipboard-list mr-2"></i> Course Survey (Required)
+                            </a>
+
                         {% else %}
-                            {# State 5: LOCKED (Need Content) #}
+                            {# State: Content not yet complete #}
                             <span class="bg-gray-200 text-gray-700 py-3 px-5 rounded-full flex items-center justify-center cursor-not-allowed font-bold shadow-md w-full">
                                 <i class="fas fa-lock mr-2"></i> Complete Modules to Unlock Certificate
                             </span>
@@ -319,9 +330,9 @@
 
                         {# Secondary Action: View Transcript (Only show if a quiz is present) #}
                         {% if course_quiz %}
-                        <a href="{% url 'course_transcript' course_slug=course.slug %}" class="bg-white text-gray-700 py-3 px-5 rounded-full hover:bg-gray-100 transition duration-300 flex items-center justify-center border border-gray-300 font-medium shadow-sm w-full">
-                            <i class="fas fa-file-alt mr-2"></i> View Course Transcript
-                        </a>
+                            <a href="{% url 'course_transcript' course_slug=course.slug %}" class="bg-white text-gray-700 py-3 px-5 rounded-full hover:bg-gray-100 transition duration-300 flex items-center justify-center border border-gray-300 font-medium shadow-sm w-full">
+                                <i class="fas fa-file-alt mr-2"></i> View Course Transcript
+                            </a>
                         {% endif %}
                     </div>
                 </div>

@@ -1470,6 +1470,10 @@ def quiz_take(request, course_slug):
     page_obj = paginator.get_page(page_number)
     current_question = page_obj.object_list[0]
 
+    if quiz_answers_session_key not in request.session:
+        request.session[quiz_answers_session_key] = {}
+        request.session.modified = True
+
     if request.method == 'POST':
         form = SingleQuestionForm(current_question, request.POST)
 
@@ -1477,7 +1481,9 @@ def quiz_take(request, course_slug):
             field_name = f'question_{current_question.id}'
             chosen_answer = form.cleaned_data.get(field_name)
 
-            request.session[quiz_answers_session_key][str(current_question.id)] = chosen_answer
+            answers = request.session.get(quiz_answers_session_key, {})
+            answers[str(current_question.id)] = chosen_answer
+            request.session[quiz_answers_session_key] = answers
             request.session.modified = True
 
             if page_obj.has_next():
