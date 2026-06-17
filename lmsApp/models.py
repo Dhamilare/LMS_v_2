@@ -325,21 +325,35 @@ class Enrollment(models.Model):
 
     @property
     def progress_percentage(self):
-        """Calculates the percentage of completed content (all non-quiz content) for this enrollment."""
+        """
+        Calculates overall progress percentage.
+        If course has a quiz: content = 80%, quiz = 20%.
+        If no quiz: content = 100%.
+        """
         total_contents = Content.objects.filter(
             lesson__module__course=self.course
-        ).count() 
-
-        if total_contents == 0:
-            return 0
-
-        completed_contents = StudentContentProgress.objects.filter(
-            student=self.student,
-            content__lesson__module__course=self.course,
-            completed=True
         ).count()
 
-        return round((completed_contents / total_contents) * 100)
+        if total_contents == 0:
+            content_percentage = 0
+        else:
+            completed_contents = StudentContentProgress.objects.filter(
+                student=self.student,
+                content__lesson__module__course=self.course,
+                completed=True
+            ).count()
+            content_percentage = (completed_contents / total_contents) * 100
+
+        if hasattr(self.course, 'quiz'):
+            has_passed_quiz = StudentQuizAttempt.objects.filter(
+                student=self.student,
+                quiz=self.course.quiz,
+                passed=True
+            ).exists()
+            quiz_percentage = 100 if has_passed_quiz else 0
+            return round((content_percentage * 0.8) + (quiz_percentage * 0.2))
+
+        return round(content_percentage)
 
     @property
     def is_content_completed(self):
