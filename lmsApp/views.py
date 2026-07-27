@@ -2428,7 +2428,8 @@ def assign_course_to_student_view(request):
                 with transaction.atomic():
                     assigner = request.user
                     assigner_role = 'HR' if assigner.is_hr else ('Admin' if assigner.is_staff else 'Instructor')
-                    duration_days = course.default_duration_days if course.default_duration_days > 0 else 30
+                    course = form.cleaned_data['course']
+                    duration_days = max(course.default_duration_days or 0, 30)
                     calculated_due_date = timezone.now() + timedelta(days=duration_days)
                     
                     enrollment, created = Enrollment.objects.get_or_create(
