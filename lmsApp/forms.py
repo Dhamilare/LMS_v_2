@@ -524,6 +524,6 @@ class CoursePDFUploadForm(forms.Form):
     def clean_pdf_file(self):
         file = self.cleaned_data.get('pdf_file')
         if file:
-            if file.size > 20 * 1024 * 1024:  # 20 MB Limit
-                raise forms.ValidationError("File size must be under 20MB.")
+            if file.size > 100 * 1024 * 1024:  # 100 MB Limit
+                raise forms.ValidationError("File size must be under 100MB.")
         return file

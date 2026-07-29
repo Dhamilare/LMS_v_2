@@ -22,12 +22,30 @@ class PDFCourseExtractorService:
 
     @staticmethod
     def extract_text(pdf_file) -> str:
-        pdf_reader = pypdf.PdfReader(pdf_file)
+        """
+        Memory-efficient text extraction for large files up to 100MB.
+        """
         text = ""
-        for page in pdf_reader.pages:
-            extracted = page.extract_text()
-            if extracted:
-                text += extracted + "\n"
+        try:
+            # pypdf reads from file pointers efficiently
+            pdf_reader = pypdf.PdfReader(pdf_file)
+            total_pages = len(pdf_reader.pages)
+            
+            logger.info(f"Processing large PDF with {total_pages} pages...")
+
+            # Cap page processing to first 100 pages to avoid Gemini context overflow
+            max_pages = min(total_pages, 100)
+
+            for page_num in range(max_pages):
+                page = pdf_reader.pages[page_num]
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+                    
+        except Exception as e:
+            logger.error(f"Error parsing large PDF: {str(e)}")
+            raise ValueError("Could not extract readable text from the uploaded 100MB file.")
+
         return text
 
     @classmethod

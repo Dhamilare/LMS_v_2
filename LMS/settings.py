@@ -215,7 +215,15 @@ SOCIAL_AUTH_AZUREAD_OAUTH2_ACCESS_TOKEN_URL = (
     f"https://login.microsoftonline.com/{SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID}/oauth2/v2.0/token"
 )
 
+# Maximum upload size in bytes (100 MB)
+MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
 
+# Raise Django's request body parsing memory limits
+DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # Files above 10MB stream to disk temp folder
+
+# Temporary file upload handler directory
+FILE_UPLOAD_TEMP_DIR = '/tmp'
 
 GEMINI_API_KEY = config('GEMINI_API_KEY')
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=" + GEMINI_API_KEY
