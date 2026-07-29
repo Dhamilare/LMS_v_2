@@ -15,6 +15,7 @@ urlpatterns = [
     # --- Instructor Course Management ---
     path('courses/', views.course_list, name='course_list'), # Instructor's list of courses
     path('courses/create/', views.course_create, name='course_create'),
+    path('course/create/pdf/', views.course_create_from_pdf, name='course_create_from_pdf'),
     path('courses/<slug:slug>/edit/', views.course_update, name='course_update'),
     path('courses/<slug:slug>/delete/', views.course_delete, name='course_delete'),
     path('assign-course/', views.assign_course_to_student_view, name='assign_course'),

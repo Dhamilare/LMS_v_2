@@ -12,6 +12,7 @@ from django.urls import reverse
 from .forms import *
 from .models import *
 from io import BytesIO
+from .services import PDFCourseExtractorService, PDFExtractionError
 try:
     import weasyprint
     WEASYPRINT_AVAILABLE = True
@@ -3173,3 +3174,57 @@ def hr_course_feedback(request):
         'total_submissions': filtered_evaluations.count(),
     }
     return render(request, 'admin/hr_course_feedback.html', context)
+
+
+@login_required
+@user_passes_test(is_instructor)
+def course_create_from_pdf(request):
+    template_name = 'instructor/course_create_pdf.html'
+
+    if request.method == 'POST':
+        form = CoursePDFUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            pdf_file = form.cleaned_data['pdf_file']
+            custom_title = form.cleaned_data.get('title')
+            generate_quiz = form.cleaned_data.get('generate_quiz', True)
+
+            try:
+                course = PDFCourseExtractorService.build_course_from_pdf(
+                    instructor=request.user,
+                    pdf_file=pdf_file,
+                    custom_title=custom_title,
+                    generate_quiz=generate_quiz
+                )
+
+                messages.success(request, f'Course "{course.title}" generated successfully!')
+
+                if is_ajax(request):
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'Course "{course.title}" created successfully!',
+                        'redirect_url': reverse('course_detail', kwargs={'slug': course.slug})
+                    })
+                
+                return redirect('course_detail', slug=course.slug)
+
+            except PDFExtractionError as e:
+                error_msg = str(e)
+                if is_ajax(request):
+                    return JsonResponse({'success': False, 'error': error_msg}, status=400)
+                messages.error(request, error_msg)
+
+            except Exception as e:
+                logger.exception("Unexpected error during PDF course generation.")
+                error_msg = "An unexpected error occurred while processing your document. Please try again or use a clearer PDF."
+                if is_ajax(request):
+                    return JsonResponse({'success': False, 'error': error_msg}, status=500)
+                messages.error(request, error_msg)
+
+        else:
+            if is_ajax(request):
+                return JsonResponse({'success': False, 'error': 'Invalid form submit. Please upload a valid PDF.'})
+            messages.error(request, 'Please upload a valid PDF file.')
+    else:
+        form = CoursePDFUploadForm()
+
+    return render(request, template_name, {'form': form, 'page_title': 'Generate Course from PDF'})

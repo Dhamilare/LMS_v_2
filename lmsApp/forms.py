@@ -5,6 +5,7 @@ from crispy_forms.layout import Layout, Submit, Field
 from .models import *
 from django.forms import inlineformset_factory, BaseInlineFormSet, widgets, IntegerField, Textarea
 from django_ckeditor_5.widgets import CKEditor5Widget
+from django.core.validators import FileExtensionValidator
 
 INTEGER_WIDGET = widgets.NumberInput(attrs={'class': 'w-full p-2 border rounded shadow-sm', 'min': 1, 'max': 365})
 
@@ -499,3 +500,30 @@ class CourseEvaluationForm(forms.ModelForm):
             'liked_most',
             'improvement_suggestions',
         ]
+
+class CoursePDFUploadForm(forms.Form):
+    title = forms.CharField(
+        max_length=255, 
+        required=False,
+        help_text="Optional override. Leave blank to auto-extract title from PDF."
+    )
+    pdf_file = forms.FileField(
+        validators=[FileExtensionValidator(allowed_extensions=['pdf'])],
+        widget=forms.FileInput(attrs={
+            'accept': 'application/pdf',
+            'class': 'hidden',
+            'id': 'pdf-file-input'
+        })
+    )
+    generate_quiz = forms.BooleanField(
+        required=False, 
+        initial=True, 
+        label="Generate end-of-course quiz automatically"
+    )
+
+    def clean_pdf_file(self):
+        file = self.cleaned_data.get('pdf_file')
+        if file:
+            if file.size > 20 * 1024 * 1024:  # 20 MB Limit
+                raise forms.ValidationError("File size must be under 20MB.")
+        return file
