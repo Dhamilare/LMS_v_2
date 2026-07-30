@@ -14,6 +14,7 @@ from pathlib import Path
 import os
 from decouple import config
 import dj_database_url
+import tempfile
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -215,18 +216,19 @@ SOCIAL_AUTH_AZUREAD_OAUTH2_ACCESS_TOKEN_URL = (
     f"https://login.microsoftonline.com/{SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID}/oauth2/v2.0/token"
 )
 
-# Maximum upload size in bytes (100 MB)
-MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
+LMS_MIN_QUIZ_QUESTIONS = 20
+LMS_QUESTIONS_PER_LESSON = 2
+LMS_MAX_PDF_PAGES = 400
 
-# Raise Django's request body parsing memory limits
+MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # Files above 10MB stream to disk temp folder
 
 # Temporary file upload handler directory
-FILE_UPLOAD_TEMP_DIR = '/tmp'
+FILE_UPLOAD_TEMP_DIR = tempfile.gettempdir()
 
 GEMINI_API_KEY = config('GEMINI_API_KEY')
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=" + GEMINI_API_KEY
+GEMINI_MODEL_NAME = config('GEMINI_MODEL_NAME', default='gemini-3.6-flash')
 
 # Login URLs
 LOGIN_URL = 'login'
@@ -286,8 +288,8 @@ CSRF_COOKIE_SECURE = False
 # ]
 
 
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = 'django-db'
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'

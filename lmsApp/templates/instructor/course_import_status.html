@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Generating Course...{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[calc(100vh-160px)] py-8 px-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-xl border border-gray-100 overflow-hidden p-8 text-center">
+
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-full mb-4">
+            <i class="fas fa-wand-magic-sparkles text-2xl text-indigo-600"></i>
+        </div>
+
+        <h2 class="text-2xl font-extrabold text-gray-900 mb-1">Building your course</h2>
+        <p id="status-label" class="text-gray-500 text-sm mb-6">{{ job.get_status_display }}</p>
+
+        <div class="w-full bg-gray-200 rounded-full h-3 mb-2 overflow-hidden">
+            <div id="progress-bar" class="bg-indigo-600 h-3 rounded-full transition-all duration-500"
+                 style="width: {{ job.progress_percentage }}%;"></div>
+        </div>
+        <p id="progress-pct" class="text-xs text-gray-500 mb-6">{{ job.progress_percentage }}%</p>
+
+        <div class="grid grid-cols-3 gap-3 text-xs text-gray-600 mb-6">
+            <div class="bg-gray-50 rounded-lg p-3">
+                <div id="pages-count" class="text-lg font-bold text-gray-800">{{ job.pages_processed }}</div>
+                Pages processed
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+                <div id="images-count" class="text-lg font-bold text-gray-800">{{ job.images_extracted }}</div>
+                Images found
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+                <div id="questions-count" class="text-lg font-bold text-gray-800">{{ job.questions_generated }}</div>
+                Questions so far
+            </div>
+        </div>
+
+        <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-lg mb-4"></div>
+
+        <a href="{% url 'dashboard' %}" class="text-sm text-gray-500 hover:text-indigo-600">
+            <i class="fas fa-arrow-left mr-1"></i> Back to Dashboard (processing continues in the background)
+        </a>
+    </div>
+</div>
+
+<script>
+    const pollUrl = "{% url 'course_import_job_status' job_id=job.pk %}";
+    const statusLabel = document.getElementById('status-label');
+    const progressBar = document.getElementById('progress-bar');
+    const progressPct = document.getElementById('progress-pct');
+    const pagesCount = document.getElementById('pages-count');
+    const imagesCount = document.getElementById('images-count');
+    const questionsCount = document.getElementById('questions-count');
+    const errorBox = document.getElementById('error-box');
+
+    let pollTimer = null;
+
+    async function poll() {
+        try {
+            const res = await fetch(pollUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const data = await res.json();
+
+            statusLabel.textContent = data.status_display;
+            progressBar.style.width = data.progress_percentage + '%';
+            progressPct.textContent = data.progress_percentage + '%';
+            pagesCount.textContent = data.pages_processed;
+            imagesCount.textContent = data.images_extracted;
+            questionsCount.textContent = data.questions_generated;
+
+            if (data.status === 'completed' && data.redirect_url) {
+                clearInterval(pollTimer);
+                window.location.href = data.redirect_url;
+            } else if (data.status === 'failed') {
+                clearInterval(pollTimer);
+                errorBox.textContent = data.error_message || 'Course generation failed. Please try again.';
+                errorBox.classList.remove('hidden');
+                progressBar.classList.remove('bg-indigo-600');
+                progressBar.classList.add('bg-red-500');
+            }
+        } catch (err) {
+            console.error('Polling error:', err);
+        }
+    }
+
+    poll();
+    pollTimer = setInterval(poll, 3000);
+</script>
+{% endblock %}

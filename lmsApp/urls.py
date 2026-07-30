@@ -20,6 +20,9 @@ urlpatterns = [
     path('courses/<slug:slug>/delete/', views.course_delete, name='course_delete'),
     path('assign-course/', views.assign_course_to_student_view, name='assign_course'),
     path('assign-course-page/', views.assign_course_page_view, name='assign_course_page'),
+    path('courses/import/<int:job_id>/status/', views.course_import_job_status_page, name='course_import_job_status_page'),
+    path('courses/import/<int:job_id>/status.json', views.course_import_job_status, name='course_import_job_status'),
+    path('content/<int:content_id>/ai-summary/', views.ai_content_summary, name='ai_content_summary'),
 
     # --- Student Course Enrollment & Detail ---
     path('student_courses/', views.all_courses, name='all_courses'), # Student's list of courses

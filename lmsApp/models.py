@@ -12,6 +12,7 @@ from django_ckeditor_5.fields import CKEditor5Field
 from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
 from datetime import timedelta
+from django.conf import settings
 
 
 
@@ -248,6 +249,8 @@ class Content(models.Model):
         ('pdf', 'PDF Document'),
         ('text', 'Text/Notes'),
         ('slide', 'Slide Presentation'),
+        ('image', 'Image/Diagram (extracted)'),
+        ('diagram', 'Generated Diagram (Mermaid)'),
     )
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='contents')
     title = models.CharField(max_length=200)
@@ -255,6 +258,24 @@ class Content(models.Model):
     file = models.FileField(upload_to='lms_content/', blank=True, null=True, help_text="Upload video, PDF, or other files.")
     text_content = models.TextField(blank=True, null=True, help_text="For text-based content (e.g., notes).")
     video_url = models.URLField(max_length=500, blank=True, null=True, help_text="URL for external video (e.g., YouTube, Vimeo).")
+    image = models.ImageField(
+        upload_to='lms_content_images/',
+        blank=True, null=True,
+        help_text="Image extracted directly from the source PDF page."
+    )
+    diagram_code = models.TextField(
+        blank=True, null=True,
+        help_text=(
+            "Mermaid.js syntax for a generated conceptual diagram "
+            "(flowchart, sequence, hierarchy). Rendered client-side "
+            "with mermaid.js; not a raster image."
+        )
+    )
+    source_page_number = models.PositiveIntegerField(
+        blank=True, null=True,
+        help_text="Page in the source PDF this content was derived from, "
+            "for traceability back to the original document."
+    )
     order = models.PositiveIntegerField(default=0, help_text="Order of the content within the lesson.")
     created_at = models.DateTimeField(auto_now_add=True)
     duration = models.PositiveIntegerField(
@@ -684,7 +705,6 @@ class CourseEvaluation(models.Model):
         choices=[(i, i) for i in range(1, 6)], verbose_name="4. Course Structure & Organization", null=True, blank=True
     )
     
-    # Open-text feedback
     actionable_feedback = models.TextField(
         verbose_name="5. How will you apply this learning to your job role?"
     )
@@ -695,3 +715,60 @@ class CourseEvaluation(models.Model):
     
     def __str__(self):
         return f"Evaluation for {self.enrollment.course.title} by {self.enrollment.student.email}"
+
+
+class CourseImportJob(models.Model):
+    """
+    Tracks the lifecycle of a single PDF-to-course import so the
+    instructor gets real status/progress instead of an opaque
+    synchronous request that can time out on large files.
+    """
+ 
+    STATUS_CHOICES = [
+        ('queued', 'Queued'),
+        ('extracting_text', 'Extracting Text'),
+        ('extracting_images', 'Extracting Images'),
+        ('generating_outline', 'Generating Course Outline'),
+        ('generating_content', 'Generating Lesson Content'),
+        ('generating_quiz', 'Generating Quiz Questions'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+ 
+    instructor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='course_import_jobs',
+    )
+    pdf_file = models.FileField(upload_to='course_imports/source_pdfs/')
+    custom_title = models.CharField(max_length=200, blank=True, null=True)
+    generate_quiz = models.BooleanField(default=True)
+    requested_min_questions = models.PositiveIntegerField(default=20)
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='queued')
+    progress_percentage = models.PositiveIntegerField(default=0)
+    error_message = models.TextField(blank=True, null=True)
+ 
+    course = models.ForeignKey(
+        'Course', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='import_job',
+    )
+ 
+    pages_processed = models.PositiveIntegerField(default=0)
+    images_extracted = models.PositiveIntegerField(default=0)
+    questions_generated = models.PositiveIntegerField(default=0)
+ 
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+ 
+    class Meta:
+        ordering = ['-created_at']
+ 
+    def __str__(self):
+        return f"Import #{self.pk} ({self.status}) - {self.instructor.email}"
+ 
+    def mark_failed(self, error: str):
+        self.status = 'failed'
+        self.error_message = error[:5000]
+        self.completed_at = timezone.now()
+        self.save(update_fields=['status', 'error_message', 'completed_at'])

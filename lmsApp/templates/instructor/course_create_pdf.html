@@ -6,7 +6,7 @@
 {% block content %}
 <div class="flex items-center justify-center min-h-[calc(100vh-160px)] py-8 px-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl border border-gray-100 overflow-hidden">
-        
+
         <!-- Header Banner -->
         <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-800 p-6 text-white text-center">
             <div class="inline-flex items-center justify-center w-14 h-14 bg-white/10 rounded-full mb-3 backdrop-blur-sm">
@@ -32,18 +32,18 @@
                 <!-- Drag and Drop Dropzone -->
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1">PDF Document</label>
-                    <div id="dropzone" 
+                    <div id="dropzone"
                          class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center bg-gray-50 hover:bg-indigo-50/50 hover:border-indigo-400 transition cursor-pointer flex flex-col items-center justify-center group">
-                        
+
                         <div class="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                             <i class="fas fa-cloud-upload-alt text-xl"></i>
                         </div>
-                        
+
                         <p class="text-sm font-medium text-gray-700">
                             <span class="text-indigo-600 underline">Click to upload</span> or drag and drop
                         </p>
                         <p class="text-xs text-gray-500 mt-1">PDF files up to 100MB</p>
-                        
+
                         <!-- Selected File Metadata Display -->
                         <div id="file-info" class="hidden mt-4 p-3 bg-white border border-gray-200 rounded-lg flex items-center space-x-3 w-full max-w-xs shadow-sm">
                             <i class="fas fa-file-pdf text-red-500 text-xl"></i>
@@ -52,7 +52,6 @@
                                 <p id="file-size" class="text-xs text-gray-500"></p>
                             </div>
                         </div>
-
                         {{ form.pdf_file }}
                     </div>
                 </div>
@@ -66,19 +65,33 @@
                     </label>
                 </div>
 
+                <!-- Minimum question count -->
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200/80">
+                    <label for="id_min_questions" class="text-sm text-gray-700 font-medium flex items-center justify-between">
+                        <span>Minimum quiz questions for this course</span>
+                        <span id="min-questions-value" class="text-indigo-600 font-semibold">20</span>
+                    </label>
+                    <input type="range" name="min_questions" id="id_min_questions"
+                           min="10" max="100" step="5" value="20"
+                           class="w-full mt-2 accent-indigo-600"
+                           oninput="document.getElementById('min-questions-value').textContent = this.value">
+                    <!-- <p class="text-xs text-gray-500 mt-1">
+                        Actual count scales with document length — this sets the floor, not the exact total.
+                    </p> -->
+                </div>
+
                 <!-- Submit Button -->
-                <button type="submit" id="submit-btn" 
+                <button type="submit" id="submit-btn"
                         class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center justify-center space-x-2 disabled:opacity-50">
                     <i class="fas fa-wand-magic-sparkles"></i>
                     <span>Generate Course Architecture</span>
                 </button>
             </form>
 
-            <!-- Loading Progress Modal State -->
             <div id="loading-state" class="hidden text-center py-8">
                 <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mb-4"></div>
-                <h3 class="text-lg font-bold text-gray-800">Analyzing Document & Generating Modules...</h3>
-                <p class="text-xs text-gray-500 mt-1">This usually takes a few seconds depending on file size.</p>
+                <h3 class="text-lg font-bold text-gray-800">Uploading document...</h3>
+                <p class="text-xs text-gray-500 mt-1">You'll be redirected to a live progress page in a moment.</p>
             </div>
 
             <!-- Alternate Action Row -->
@@ -97,7 +110,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const dropzone = document.getElementById('dropzone');
-        const fileInput = document.getElementById('pdf-file-input');
+        const fileInput = dropzone.querySelector('input[type="file"]');
         const fileInfo = document.getElementById('file-info');
         const fileName = document.getElementById('file-name');
         const fileSize = document.getElementById('file-size');
@@ -105,8 +118,14 @@
         const submitBtn = document.getElementById('submit-btn');
         const loadingState = document.getElementById('loading-state');
 
-        // File Selection handling
-        dropzone.addEventListener('click', () => fileInput.click());
+        if (!fileInput) {
+            console.error('No <input type="file"> found inside #dropzone. Check that the pdf_file form field is rendered inside the dropzone div.');
+            return;
+        }
+
+        dropzone.addEventListener('click', (e) => {
+            if (e.target !== fileInput) fileInput.click();
+        });
 
         dropzone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -133,8 +152,7 @@
         function handleFileSelect() {
             if (fileInput.files.length > 0) {
                 const file = fileInput.files[0];
-                
-                // 100MB validation check
+
                 if (file.size > 100 * 1024 * 1024) {
                     alert('File size exceeds the 100MB limit. Please upload a smaller file.');
                     fileInput.value = '';
@@ -148,10 +166,41 @@
             }
         }
 
-        form.addEventListener('submit', () => {
-            if (fileInput.files.length > 0) {
-                form.classList.add('hidden');
-                loadingState.classList.remove('hidden');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (fileInput.files.length === 0) {
+                alert('Please select a PDF file first.');
+                return;
+            }
+
+            form.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            submitBtn.disabled = true;
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData,
+                });
+                const result = await response.json();
+
+                if (result.success && result.status_url) {
+                    window.location.href = result.status_url;
+                } else {
+                    form.classList.remove('hidden');
+                    loadingState.classList.add('hidden');
+                    submitBtn.disabled = false;
+                    alert(result.error || 'Something went wrong submitting your document.');
+                }
+            } catch (err) {
+                console.error('Upload error:', err);
+                form.classList.remove('hidden');
+                loadingState.classList.add('hidden');
+                submitBtn.disabled = false;
+                alert('Network error while uploading. Please try again.');
             }
         });
     });

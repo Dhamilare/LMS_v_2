@@ -521,9 +521,19 @@ class CoursePDFUploadForm(forms.Form):
         label="Generate end-of-course quiz automatically"
     )
 
+    min_questions = forms.IntegerField(
+        required=False,
+        initial=20,
+        min_value=10,
+        max_value=100,
+        widget=forms.NumberInput(attrs={'step': 5}),
+    )
+
     def clean_pdf_file(self):
-        file = self.cleaned_data.get('pdf_file')
-        if file:
-            if file.size > 100 * 1024 * 1024:  # 100 MB Limit
-                raise forms.ValidationError("File size must be under 100MB.")
-        return file
+        pdf_file = self.cleaned_data['pdf_file']
+        if not pdf_file.name.lower().endswith('.pdf'):
+            raise forms.ValidationError("Please upload a PDF file.")
+        max_size = 100 * 1024 * 1024
+        if pdf_file.size > max_size:
+            raise forms.ValidationError("File size exceeds the 100MB limit.")
+        return pdf_file

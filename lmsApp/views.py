@@ -11,6 +11,8 @@ from django.db.models.functions import Coalesce
 from django.urls import reverse
 from .forms import *
 from .models import *
+from google import genai
+from google.genai import types
 from io import BytesIO
 from .services import PDFCourseExtractorService, PDFExtractionError
 try:
@@ -35,6 +37,9 @@ import tempfile
 from django.core.files.base import ContentFile
 import subprocess
 from urllib.parse import quote
+from .tasks import process_course_import_job
+
+
 logger = logging.getLogger(__name__)
 
 if sys.platform.startswith('win'):
@@ -3180,51 +3185,132 @@ def hr_course_feedback(request):
 @user_passes_test(is_instructor)
 def course_create_from_pdf(request):
     template_name = 'instructor/course_create_pdf.html'
-
+ 
     if request.method == 'POST':
         form = CoursePDFUploadForm(request.POST, request.FILES)
         if form.is_valid():
             pdf_file = form.cleaned_data['pdf_file']
             custom_title = form.cleaned_data.get('title')
             generate_quiz = form.cleaned_data.get('generate_quiz', True)
-
-            try:
-                course = PDFCourseExtractorService.build_course_from_pdf(
-                    instructor=request.user,
-                    pdf_file=pdf_file,
-                    custom_title=custom_title,
-                    generate_quiz=generate_quiz
-                )
-
-                messages.success(request, f'Course "{course.title}" generated successfully!')
-
-                if is_ajax(request):
-                    return JsonResponse({
-                        'success': True,
-                        'message': f'Course "{course.title}" created successfully!',
-                        'redirect_url': reverse('course_detail', kwargs={'slug': course.slug})
-                    })
-                
-                return redirect('course_detail', slug=course.slug)
-
-            except PDFExtractionError as e:
-                error_msg = str(e)
-                if is_ajax(request):
-                    return JsonResponse({'success': False, 'error': error_msg}, status=400)
-                messages.error(request, error_msg)
-
-            except Exception as e:
-                logger.exception("Unexpected error during PDF course generation.")
-                error_msg = "An unexpected error occurred while processing your document. Please try again or use a clearer PDF."
-                if is_ajax(request):
-                    return JsonResponse({'success': False, 'error': error_msg}, status=500)
-                messages.error(request, error_msg)
-
+            min_questions = form.cleaned_data.get('min_questions') or 20
+ 
+            job = CourseImportJob.objects.create(
+                instructor=request.user,
+                pdf_file=pdf_file,
+                custom_title=custom_title or '',
+                generate_quiz=generate_quiz,
+                requested_min_questions=min_questions,
+            )
+            process_course_import_job.delay(job.pk)
+ 
+            status_url = reverse('course_import_job_status_page', kwargs={'job_id': job.pk})
+ 
+            if is_ajax(request):
+                return JsonResponse({
+                    'success': True,
+                    'job_id': job.pk,
+                    'status_url': status_url,
+                    'poll_url': reverse('course_import_job_status', kwargs={'job_id': job.pk}),
+                })
+ 
+            messages.info(request, "Your document is being processed — this page will update automatically.")
+            return redirect(status_url)
+ 
         else:
             if is_ajax(request):
-                return JsonResponse({'success': False, 'error': 'Invalid form submit. Please upload a valid PDF.'})
+                return JsonResponse({'success': False, 'error': 'Invalid form submit. Please upload a valid PDF.'}, status=400)
             messages.error(request, 'Please upload a valid PDF file.')
+ 
     else:
         form = CoursePDFUploadForm()
-
+ 
     return render(request, template_name, {'form': form, 'page_title': 'Generate Course from PDF'})
+ 
+ 
+@login_required
+@user_passes_test(is_instructor)
+def course_import_job_status_page(request, job_id):
+    """Renders the polling page. The actual status comes from the JSON
+    endpoint below via JS; this view just needs to own the URL and confirm
+    the job belongs to this instructor."""
+    job = get_object_or_404(CourseImportJob, pk=job_id, instructor=request.user)
+    return render(request, 'instructor/course_import_status.html', {'job': job})
+ 
+ 
+@login_required
+@user_passes_test(is_instructor)
+def course_import_job_status(request, job_id):
+    """JSON polling endpoint. Frontend hits this every 2-3s."""
+    job = get_object_or_404(CourseImportJob, pk=job_id, instructor=request.user)
+ 
+    payload = {
+        'status': job.status,
+        'status_display': job.get_status_display(),
+        'progress_percentage': job.progress_percentage,
+        'pages_processed': job.pages_processed,
+        'images_extracted': job.images_extracted,
+        'questions_generated': job.questions_generated,
+        'error_message': job.error_message,
+    }
+ 
+    if job.status == 'completed' and job.course_id:
+        payload['redirect_url'] = reverse('course_detail', kwargs={'slug': job.course.slug})
+ 
+    return JsonResponse(payload)
+ 
+ 
+@login_required
+@require_POST
+def ai_content_summary(request, content_id):
+    content = get_object_or_404(Content, pk=content_id)
+    course = content.lesson.module.course
+    is_owner = course.instructor_id == request.user.id
+    is_enrolled = course.enrollments.filter(student=request.user).exists()
+
+    if not (is_owner or is_enrolled or request.user.is_superuser):
+        return JsonResponse({'success': False, 'error': 'Not authorized for this content.'}, status=403)
+
+    raw_text = (request.POST.get('text') or content.text_content or '').strip()
+    if len(raw_text) < 50:
+        return JsonResponse({'success': False, 'error': 'Content too short for AI summary.'}, status=400)
+
+    raw_text = raw_text[:20000]
+
+    try:
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        
+        response = client.models.generate_content(
+            model=getattr(settings, "GEMINI_MODEL_NAME", "gemini-3.6-flash"),
+            contents=(
+                "Provide a concise summary of the following educational content. "
+                "Use bullet points. Max 300 words.\n\nContent:\n" + raw_text
+            ),
+            config=types.GenerateContentConfig(
+                temperature=0.1, 
+                max_output_tokens=500
+            ),
+        )
+        summary_text = getattr(response, "text", None)
+        
+        if not summary_text:
+            finish_reason = None
+            if response.candidates and len(response.candidates) > 0:
+                finish_reason = response.candidates[0].finish_reason
+
+            logger.warning(
+                f"Gemini returned empty text for content {content_id}. "
+                f"Finish reason: {finish_reason}"
+            )
+            return JsonResponse({
+                'success': False, 
+                'error': f'AI could not generate a summary (Reason: {finish_reason or "Blocked"}).'
+            }, status=400)
+
+        return JsonResponse({'success': True, 'summary': summary_text})
+
+    except Exception as e:
+        logger.error(f"AI summary generation failed for content {content_id}: {e}")
+        return JsonResponse({
+            'success': False, 
+            'error': 'AI service is temporarily unavailable.'
+        }, status=502)
