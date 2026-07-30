@@ -2256,23 +2256,26 @@ def quiz_assign_to_course(request, quiz_id):
 @login_required
 @user_passes_test(is_instructor)
 def quiz_upload_csv(request, quiz_id):
-    # UPDATED: Simplified quiz lookup
     quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user)
 
     if request.method == 'POST':
         form = CSVUploadForm(request.POST, request.FILES)
+        
         if not form.is_valid():
             html_form = render_to_string('instructor/quiz_upload_csv.html', {'form': form, 'quiz': quiz}, request=request)
             return JsonResponse({
-                'success': False, 'error': 'Validation failed.',
-                'form_errors': form.errors.as_json(), 'form_html': html_form
+                'success': False, 
+                'error': 'Form validation failed. Please select a valid CSV file.',
+                'form_errors': form.errors.get_json_data(),
+                'form_html': html_form
             }, status=400)
 
-        csv_file = request.FILES.get('csv_file')
+        csv_file = form.cleaned_data.get('csv_file') or request.FILES.get('csv_file')
         if not csv_file:
-            return JsonResponse({'success': False, 'error': 'No file was uploaded.'}, status=400)
+            return JsonResponse({'success': False, 'error': 'No CSV file found in upload.'}, status=400)
+
         if not csv_file.name.lower().endswith('.csv'):
-            return JsonResponse({'success': False, 'error': 'File is not a CSV.'}, status=400)
+            return JsonResponse({'success': False, 'error': 'Uploaded file must be a .csv file.'}, status=400)
 
         questions_buffer = []
         options_buffer = []
@@ -2280,26 +2283,32 @@ def quiz_upload_csv(request, quiz_id):
         try:
             with transaction.atomic():
                 max_order = quiz.questions.aggregate(models.Max('order'))['order__max'] or 0
+                
                 try:
-                    file_data = csv_file.read().decode('utf-8').splitlines()
+                    file_data = csv_file.read().decode('utf-8-sig').splitlines()
                 except UnicodeDecodeError:
-                    return JsonResponse({'success': False, 'error': 'Unable to decode the CSV file. Ensure it is UTF-8 encoded.'}, status=400)
+                    return JsonResponse({'success': False, 'error': 'Unable to decode CSV file. Please save as UTF-8.'}, status=400)
 
                 reader = csv.reader(file_data)
                 header = next(reader, None)
                 if header is None:
                     raise ValueError('The CSV file is empty.')
 
+                row_idx = 0
                 for i, row in enumerate(reader):
                     row_number = i + 2
-                    if len(row) != 9:
-                        raise ValueError(f'Row {row_number}: Expected 9 columns, got {len(row)}.')
+                    
+                    if not row or not any(row) or 'Example:' in row[0]:
+                        continue
+
+                    if len(row) < 9:
+                        raise ValueError(f'Row {row_number}: Expected 9 columns, found {len(row)}.')
 
                     question_text = row[0].strip()
                     if not question_text:
                         raise ValueError(f'Row {row_number}: Question text cannot be empty.')
 
-                    new_question = Question(quiz=quiz, text=question_text, order=max_order + i + 1)
+                    new_question = Question(quiz=quiz, text=question_text, order=max_order + row_idx + 1)
                     questions_buffer.append(new_question)
                     correct_options_count = 0
 
@@ -2314,21 +2323,26 @@ def quiz_upload_csv(request, quiz_id):
                             correct_options_count += 1
 
                         options_buffer.append({
-                            'question_index': i,
+                            'question_index': row_idx,
                             'text': option_text,
                             'is_correct': is_correct
                         })
 
                     if correct_options_count == 0:
-                        raise ValueError(f'Row {row_number}: Each question must have at least one correct option.')
+                        raise ValueError(f'Row {row_number}: Question must have at least one correct option.')
                     if not quiz.allow_multiple_correct and correct_options_count > 1:
-                        raise ValueError(f'Row {row_number}: This quiz allows only one correct option, but {correct_options_count} were found.')
+                        raise ValueError(f'Row {row_number}: Quiz allows only 1 correct answer, but {correct_options_count} were marked True.')
 
-                questions_buffer = Question.objects.bulk_create(questions_buffer)
+                    row_idx += 1
+
+                if not questions_buffer:
+                    raise ValueError('No valid questions found in the CSV file.')
+
+                created_questions = Question.objects.bulk_create(questions_buffer)
 
                 final_options = [
                     Option(
-                        question=questions_buffer[opt['question_index']],
+                        question=created_questions[opt['question_index']],
                         text=opt['text'],
                         is_correct=opt['is_correct']
                     ) for opt in options_buffer
@@ -2340,21 +2354,19 @@ def quiz_upload_csv(request, quiz_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': f'An unexpected error occurred: {str(e)}'}, status=500)
 
-        return JsonResponse({'success': True, 'message': f'{len(questions_buffer)} questions uploaded successfully!'})
+        return JsonResponse({'success': True, 'message': f'{len(created_questions)} questions uploaded successfully!'})
 
     form = CSVUploadForm()
-    context = {'form': form, 'quiz': quiz}
-    return render(request, 'instructor/quiz_upload_csv.html', context)
+    return render(request, 'instructor/quiz_upload_csv.html', {'form': form, 'quiz': quiz})
 
 
 @login_required
 @user_passes_test(is_instructor)
-def quiz_download_csv_template_view(request, quiz_id): # Renamed view
+def quiz_download_csv_template_view(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user)
 
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="quiz_{quiz_id}_questions_template.csv"'
-    response.write('\ufeff'.encode('utf-8')) # BOM for Excel
 
     writer = csv.writer(response)
     writer.writerow([
@@ -2366,19 +2378,16 @@ def quiz_download_csv_template_view(request, quiz_id): # Renamed view
     ])
 
     if quiz.allow_multiple_correct:
-        note = "Example: Multiple correct answers allowed (use True/False, case-insensitive)"
         sample_question = [
             'Which of the following are programming languages?',
             'Python', 'True', 'HTML', 'False', 'Java', 'True', 'CSS', 'False'
         ]
     else:
-        note = "Example: Only one correct answer allowed (use True for correct, False for others)"
         sample_question = [
             'What is the capital of France?',
             'Paris', 'True', 'London', 'False', 'Berlin', 'False', 'Rome', 'False'
         ]
 
-    writer.writerow([note] + [''] * 7)
     writer.writerow(sample_question)
     return response
 
