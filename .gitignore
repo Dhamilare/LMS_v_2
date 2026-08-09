@@ -132,3 +132,6 @@ mediafiles
 .vscode/
 
 media/
+
+# Celery Beat schedule files
+celerybeat-schedule*
