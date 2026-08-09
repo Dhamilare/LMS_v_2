@@ -409,7 +409,7 @@ class ExternalTrainingResourceAdmin(admin.ModelAdmin):
     search_fields = ('title', 'description', 'external_uid', 'product_area')
     filter_horizontal = ('tags',)
     readonly_fields = ('last_synced_at', 'created_at')
-    actions = [..., 'curate_course_from_selected']
+    actions = ('curate_course_from_selected',)
 
     @admin.action(description="Curate an internal course from selected resource(s)")
     def curate_course_from_selected(self, request, queryset):

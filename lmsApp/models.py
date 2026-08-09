@@ -821,7 +821,7 @@ class CourseImportJob(models.Model):
  
     course = models.ForeignKey(
         'Course', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='import_job',
+        related_name='course_import_jobs',
     )
  
     pages_processed = models.PositiveIntegerField(default=0)
@@ -1002,13 +1002,13 @@ class ExternalResourceImportJob(models.Model):
     ]
  
     instructor = models.ForeignKey(
-        'User', on_delete=models.CASCADE, related_name='external_resource_import_jobs',
+        User, on_delete=models.CASCADE, related_name='external_resource_import_jobs',
         limit_choices_to={'is_instructor': True}
     )
     external_resources = models.ManyToManyField(
         'ExternalTrainingResource', related_name='import_jobs',
         help_text="One resource → AI designs its own module breakdown. "
-                   "Multiple resources → one module generated per resource, in order."
+        "Multiple resources → one module generated per resource, in order."
     )
     custom_title = models.CharField(max_length=255, blank=True, null=True)
     generate_quiz = models.BooleanField(default=True, help_text="Generate a final course assessment.")
@@ -1020,7 +1020,7 @@ class ExternalResourceImportJob(models.Model):
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='queued')
     progress_percentage = models.PositiveIntegerField(default=0)
     error_message = models.TextField(blank=True, null=True)
-    course = models.ForeignKey('Course', on_delete=models.SET_NULL, null=True, blank=True, related_name='import_job')
+    course = models.ForeignKey('Course', on_delete=models.SET_NULL, null=True, blank=True, related_name='external_resource_import_jobs')
     questions_generated = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)
