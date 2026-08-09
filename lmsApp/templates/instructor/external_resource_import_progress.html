@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Generating Course...{% endblock %}
+
+{% block content %}
+<div class="bg-gray-50 min-h-screen flex items-center justify-center">
+    <div class="container mx-auto px-4 py-8 sm:px-6 lg:px-8 max-w-2xl">
+
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-8 sm:p-10 text-center">
+
+            <div id="progress-icon-wrapper" class="mb-6">
+                <div class="inline-flex items-center justify-center h-16 w-16 rounded-full bg-indigo-100">
+                    <i class="fas fa-wand-magic-sparkles text-indigo-600 text-2xl animate-pulse"></i>
+                </div>
+            </div>
+
+            <h2 id="progress-title" class="text-2xl font-bold text-gray-900 mb-2">Curating your course...</h2>
+            <p id="progress-status-label" class="text-gray-500 mb-8">Starting up</p>
+
+            <div class="w-full bg-gray-200 rounded-full h-3 mb-2 overflow-hidden">
+                <div id="progress-bar" class="bg-indigo-600 h-3 rounded-full transition-all duration-500 ease-out" style="width: 5%;"></div>
+            </div>
+            <p id="progress-percentage-label" class="text-sm text-gray-500 mb-8">5%</p>
+
+            <div id="progress-error-box" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-left">
+                <p class="text-red-700 text-sm font-medium mb-1"><i class="fas fa-exclamation-circle mr-1"></i> Generation failed</p>
+                <p id="progress-error-message" class="text-red-600 text-sm"></p>
+                <a href="{% url 'create_course_from_external_resources' %}" class="inline-block mt-3 text-sm font-medium text-red-700 hover:text-red-900">
+                    <i class="fas fa-arrow-left mr-1"></i> Back to try again
+                </a>
+            </div>
+
+            <p class="text-xs text-gray-400">
+                This page updates automatically — you don't need to refresh it.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const jobStatusUrl = "{% url 'external_resource_import_status' job_id=job.id %}";
+
+    const STATUS_LABELS = {
+        'queued': 'Queued',
+        'generating_outline': 'Designing course outline',
+        'generating_content': 'Writing lessons and content',
+        'generating_quiz': 'Generating quiz questions',
+        'completed': 'Done!',
+        'failed': 'Failed',
+    };
+
+    const progressBar = document.getElementById('progress-bar');
+    const percentageLabel = document.getElementById('progress-percentage-label');
+    const statusLabel = document.getElementById('progress-status-label');
+    const titleEl = document.getElementById('progress-title');
+    const iconWrapper = document.getElementById('progress-icon-wrapper');
+    const errorBox = document.getElementById('progress-error-box');
+    const errorMessageEl = document.getElementById('progress-error-message');
+
+    let pollInterval = null;
+
+    function renderState(data) {
+        const pct = data.progress_percentage || 0;
+        progressBar.style.width = pct + '%';
+        percentageLabel.textContent = pct + '%';
+        statusLabel.textContent = STATUS_LABELS[data.status] || data.status;
+
+        if (data.status === 'completed') {
+            clearInterval(pollInterval);
+            titleEl.textContent = 'Course ready!';
+            iconWrapper.innerHTML = `
+                <div class="inline-flex items-center justify-center h-16 w-16 rounded-full bg-green-100">
+                    <i class="fas fa-check text-green-600 text-2xl"></i>
+                </div>`;
+            statusLabel.textContent = data.course_title ? `"${data.course_title}" was created successfully.` : 'Done!';
+            showToast('success', 'Course generated successfully!');
+            setTimeout(() => {
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                }
+            }, 1200);
+        }
+
+        if (data.status === 'failed') {
+            clearInterval(pollInterval);
+            titleEl.textContent = 'Something went wrong';
+            iconWrapper.innerHTML = `
+                <div class="inline-flex items-center justify-center h-16 w-16 rounded-full bg-red-100">
+                    <i class="fas fa-times text-red-600 text-2xl"></i>
+                </div>`;
+            errorBox.classList.remove('hidden');
+            errorMessageEl.textContent = data.error_message || 'An unexpected error occurred.';
+        }
+    }
+
+    async function pollJobStatus() {
+        try {
+            const response = await fetch(jobStatusUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!response.ok) throw new Error('Status check failed');
+            const data = await response.json();
+            renderState(data);
+        } catch (error) {
+            console.error('Error polling job status:', error);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        pollJobStatus();
+        pollInterval = setInterval(pollJobStatus, 3000);
+    });
+</script>
+{% endblock %}

@@ -564,3 +564,357 @@ class PDFCourseExtractorService:
             )
  
         return course
+
+    
+class ExternalResourceCourseGeneratorService:
+    """
+    Curates an internal Course from one or more ExternalTrainingResource rows,
+    using their metadata (title/description/level/product_area) as TOPICAL
+    GUIDANCE ONLY. Every prompt explicitly instructs the model to write
+    original material rather than reproduce the source description — this is
+    the copyright guardrail; do not remove that instruction when editing
+    prompts later.
+ 
+    Reuses PDFCourseExtractorService._call_gemini (retry/backoff/quota
+    handling) rather than re-implementing it — if that method's behavior
+    changes, this class picks it up automatically.
+    """
+ 
+    # ------------------------------------------------------------------
+    # Shared helper
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _resource_brief(resource) -> str:
+        parts = [
+            f"Topic title: {resource.title}",
+            f"Source provider: {resource.get_provider_display()} (for context only — do not mention the provider by name in generated content)",
+        ]
+        if resource.level:
+            parts.append(f"Level: {resource.level}")
+        if resource.product_area:
+            parts.append(f"Product area: {resource.product_area}")
+        if resource.description:
+            parts.append(
+                "Summary — USE THIS ONLY AS TOPICAL DIRECTION, DO NOT COPY OR CLOSELY "
+                f"PARAPHRASE ITS WORDING: {resource.description}"
+            )
+        return "\n".join(parts)
+ 
+    # ------------------------------------------------------------------
+    # Mode A: single resource — Gemini designs the module breakdown
+    # ------------------------------------------------------------------
+    @classmethod
+    def generate_outline_from_resource(cls, client, resource, custom_title: Optional[str]) -> CourseOutlineSchema:
+        brief = cls._resource_brief(resource)
+        prompt = f"""
+        You are an expert instructional designer building a course outline for
+        an enterprise LMS. You are given a BRIEF describing a training topic.
+        Use it only as topical direction — write an entirely original
+        module/lesson structure covering the same subject matter in your own
+        words. Do not reproduce any wording from the brief.
+ 
+        Requirements:
+        - Title: concise course title (or use '{custom_title}' if provided and non-empty).
+        - 3-6 modules, ordered logically by topic progression.
+        - Each module: 2-5 lessons, titled specifically enough that a
+          content-writer could produce a full lesson from the title alone.
+ 
+        Return ONLY valid JSON:
+        {{
+            "title": "string",
+            "description": "<p>one paragraph HTML</p>",
+            "category": "beginner|expert|professional",
+            "modules": [
+                {{
+                    "title": "string", "description": "<p>...</p>", "order": 1,
+                    "lessons": [
+                        {{"title": "string", "description": "<p>...</p>", "order": 1, "contents": [{{"title":"placeholder","content_type":"text","text_content":"","diagram_code":"","order":1}}]}}
+                    ]
+                }}
+            ]
+        }}
+ 
+        Topic brief:
+        {brief}
+        """
+        raw = PDFCourseExtractorService._call_gemini(client, prompt)
+        try:
+            return CourseOutlineSchema.model_validate(raw)
+        except ValidationError as e:
+            raise CourseGenerationError(f"Outline validation failed: {e}") from e
+ 
+    @classmethod
+    def build_course_from_single_resource(
+        cls, instructor, resource, custom_title: Optional[str] = None,
+        generate_quiz: bool = True, min_questions: Optional[int] = None,
+        progress_callback=None,
+    ) -> Course:
+        min_questions = min_questions or MIN_QUIZ_QUESTIONS
+ 
+        def _progress(status, pct):
+            if progress_callback:
+                progress_callback(status, pct)
+ 
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+ 
+        _progress("generating_outline", 15)
+        outline = cls.generate_outline_from_resource(client, resource, custom_title)
+ 
+        total_lessons = sum(len(m.lessons) for m in outline.modules)
+        if total_lessons == 0:
+            raise CourseGenerationError("Generated outline contained no lessons.")
+ 
+        target_questions = max(min_questions, total_lessons * QUESTIONS_PER_LESSON)
+        questions_per_module = max(2, math.ceil(target_questions / max(1, len(outline.modules))))
+        brief = cls._resource_brief(resource)
+ 
+        with transaction.atomic():
+            course = Course.objects.create(
+                title=outline.title, description=outline.description, category=outline.category,
+                instructor=instructor, is_published=False, content_origin='external_resource_curated',
+            )
+            course.source_external_resources.add(resource)
+ 
+            total_questions_generated = 0
+            stage_pct = 20
+            pct_per_module = 60 / max(1, len(outline.modules))
+ 
+            for m_idx, mod in enumerate(outline.modules):
+                module_obj = Module.objects.create(
+                    course=course, title=mod.title, description=mod.description,
+                    order=mod.order or (m_idx + 1),
+                )
+                lesson_titles = [l.title for l in mod.lessons]
+ 
+                _progress("generating_content", int(stage_pct))
+                try:
+                    module_result = PDFCourseExtractorService.generate_module_content_and_quiz(
+                        client, mod.title, lesson_titles, brief, questions_per_module,
+                    )
+                    detailed_lessons = module_result.lessons
+                    module_quiz = module_result.quiz
+                except (GeminiTransientError, CourseGenerationError) as e:
+                    logger.error(f"Content+quiz generation failed for module '{mod.title}': {e}")
+                    detailed_lessons, module_quiz = [], None
+ 
+                detailed_by_title = {l.title: l for l in detailed_lessons}
+                for l_idx, lesson_outline in enumerate(mod.lessons, start=1):
+                    lesson_obj = Lesson.objects.create(
+                        module=module_obj, title=lesson_outline.title,
+                        description=lesson_outline.description, order=lesson_outline.order or l_idx,
+                    )
+                    detailed = detailed_by_title.get(lesson_outline.title)
+                    content_blocks = detailed.contents if detailed else lesson_outline.contents
+                    for c_idx, content in enumerate(content_blocks, start=1):
+                        Content.objects.create(
+                            lesson=lesson_obj, title=content.title, content_type=content.content_type,
+                            text_content=content.text_content, diagram_code=content.diagram_code or None,
+                            order=content.order or c_idx,
+                        )
+ 
+                if generate_quiz and module_quiz and module_quiz.questions:
+                    _progress("generating_quiz", int(stage_pct + pct_per_module / 2))
+                    quiz_obj, _ = Quiz.objects.get_or_create(
+                        course=course,
+                        defaults=dict(
+                            title=f"{course.title} Final Assessment", quiz_type='final',
+                            description=f"<p>Assessment quiz for {course.title}</p>",
+                            pass_percentage=module_quiz.pass_percentage, created_by=instructor,
+                        ),
+                    )
+                    existing_count = quiz_obj.questions.count()
+                    for q_offset, q in enumerate(module_quiz.questions, start=1):
+                        question_obj = Question.objects.create(
+                            quiz=quiz_obj, text=q.text, is_multi_select=q.is_multi_select,
+                            order=existing_count + q_offset,
+                        )
+                        for opt in q.options:
+                            Option.objects.create(question=question_obj, text=opt.text, is_correct=opt.is_correct)
+                        total_questions_generated += 1
+ 
+                stage_pct += pct_per_module
+ 
+            _progress("completed", 100)
+            logger.info(
+                f"Course '{course.title}' curated from resource '{resource.title}': "
+                f"{len(outline.modules)} modules, {total_lessons} lessons, "
+                f"{total_questions_generated} quiz questions."
+            )
+ 
+        return course
+ 
+    # ------------------------------------------------------------------
+    # Mode B: multiple resources — one module per resource, deterministic
+    # ------------------------------------------------------------------
+    @classmethod
+    def generate_module_from_resource(cls, client, resource, questions_needed: int) -> ModuleGenerationSchema:
+        brief = cls._resource_brief(resource)
+        prompt = f"""
+        You are building ONE module of an enterprise LMS course, covering the
+        following topic. Use the brief only as topical direction — write
+        entirely original instructional material; do not reproduce its wording.
+ 
+        Module topic: {resource.title}
+        {brief}
+ 
+        PART 1 — LESSONS. Decide 2-5 lessons that thoroughly cover this topic.
+        For each lesson, produce content blocks:
+        - At least one "text" block: detailed HTML reading material (<p>, <ul>,
+          <strong>, <h4>), 200-400 words.
+        - IF the lesson describes a process, workflow, architecture, or
+          sequence, ALSO add a "diagram" block with valid Mermaid.js syntax.
+          Omit otherwise.
+ 
+        PART 2 — QUIZ. Generate exactly {questions_needed} multiple-choice
+        questions testing understanding of this module (4 options each,
+        exactly one correct, mixed difficulty and question type).
+ 
+        Return ONLY valid JSON:
+        {{
+            "lessons": [
+                {{"title": "string", "contents": [
+                    {{"title": "string", "content_type": "text", "text_content": "<p>...</p>", "diagram_code": "", "order": 1}}
+                ]}}
+            ],
+            "quiz": {{
+                "title": "{resource.title} Knowledge Check", "pass_percentage": 70,
+                "questions": [
+                    {{"text": "string", "is_multi_select": false,
+                      "options": [{{"text":"string","is_correct":true}}, ...]}}
+                ]
+            }}
+        }}
+        """
+        raw = PDFCourseExtractorService._call_gemini(client, prompt)
+ 
+        validated_lessons = []
+        for idx, l in enumerate(raw.get("lessons", []), start=1):
+            try:
+                validated_lessons.append(LessonSchema.model_validate({**l, "order": idx}))
+            except ValidationError as e:
+                logger.warning(f"Skipping malformed lesson for resource '{resource.title}': {e}")
+ 
+        validated_quiz = None
+        quiz_raw = raw.get("quiz")
+        if quiz_raw:
+            try:
+                validated_quiz = QuizSchema.model_validate(quiz_raw)
+            except ValidationError as e:
+                logger.warning(f"Quiz invalid for resource '{resource.title}': {e}")
+ 
+        if not validated_lessons and validated_quiz is None:
+            raise CourseGenerationError(
+                f"Generation for resource '{resource.title}' produced neither valid lessons nor a valid quiz."
+            )
+ 
+        return ModuleGenerationSchema(lessons=validated_lessons, quiz=validated_quiz or QuizSchema(questions=[]))
+ 
+    @classmethod
+    def build_course_from_resources(
+        cls, instructor, resources: list, custom_title: Optional[str] = None,
+        generate_quiz: bool = True, generate_module_quizzes: bool = False,
+        min_questions: Optional[int] = None, progress_callback=None,
+    ) -> Course:
+        if not resources:
+            raise CourseGenerationError("At least one external resource must be provided.")
+        min_questions = min_questions or MIN_QUIZ_QUESTIONS
+ 
+        def _progress(status, pct):
+            if progress_callback:
+                progress_callback(status, pct)
+ 
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+ 
+        title = custom_title or (
+            resources[0].title if len(resources) == 1
+            else f"{resources[0].title} — Curated Learning Path"
+        )
+        description = (
+            "<p>This course curates the following external training topics into original "
+            "internal instructional material: " + ", ".join(r.title for r in resources) + ".</p>"
+        )
+ 
+        target_questions = max(min_questions, len(resources) * 2 * QUESTIONS_PER_LESSON)
+        questions_per_module = max(2, math.ceil(target_questions / len(resources)))
+ 
+        with transaction.atomic():
+            course = Course.objects.create(
+                title=title, description=description, category='professional',
+                instructor=instructor, is_published=False, content_origin='external_resource_curated',
+            )
+            course.source_external_resources.set(resources)
+ 
+            total_questions_generated = 0
+            stage_pct = 10
+            pct_per_module = 80 / len(resources)
+ 
+            for idx, resource in enumerate(resources, start=1):
+                _progress(f"generating_content", int(stage_pct))
+                module_obj = Module.objects.create(
+                    course=course, title=resource.title,
+                    description=f"<p>Curated training module based on: {resource.title}</p>",
+                    order=idx,
+                )
+ 
+                try:
+                    module_result = cls.generate_module_from_resource(client, resource, questions_per_module)
+                except (GeminiTransientError, CourseGenerationError) as e:
+                    logger.error(f"Generation failed for resource '{resource.title}': {e}")
+                    module_result = ModuleGenerationSchema(lessons=[], quiz=QuizSchema(questions=[]))
+ 
+                for l_idx, lesson in enumerate(module_result.lessons, start=1):
+                    lesson_obj = Lesson.objects.create(
+                        module=module_obj, title=lesson.title, description="", order=l_idx,
+                    )
+                    for c_idx, content in enumerate(lesson.contents, start=1):
+                        Content.objects.create(
+                            lesson=lesson_obj, title=content.title, content_type=content.content_type,
+                            text_content=content.text_content, diagram_code=content.diagram_code or None,
+                            order=content.order or c_idx,
+                        )
+ 
+                has_questions = module_result.quiz and module_result.quiz.questions
+                if generate_module_quizzes and has_questions:
+                    # Standalone per-module knowledge check (Quiz.module, quiz_type='module_check')
+                    module_quiz_obj = Quiz.objects.create(
+                        module=module_obj, quiz_type='module_check',
+                        title=f"{module_obj.title} Knowledge Check",
+                        description=f"<p>Knowledge check for {module_obj.title}</p>",
+                        pass_percentage=70, created_by=instructor,
+                    )
+                    for q_offset, q in enumerate(module_result.quiz.questions, start=1):
+                        question_obj = Question.objects.create(
+                            quiz=module_quiz_obj, text=q.text, is_multi_select=q.is_multi_select, order=q_offset,
+                        )
+                        for opt in q.options:
+                            Option.objects.create(question=question_obj, text=opt.text, is_correct=opt.is_correct)
+                elif generate_quiz and has_questions:
+                    # Roll questions into one course-level final assessment instead
+                    quiz_obj, _ = Quiz.objects.get_or_create(
+                        course=course,
+                        defaults=dict(
+                            title=f"{course.title} Final Assessment", quiz_type='final',
+                            description=f"<p>Assessment quiz for {course.title}</p>",
+                            pass_percentage=module_result.quiz.pass_percentage, created_by=instructor,
+                        ),
+                    )
+                    existing_count = quiz_obj.questions.count()
+                    for q_offset, q in enumerate(module_result.quiz.questions, start=1):
+                        question_obj = Question.objects.create(
+                            quiz=quiz_obj, text=q.text, is_multi_select=q.is_multi_select,
+                            order=existing_count + q_offset,
+                        )
+                        for opt in q.options:
+                            Option.objects.create(question=question_obj, text=opt.text, is_correct=opt.is_correct)
+                        total_questions_generated += 1
+ 
+                stage_pct += pct_per_module
+ 
+            _progress("completed", 100)
+            logger.info(
+                f"Course '{course.title}' curated from {len(resources)} resources: "
+                f"{len(resources)} modules, {total_questions_generated} final-quiz questions "
+                f"({'module checks generated separately' if generate_module_quizzes else 'no module checks'})."
+            )
+ 
+        return course

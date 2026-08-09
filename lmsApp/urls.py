@@ -101,6 +101,10 @@ urlpatterns = [
     path('my-trainings/', views.my_assigned_trainings, name='my_assigned_trainings'),
     path('my-trainings/<int:training_id>/update/', views.update_training_status, name='update_training_status'),
 
+    path('instructor/curate-from-external/', views.create_course_from_external_resources, name='create_course_from_external_resources'),
+    path('instructor/curate-from-external/<int:job_id>/progress/', views.external_resource_import_progress, name='external_resource_import_progress'),
+    path('instructor/curate-from-external/<int:job_id>/status/', views.external_resource_import_status, name='external_resource_import_status'),
+
     # --- External training catalog ---
     path('student/external-training/', views.external_training_catalog, name='external_training_catalog'),
     path('student/external-training/<int:resource_id>/complete/', views.external_training_mark_complete, name='external_training_mark_complete'),

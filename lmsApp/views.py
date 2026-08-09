@@ -330,6 +330,9 @@ def is_hr_or_instructor(user):
 def is_ajax(request):
     return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
+def is_instructor_or_admin(user):
+    return user.is_authenticated and (user.is_instructor or user.is_staff)
+
 
 # --- Authentication and Dashboard Views ---
 
@@ -2041,7 +2044,7 @@ def quiz_edit(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user)
 
     if request.method == 'POST':
-        form = QuizDetailsForm(request.POST, instance=quiz)
+        form = QuizDetailsForm(request.POST, instance=quiz, instructor_user=request.user)
         if form.is_valid():
             form.save()
             return JsonResponse({
@@ -2059,7 +2062,7 @@ def quiz_edit(request, quiz_id):
                 'form_html': form_html
             }, status=400)
     else:
-        form = QuizDetailsForm(instance=quiz)
+        form = QuizDetailsForm(instance=quiz, instructor_user=request.user)
         return render(request, 'instructor/partials/quiz_details_form.html', {'form': form, 'quiz': quiz})
 
 
@@ -2088,7 +2091,7 @@ def quiz_create(request):
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     if request.method == 'POST':
-        form = QuizDetailsForm(request.POST)
+        form = QuizDetailsForm(request.POST, instructor_user=request.user)
         if form.is_valid():
             quiz = form.save(commit=False)
             quiz.created_by = request.user
@@ -2103,7 +2106,7 @@ def quiz_create(request):
                 html_form = render_to_string('instructor/quiz_create.html', {'form': form}, request=request)
                 return JsonResponse({'success': False, 'error': 'Validation failed.', 'form_html': html_form}, status=400)
     else:
-        form = QuizDetailsForm()
+        form = QuizDetailsForm(instructor_user=request.user)
 
     context = {'form': form}
     return render(request, 'instructor/quiz_create.html', context)
@@ -3758,3 +3761,59 @@ def bulk_assign_by_department(request):
         'recent_bulk_assignments': recent_bulk_assignments,
         'page_title': 'Bulk Assign Course by Department',
     })
+
+
+@login_required
+@user_passes_test(is_instructor_or_admin)
+def create_course_from_external_resources(request):
+    if request.method == 'POST':
+        form = ExternalResourceCourseGenerationForm(request.POST)
+        if form.is_valid():
+            job = ExternalResourceImportJob.objects.create(
+                instructor=form.cleaned_data['instructor'],
+                custom_title=form.cleaned_data.get('custom_title') or None,
+                generate_quiz=form.cleaned_data['generate_quiz'],
+                generate_module_quizzes=form.cleaned_data['generate_module_quizzes'],
+                requested_min_questions=form.cleaned_data.get('min_questions'),
+            )
+            job.external_resources.set(form.cleaned_data['external_resources'])
+ 
+            process_external_resource_import_job.delay(job.id)
+ 
+            messages.success(request, "Course generation started — this runs in the background.")
+            return redirect('external_resource_import_progress', job_id=job.id)
+    else:
+        initial = {}
+        preselected_ids = request.GET.get('resources')
+        if preselected_ids:
+            initial['external_resources'] = [
+                int(i) for i in preselected_ids.split(',') if i.strip().isdigit()
+            ]
+
+        form = ExternalResourceCourseGenerationForm()
+ 
+    return render(request, 'instructor/generate_course_from_external.html', {
+        'form': form, 'page_title': 'Curate Internal Course from External Resources',
+    })
+
+
+@login_required
+@user_passes_test(is_instructor_or_admin)
+def external_resource_import_progress(request, job_id):
+    job = get_object_or_404(ExternalResourceImportJob, id=job_id)
+    return render(request, 'instructor/external_resource_import_progress.html', {'job': job})
+ 
+ 
+@login_required
+@user_passes_test(is_instructor_or_admin)
+def external_resource_import_status(request, job_id):
+    job = get_object_or_404(ExternalResourceImportJob, id=job_id)
+    data = {
+        'status': job.status,
+        'progress_percentage': job.progress_percentage,
+        'error_message': job.error_message,
+    }
+    if job.status == 'completed' and job.course:
+        data['redirect_url'] = job.course.get_absolute_url()
+        data['course_title'] = job.course.title
+    return JsonResponse(data)

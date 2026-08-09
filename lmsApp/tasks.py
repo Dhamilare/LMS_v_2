@@ -472,3 +472,69 @@ def notify_admin_instructor_training_completed(self, training_id):
         attachments=attachments or None,
     )
     return f"Notified {len(admin_emails)} admin(s) of completed training #{training_id}."
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=30)
+def process_external_resource_import_job(self, job_id: int):
+    try:
+        job = (
+            ExternalResourceImportJob.objects
+            .select_related("instructor")
+            .prefetch_related("external_resources")
+            .get(pk=job_id)
+        )
+    except ExternalResourceImportJob.DoesNotExist:
+        logger.error(f"ExternalResourceImportJob {job_id} not found.")
+        return
+ 
+    job.status = "generating_outline"
+    job.started_at = timezone.now()
+    job.save(update_fields=["status", "started_at"])
+ 
+    def _on_progress(status: str, pct: int):
+        ExternalResourceImportJob.objects.filter(pk=job_id).update(status=status, progress_percentage=pct)
+ 
+    resources = list(job.external_resources.all())
+    if not resources:
+        job.mark_failed("No external resources were attached to this import job.")
+        return
+ 
+    try:
+        if len(resources) == 1:
+            course = ExternalResourceCourseGeneratorService.build_course_from_single_resource(
+                instructor=job.instructor,
+                resource=resources[0],
+                custom_title=job.custom_title,
+                generate_quiz=job.generate_quiz,
+                min_questions=job.requested_min_questions,
+                progress_callback=_on_progress,
+            )
+        else:
+            course = ExternalResourceCourseGeneratorService.build_course_from_resources(
+                instructor=job.instructor,
+                resources=resources,
+                custom_title=job.custom_title,
+                generate_quiz=job.generate_quiz,
+                generate_module_quizzes=job.generate_module_quizzes,
+                min_questions=job.requested_min_questions,
+                progress_callback=_on_progress,
+            )
+ 
+        job.course = course
+        job.status = "completed"
+        job.progress_percentage = 100
+        job.completed_at = timezone.now()
+        if hasattr(course, "quiz"):
+            job.questions_generated = course.quiz.questions.count()
+        job.save(update_fields=[
+            "course", "status", "progress_percentage", "completed_at", "questions_generated",
+        ])
+ 
+    except CourseGenerationError as e:
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e)
+        job.mark_failed(f"Course generation failed after retries: {e}")
+ 
+    except Exception as e:
+        logger.exception(f"Unexpected error processing external resource import job {job_id}")
+        job.mark_failed(f"Unexpected error: {e}")

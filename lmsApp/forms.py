@@ -851,3 +851,112 @@ class ExternalTrainingCompletionForm(forms.Form):
             'accept': '.pdf,.jpg,.jpeg,.png',
         }),
     )
+
+
+class ExternalResourceCourseGenerationForm(forms.Form):
+    external_resources = forms.ModelMultipleChoiceField(
+        queryset=ExternalTrainingResource.objects.filter(
+            is_active=True
+        ).order_by('provider', 'title'),
+        widget=forms.CheckboxSelectMultiple(
+            attrs={
+                'class': (
+                    'h-4 w-4 rounded border-gray-300 text-indigo-600 '
+                    'focus:ring-2 focus:ring-indigo-500/20'
+                ),
+            }
+        ),
+        help_text=(
+            "Select ONE resource to let AI design its own module breakdown, "
+            "or MULTIPLE resources (e.g. a learning path) to generate one "
+            "module per resource."
+        ),
+    )
+
+    instructor = forms.ModelChoiceField(
+        queryset=User.objects.filter(
+            is_instructor=True
+        ).order_by('email'),
+        help_text=(
+            "Who this curated course will be attributed to "
+            "(can be reassigned later)."
+        ),
+        widget=forms.Select(attrs={
+            'class': (
+                'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 '
+                'text-sm text-gray-700 shadow-sm transition '
+                'focus:border-indigo-500 focus:outline-none '
+                'focus:ring-2 focus:ring-indigo-500/20'
+            ),
+        }),
+    )
+
+    custom_title = forms.CharField(
+        max_length=255,
+        required=False,
+        help_text="Optional. Leave blank to auto-generate.",
+        widget=forms.TextInput(attrs={
+            'class': (
+                'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 '
+                'text-sm text-gray-700 shadow-sm transition '
+                'placeholder:text-gray-400 '
+                'focus:border-indigo-500 focus:outline-none '
+                'focus:ring-2 focus:ring-indigo-500/20'
+            ),
+            'placeholder': 'Leave blank to auto-generate',
+        }),
+    )
+
+    generate_quiz = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Generate a final course assessment",
+        widget=forms.CheckboxInput(attrs={
+            'class': (
+                'h-4 w-4 rounded border-gray-300 text-indigo-600 '
+                'focus:ring-2 focus:ring-indigo-500/20'
+            ),
+        }),
+    )
+
+    generate_module_quizzes = forms.BooleanField(
+        required=False,
+        initial=False,
+        label=(
+            "Also generate a knowledge check per module "
+            "(multi-resource mode only)"
+        ),
+        widget=forms.CheckboxInput(attrs={
+            'class': (
+                'h-4 w-4 rounded border-gray-300 text-indigo-600 '
+                'focus:ring-2 focus:ring-indigo-500/20'
+            ),
+        }),
+    )
+
+    min_questions = forms.IntegerField(
+        required=False,
+        min_value=5,
+        max_value=100,
+        initial=20,
+        widget=forms.NumberInput(attrs={
+            'class': (
+                'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 '
+                'text-sm text-gray-700 shadow-sm transition '
+                'focus:border-indigo-500 focus:outline-none '
+                'focus:ring-2 focus:ring-indigo-500/20'
+            ),
+            'min': 5,
+            'max': 100,
+        }),
+    )
+
+    def clean_external_resources(self):
+        resources = self.cleaned_data['external_resources']
+
+        if not resources:
+            raise forms.ValidationError(
+                "Select at least one external resource."
+            )
+
+        return resources

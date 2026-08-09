@@ -114,6 +114,16 @@ class Course(models.Model):
         ('professional', 'Professional'),
     ]
 
+    CONTENT_ORIGIN_CHOICES = [
+        ('manual', 'Manually Authored'),
+        ('pdf_generated', 'AI-Generated from PDF'),
+        ('external_resource_curated', 'AI-Curated from External Resource'),
+    ]
+    content_origin = models.CharField(max_length=30, choices=CONTENT_ORIGIN_CHOICES, default='manual')
+    source_external_resources = models.ManyToManyField(
+        'ExternalTrainingResource', related_name='curated_courses', blank=True,
+        help_text="Resource(s) used as reference material. Provenance only — not a live sync."
+    )
     title = models.CharField(max_length=200)
     description = CKEditor5Field(config_name='default')
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='beginner')
@@ -979,3 +989,51 @@ class ReportLog(models.Model):
  
     class Meta:
         ordering = ['-sent_at']
+
+
+class ExternalResourceImportJob(models.Model):
+    STATUS_CHOICES = [
+        ('queued', 'Queued'),
+        ('generating_outline', 'Generating Outline'),
+        ('generating_content', 'Generating Content'),
+        ('generating_quiz', 'Generating Quiz'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+ 
+    instructor = models.ForeignKey(
+        'User', on_delete=models.CASCADE, related_name='external_resource_import_jobs',
+        limit_choices_to={'is_instructor': True}
+    )
+    external_resources = models.ManyToManyField(
+        'ExternalTrainingResource', related_name='import_jobs',
+        help_text="One resource → AI designs its own module breakdown. "
+                   "Multiple resources → one module generated per resource, in order."
+    )
+    custom_title = models.CharField(max_length=255, blank=True, null=True)
+    generate_quiz = models.BooleanField(default=True, help_text="Generate a final course assessment.")
+    generate_module_quizzes = models.BooleanField(
+        default=False,
+        help_text="Also generate a knowledge check per module (only used in multi-resource mode)."
+    )
+    requested_min_questions = models.PositiveIntegerField(null=True, blank=True)
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='queued')
+    progress_percentage = models.PositiveIntegerField(default=0)
+    error_message = models.TextField(blank=True, null=True)
+    course = models.ForeignKey('Course', on_delete=models.SET_NULL, null=True, blank=True, related_name='import_job')
+    questions_generated = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+ 
+    class Meta:
+        ordering = ['-created_at']
+ 
+    def mark_failed(self, message: str):
+        self.status = 'failed'
+        self.error_message = message[:2000]
+        self.completed_at = timezone.now()
+        self.save(update_fields=['status', 'error_message', 'completed_at'])
+ 
+    def __str__(self):
+        return f"Import job #{self.pk} ({self.status}) by {self.instructor}"

@@ -5,6 +5,8 @@ from .models import *
 from django.db.models import Count
 from django_ckeditor_5.widgets import CKEditor5Widget
 from django import forms
+from urllib.parse import urlencode
+from django.shortcuts import redirect
 
 
 # ==========================
@@ -407,6 +409,17 @@ class ExternalTrainingResourceAdmin(admin.ModelAdmin):
     search_fields = ('title', 'description', 'external_uid', 'product_area')
     filter_horizontal = ('tags',)
     readonly_fields = ('last_synced_at', 'created_at')
+    actions = [..., 'curate_course_from_selected']
+
+    @admin.action(description="Curate an internal course from selected resource(s)")
+    def curate_course_from_selected(self, request, queryset):
+        resource_ids = list(queryset.values_list('id', flat=True))
+        if not resource_ids:
+            self.message_user(request, "Select at least one resource first.", level=messages.WARNING)
+            return
+        base_url = reverse('create_course_from_external_resources')
+        query = urlencode({'resources': ','.join(str(i) for i in resource_ids)})
+        return redirect(f"{base_url}?{query}")
 
     fieldsets = (
         (None, {
