@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.contrib import messages
 from .models import *
 from django.db.models import Count
 from django_ckeditor_5.widgets import CKEditor5Widget
@@ -105,20 +106,34 @@ class QuestionInline(admin.StackedInline):
 @admin.register(Quiz)
 class QuizAdmin(admin.ModelAdmin):
     form = QuizAdminForm
-    list_display = ('title', 'course_link', 'pass_percentage', 'max_attempts', 'allow_multiple_correct', 'created_at')
-    list_filter = ('course__title', 'pass_percentage', 'max_attempts', 'allow_multiple_correct')
-    search_fields = ('title', 'description', 'course__title')
+    list_display = ('title', 'quiz_type', 'target_link', 'pass_percentage', 'max_attempts', 'allow_multiple_correct', 'created_at')
+    list_filter = ('quiz_type', 'course__title', 'pass_percentage', 'max_attempts', 'allow_multiple_correct')
+    search_fields = ('title', 'description', 'course__title', 'module__title', 'module__course__title')
     inlines = [QuestionInline]
 
-    def course_link(self, obj):
+    raw_id_fields = ('course', 'module')
+
+    def target_link(self, obj):
+        """
+        Shows what this quiz is attached to — a course (final assessment) or
+        a module (knowledge check). Mirrors the old course_link() behavior for
+        final quizzes, and extends it for module-level quizzes.
+        """
+        if obj.quiz_type == 'module_check' and obj.module:
+            return f"{obj.module.course.title} → {obj.module.title} (module check)"
         if obj.course:
-            return obj.course.title
+            return f"{obj.course.title} (final assessment)"
         return "Not Assigned"
-    course_link.short_description = "Assigned Course"
+    target_link.short_description = "Attached To"
 
     fieldsets = (
         (None, {
-            'fields': ('title', 'description', 'course', 'pass_percentage', 'max_attempts','allow_multiple_correct', 'created_by')
+            'fields': ('title', 'description', 'quiz_type', 'course', 'module',
+                       'pass_percentage', 'max_attempts', 'allow_multiple_correct', 'created_by'),
+            'description': (
+                "Set quiz_type to 'Final Course Assessment' and link a Course, OR "
+                "'Module Knowledge Check' and link a Module — not both."
+            ),
         }),
     )
     
@@ -152,10 +167,15 @@ class LessonInline(admin.StackedInline):
 @admin.register(Module)
 class ModuleAdmin(admin.ModelAdmin):
     form = ModuleAdminForm
-    list_display = ('title', 'course', 'order')
+    list_display = ('title', 'course', 'order', 'has_knowledge_check')
     list_filter = ('course',)
     search_fields = ('title', 'description', 'course__title')
     inlines = [LessonInline]
+
+    def has_knowledge_check(self, obj):
+        return hasattr(obj, 'quiz') and obj.quiz is not None
+    has_knowledge_check.boolean = True
+    has_knowledge_check.short_description = "Knowledge Check?"
 
 
 class ContentInline(admin.StackedInline):
@@ -175,10 +195,11 @@ class LessonAdmin(admin.ModelAdmin):
 
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
-    list_display = ('student', 'course', 'enrolled_at', 'completed', 'completed_at')
-    list_filter = ('completed', 'course', 'student')
+    list_display = ('student', 'course', 'enrolled_at', 'assignment_reason', 'completed', 'completed_at',
+                     'reminder_7_sent', 'reminder_3_sent', 'followup_2mo_sent', 'followup_3mo_sent')
+    list_filter = ('completed', 'assignment_reason', 'course', 'student')
     search_fields = ('student__email', 'student__first_name', 'student__last_name', 'course__title')
-    raw_id_fields = ('student', 'course')
+    raw_id_fields = ('student', 'course', 'assigned_by')
 
 
 @admin.register(StudentContentProgress)
@@ -330,4 +351,113 @@ class CourseEvaluationAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         if request.user.is_superuser:
             return True
+        return False
+
+
+# ===========================================================================
+# Instructor-Led Training
+# ===========================================================================
+@admin.register(InstructorTraining)
+class InstructorTrainingAdmin(admin.ModelAdmin):
+    list_display = ('instructor', 'training_title', 'status', 'due_date', 'assigned_by', 'assigned_at', 'completed_at', 'has_proof')
+    list_filter = ('status', 'assigned_at', 'due_date')
+    search_fields = (
+        'instructor__email', 'instructor__first_name', 'instructor__last_name',
+        'course__title', 'external_title',
+    )
+    raw_id_fields = ('instructor', 'course', 'assigned_by')
+    readonly_fields = ('assigned_at', 'completed_at')
+    ordering = ('-assigned_at',)
+
+    fieldsets = (
+        (None, {
+            'fields': ('instructor', 'assigned_by', 'status', 'due_date')
+        }),
+        ('Training Target (choose one)', {
+            'fields': ('course', 'external_title', 'external_url'),
+            'description': "Link an internal Course, OR fill in External Title + External URL — not both.",
+        }),
+        ('Completion', {
+            'fields': ('proof_file', 'completion_note', 'completed_at'),
+        }),
+        ('Timestamps', {
+            'fields': ('assigned_at',),
+            'classes': ('collapse',),
+        }),
+    )
+
+    def has_proof(self, obj):
+        return bool(obj.proof_file)
+    has_proof.boolean = True
+    has_proof.short_description = "Proof Attached?"
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk and not obj.assigned_by:
+            obj.assigned_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+# ===========================================================================
+# External Training Catalog
+# ===========================================================================
+@admin.register(ExternalTrainingResource)
+class ExternalTrainingResourceAdmin(admin.ModelAdmin):
+    list_display = ('title', 'provider', 'source', 'level', 'duration_minutes', 'is_active', 'last_synced_at', 'created_at')
+    list_filter = ('provider', 'source', 'is_active')
+    search_fields = ('title', 'description', 'external_uid', 'product_area')
+    filter_horizontal = ('tags',)
+    readonly_fields = ('last_synced_at', 'created_at')
+
+    fieldsets = (
+        (None, {
+            'fields': ('title', 'provider', 'source', 'url', 'description', 'tags', 'is_active')
+        }),
+        ('Sync Metadata (Microsoft Learn only — leave blank for manual entries)', {
+            'fields': ('external_uid', 'duration_minutes', 'level', 'product_area', 'last_synced_at'),
+            'classes': ('collapse',),
+        }),
+        ('Ownership', {
+            'fields': ('added_by', 'created_at'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk and not obj.added_by:
+            obj.added_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(ExternalTrainingCompletion)
+class ExternalTrainingCompletionAdmin(admin.ModelAdmin):
+    list_display = ('student', 'resource', 'completed_at', 'verified', 'verified_by')
+    list_filter = ('verified', 'resource__provider', 'completed_at')
+    search_fields = (
+        'student__email', 'student__first_name', 'student__last_name',
+        'resource__title',
+    )
+    raw_id_fields = ('student', 'resource', 'verified_by')
+    actions = ['verify_selected']
+
+    @admin.action(description="Mark selected completions as verified")
+    def verify_selected(self, request, queryset):
+        updated = queryset.filter(verified=False).update(verified=True, verified_by=request.user)
+        self.message_user(request, f"{updated} completion(s) marked as verified.", level=messages.SUCCESS)
+
+
+# ===========================================================================
+# Report Log 
+# ===========================================================================
+@admin.register(ReportLog)
+class ReportLogAdmin(admin.ModelAdmin):
+    list_display = ('report_type', 'period_start', 'period_end', 'sent_at')
+    list_filter = ('report_type', 'sent_at')
+    readonly_fields = ('report_type', 'sent_at', 'recipient_emails', 'period_start', 'period_end')
+    ordering = ('-sent_at',)
+
+    def has_add_permission(self, request):
+        # Report logs are created only by the Celery task, never manually.
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
