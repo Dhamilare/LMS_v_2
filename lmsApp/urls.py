@@ -88,4 +88,22 @@ urlpatterns = [
     # --- HR Dashboard
     path('hr/appraisal-dashboard/', views.hr_appraisal_dashboard, name='hr_appraisal_dashboard'),
     path('hr/course-feedback/', views.hr_course_feedback, name='hr_course_feedback'),
+    path('hr/bulk-assign/', views.bulk_assign_by_department, name='bulk_assign_by_department'),
+
+    # --- Module knowledge checks ---
+    path('module/<int:module_id>/quiz/', views.module_quiz_take, name='module_quiz_take'),
+    path('module/<int:module_id>/quiz/submit/', views.module_quiz_submit, name='module_quiz_submit'),
+    path('module/<int:module_id>/quiz/result/<int:attempt_id>/', views.module_quiz_result, name='module_quiz_result'),
+
+    # --- Instructor-led training ---
+    path('admin/instructor-training/assign/', views.instructor_assign_training, name='instructor_assign_training'),
+    path('admin/instructor-training/review/', views.admin_training_review, name='admin_training_review'),
+    path('instructor/my-trainings/', views.my_assigned_trainings, name='my_assigned_trainings'),
+    path('instructor/my-trainings/<int:training_id>/update/', views.update_training_status, name='update_training_status'),
+
+    # --- External training catalog ---
+    path('student/external-training/', views.external_training_catalog, name='external_training_catalog'),
+    path('student/external-training/<int:resource_id>/complete/', views.external_training_mark_complete, name='external_training_mark_complete'),
+    path('admin/external-training/', views.external_training_manage, name='external_training_manage'),
+    path('admin/external-training/<int:completion_id>/verify/', views.external_training_verify, name='external_training_verify'),
 ]

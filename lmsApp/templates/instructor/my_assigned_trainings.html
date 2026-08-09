@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Assigned Trainings{% endblock %}
+
+{% block content %}
+<div class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 sm:px-6 lg:px-8 max-w-4xl">
+
+        <h2 class="text-3xl font-bold text-gray-900 mb-2 flex items-center">
+            <i class="fas fa-graduation-cap mr-3 text-indigo-600"></i> My Assigned Trainings
+        </h2>
+        <p class="text-gray-500 mb-8">Training assigned to you by admin. Mark each one complete with proof once finished.</p>
+
+        {% if page_obj %}
+            <div class="space-y-4">
+                {% for training in page_obj %}
+                    <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                        <div class="mb-4 sm:mb-0">
+                            <div class="flex items-center gap-3 mb-2">
+                                <h3 class="text-lg font-semibold text-gray-800">{{ training.training_title }}</h3>
+                                <span class="px-3 py-1 text-xs font-semibold rounded-full
+                                    {% if training.status == 'completed' %}bg-green-100 text-green-800
+                                    {% elif training.status == 'in_progress' %}bg-blue-100 text-blue-800
+                                    {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                    {{ training.get_status_display }}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-500">
+                                <i class="fas fa-user-shield mr-1"></i> Assigned by {{ training.assigned_by.get_full_name|default:training.assigned_by.email }}
+                                {% if training.due_date %}
+                                    &nbsp;•&nbsp;<i class="fas fa-calendar mr-1"></i> Due {{ training.due_date|date:"M d, Y" }}
+                                {% endif %}
+                            </p>
+                            {% if training.external_url %}
+                                <a href="{{ training.external_url }}" target="_blank" rel="noopener" class="text-sm text-indigo-600 hover:text-indigo-800 mt-1 inline-block">
+                                    <i class="fas fa-external-link-alt mr-1"></i> Open training link
+                                </a>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'update_training_status' training_id=training.id %}"
+                           class="bg-indigo-600 text-white py-2 px-5 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center text-sm shadow-sm hover:shadow-md whitespace-nowrap">
+                            <i class="fas fa-edit mr-2"></i>
+                            {% if training.status == 'completed' %}View Details{% else %}Update Status{% endif %}
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="flex justify-center mt-6">
+                {% if page_obj.has_other_pages %}
+                    {% include 'includes/pagination.html' with page_obj=page_obj page_param='page' %}
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="text-center py-14 bg-white rounded-xl shadow-sm border border-gray-200">
+                <i class="fas fa-inbox text-4xl text-gray-300 mb-3"></i>
+                <p class="text-gray-600 text-lg">No trainings have been assigned to you yet.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

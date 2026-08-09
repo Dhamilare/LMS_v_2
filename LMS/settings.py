@@ -15,6 +15,7 @@ import os
 from decouple import config
 import dj_database_url
 import tempfile
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -47,6 +48,7 @@ INSTALLED_APPS = [
     'django_ckeditor_5',
     'django_celery_results',
     'django_celery_beat',
+    'django.contrib.sites',
     
 ]
 
@@ -216,6 +218,7 @@ SOCIAL_AUTH_AZUREAD_OAUTH2_ACCESS_TOKEN_URL = (
     f"https://login.microsoftonline.com/{SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID}/oauth2/v2.0/token"
 )
 
+
 LMS_MIN_QUIZ_QUESTIONS = 20
 LMS_QUESTIONS_PER_LESSON = 2
 LMS_MAX_PDF_PAGES = 400
@@ -236,6 +239,7 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'preference_setup'
 LOGOUT_REDIRECT_URL = 'login'
 
+SITE_ID = 1
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
@@ -302,6 +306,27 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 524288000   # 500 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 524288000   # 500 MB
 
 SESSION_COOKIE_AGE = 60 * 30
+
+CELERY_BEAT_SCHEDULE = {
+    'send-deadline-reminders-daily': {
+        'task': 'lmsApp.tasks.send_deadline_reminders',
+        'schedule': crontab(hour=8, minute=0),   # 8:00 AM daily
+    },
+    'send-post-completion-followups-daily': {
+        'task': 'lmsApp.tasks.send_post_completion_followups',
+        'schedule': crontab(hour=9, minute=0),   # 9:00 AM daily
+    },
+    'send-monthly-platform-report': {
+        'task': 'lmsApp.tasks.send_monthly_platform_report',
+        'schedule': crontab(hour=7, minute=0, day_of_month=1),  # 1st of month, 7:00 AM
+    },
+    'sync-ms-learn-catalog-daily': {
+    'task': 'lmsApp.tasks.sync_microsoft_learn_catalog',
+    'schedule': crontab(hour=3, minute=0),  # off-peak
+    'kwargs': {'products': ['azure', 'm365', 'security', 'entra'], 'roles': ['administrator']},
+    },
+
+}
 
 # ---------------------------------------------------------
 # CKEditor 5 Configuration

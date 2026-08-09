@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage External Training{% endblock %}
+
+{% block content %}
+<div class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 sm:px-6 lg:px-8 max-w-5xl">
+
+        <h2 class="text-3xl font-bold text-gray-900 mb-2 flex items-center">
+            <i class="fas fa-globe mr-3 text-indigo-600"></i> External Training Catalog
+        </h2>
+        <p class="text-gray-500 mb-8">Add curated resources from Microsoft Learn, Cisco, Sophos, and others, and verify student self-reported completions.</p>
+
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sm:p-8 mb-10">
+            <h3 class="text-lg font-semibold text-gray-800 mb-5"><i class="fas fa-plus-circle text-indigo-500 mr-2"></i> Add a Resource</h3>
+            <form method="post">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                        {{ form.title }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+                        {{ form.provider }}
+                    </div>
+                </div>
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                    {{ form.url }}
+                </div>
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    {{ form.description }}
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                        {{ form.tags }}
+                    </div>
+                    <div class="flex items-center mt-6">
+                        {{ form.is_active }}
+                        <label class="ml-2 text-sm text-gray-700">Active (visible to students)</label>
+                    </div>
+                </div>
+                <button type="submit" class="bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center font-medium shadow-md w-full sm:w-auto">
+                    <i class="fas fa-save mr-2"></i> Add to Catalog
+                </button>
+            </form>
+        </div>
+
+        <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-hourglass-half mr-2 text-amber-500"></i> Pending Verification
+        </h3>
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+            {% if pending_verification %}
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+                        <tr>
+                            <th class="px-6 py-3 text-left">Student</th>
+                            <th class="px-6 py-3 text-left">Resource</th>
+                            <th class="px-6 py-3 text-left">Completed On</th>
+                            <th class="px-6 py-3 text-left">Proof</th>
+                            <th class="px-6 py-3 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for completion in pending_verification %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3 text-gray-700">{{ completion.student.get_full_name|default:completion.student.email }}</td>
+                            <td class="px-6 py-3 text-gray-700">{{ completion.resource.title }}</td>
+                            <td class="px-6 py-3 text-gray-500">{{ completion.completed_at|date:"M d, Y" }}</td>
+                            <td class="px-6 py-3">
+                                {% if completion.proof_file %}
+                                    <a href="{{ completion.proof_file.url }}" target="_blank" class="text-indigo-600 hover:text-indigo-800"><i class="fas fa-file-download mr-1"></i>View</a>
+                                {% else %}
+                                    <span class="text-gray-400">None</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-3 text-right">
+                                <form method="post" action="{% url 'external_training_verify' completion_id=completion.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="bg-green-600 text-white py-1.5 px-4 rounded-md hover:bg-green-700 transition duration-300 text-xs font-medium shadow-sm">
+                                        <i class="fas fa-check mr-1"></i> Verify
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="text-gray-500 text-center py-10">Nothing pending verification.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

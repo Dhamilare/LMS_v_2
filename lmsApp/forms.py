@@ -176,7 +176,18 @@ class QuizDetailsForm(forms.ModelForm):
 
     class Meta:
         model = Quiz
-        fields = ['title', 'description', 'pass_percentage', 'max_attempts', 'allow_multiple_correct']
+        fields = ['title', 'description', 'quiz_type', 'module', 'pass_percentage', 'max_attempts', 'allow_multiple_correct']
+
+    def __init__(self, *args, instructor_user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['module'].required = False
+        if instructor_user is not None:
+            self.fields['module'].queryset = Module.objects.filter(
+                course__instructor=instructor_user
+            ).exclude(quiz__isnull=False)
+
+
+
 
 class OptionForm(forms.ModelForm):
     class Meta:
@@ -273,14 +284,14 @@ class AssignCourseForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-select block w-full mt-1 rounded-md'})
     )
     
-    def label_from_instance(self, obj):
-        full_name = obj.get_full_name()
-        if full_name:
-            return f"{full_name} ({obj.email})"
-        return obj.email
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['student'].label_from_instance = lambda obj: (
+            f"{obj.get_full_name()} ({obj.email})" if obj.get_full_name() else obj.email
+        )
 
     course = forms.ModelChoiceField(
-        queryset=Course.objects.all().order_by('title'),
+        queryset=Course.objects.all().filter(is_published=True).order_by('title'),
         label="Select Course",
         widget=forms.Select(attrs={'class': 'form-select block w-full mt-1 rounded-md'})
     )
@@ -537,3 +548,62 @@ class CoursePDFUploadForm(forms.Form):
         if pdf_file.size > max_size:
             raise forms.ValidationError("File size exceeds the 100MB limit.")
         return pdf_file
+
+class BulkAssignByDepartmentForm(forms.Form):
+    course = forms.ModelChoiceField(
+        queryset=Course.objects.filter(is_published=True),
+        help_text="Select the course to assign."
+    )
+    department = forms.ChoiceField(
+        help_text="All students in this department will be enrolled."
+    )
+ 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        dept_choices = (
+            User.objects.filter(is_student=True)
+            .exclude(department__isnull=True)
+            .exclude(department='')
+            .values_list('department', flat=True)
+            .distinct()
+            .order_by('department')
+        )
+        self.fields['department'].choices = [(d, d) for d in dept_choices]
+
+class InstructorTrainingAssignForm(forms.ModelForm):
+    """Admin-side: assign training to an instructor."""
+    class Meta:
+        model = InstructorTraining
+        fields = ['instructor', 'course', 'external_title', 'external_url', 'due_date']
+ 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['instructor'].queryset = User.objects.filter(is_instructor=True).order_by('email')
+        self.fields['due_date'].required = False
+ 
+ 
+class InstructorTrainingStatusForm(forms.ModelForm):
+    """Instructor-side: update status and attach proof of completion."""
+    class Meta:
+        model = InstructorTraining
+        fields = ['status', 'proof_file', 'completion_note']
+ 
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('status') == 'completed' and not cleaned.get('proof_file') and not self.instance.proof_file:
+            raise forms.ValidationError(
+                "Please attach proof of completion (certificate/screenshot) before marking this complete."
+            )
+        return cleaned
+ 
+ 
+class ExternalTrainingResourceForm(forms.ModelForm):
+    """Admin/HR-side: add a curated external resource to the catalog."""
+    class Meta:
+        model = ExternalTrainingResource
+        fields = ['title', 'provider', 'url', 'description', 'tags', 'is_active']
+ 
+ 
+class ExternalTrainingCompletionForm(forms.Form):
+    """Student-side: self-report completion of an external resource."""
+    proof_file = forms.FileField(required=False, help_text="Optional: attach a certificate or screenshot.")

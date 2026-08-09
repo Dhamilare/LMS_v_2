@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Instructor Training Review{% endblock %}
+
+{% block content %}
+<div class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 sm:px-6 lg:px-8 max-w-5xl">
+
+        <h2 class="text-3xl font-bold text-gray-900 mb-2 flex items-center">
+            <i class="fas fa-clipboard-check mr-3 text-indigo-600"></i> Completed Trainings Review
+        </h2>
+        <p class="text-gray-500 mb-8">All instructor trainings marked complete, with proof-of-completion attachments.</p>
+
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+            {% if page_obj %}
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+                        <tr>
+                            <th class="px-6 py-3 text-left">Instructor</th>
+                            <th class="px-6 py-3 text-left">Training</th>
+                            <th class="px-6 py-3 text-left">Completed On</th>
+                            <th class="px-6 py-3 text-left">Proof</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for training in page_obj %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3 text-gray-700">{{ training.instructor.get_full_name|default:training.instructor.email }}</td>
+                            <td class="px-6 py-3 text-gray-700">
+                                {{ training.training_title }}
+                                {% if training.completion_note %}
+                                    <p class="text-xs text-gray-400 mt-1 italic">"{{ training.completion_note|truncatechars:80 }}"</p>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-3 text-gray-500">{{ training.completed_at|date:"M d, Y" }}</td>
+                            <td class="px-6 py-3">
+                                {% if training.proof_file %}
+                                    <a href="{{ training.proof_file.url }}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium">
+                                        <i class="fas fa-file-download mr-1"></i> View Proof
+                                    </a>
+                                {% else %}
+                                    <span class="text-gray-400">None attached</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="flex justify-center py-4">
+                    {% if page_obj.has_other_pages %}
+                        {% include 'includes/pagination.html' with page_obj=page_obj page_param='page' %}
+                    {% endif %}
+                </div>
+            {% else %}
+                <p class="text-gray-500 text-center py-10">No completed trainings yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

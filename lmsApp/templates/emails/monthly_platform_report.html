@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monthly Platform Report</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:'Century Gothic','Poppins',Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 0;">
+<tr><td align="center">
+<table role="presentation" width="640" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);max-width:640px;">
+
+  <tr><td style="padding:20px 32px;border-bottom:1px solid #e5e7eb;">
+    <span style="font-size:20px;font-weight:700;color:#1f2937;">Ha-Shem LMS</span>
+  </td></tr>
+
+  <tr><td style="background-color:#4f46e5;height:4px;line-height:4px;font-size:0;">&nbsp;</td></tr>
+
+  <tr><td style="padding:32px 32px 8px 32px;">
+    <div style="display:inline-block;background-color:#eef2ff;color:#3730a3;font-size:12px;font-weight:700;padding:6px 12px;border-radius:9999px;margin-bottom:16px;letter-spacing:0.5px;">
+      📊 MONTHLY PLATFORM REPORT
+    </div>
+    <h1 style="font-size:22px;color:#1f2937;margin:0 0 4px 0;">{{ period_start|date:"F j" }} – {{ period_end|date:"F j, Y" }}</h1>
+    <p style="font-size:14px;color:#6b7280;margin:0 0 24px 0;">Platform usage summary for the past 30 days.</p>
+  </td></tr>
+
+  <tr><td style="padding:0 32px 24px 32px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="50%" style="padding:4px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef2ff;border-radius:10px;">
+            <tr><td style="padding:16px;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#4338ca;font-weight:600;">New Enrollments</p>
+              <p style="margin:4px 0 0 0;font-size:28px;font-weight:700;color:#312e81;">{{ new_enrollments }}</p>
+            </td></tr>
+          </table>
+        </td>
+        <td width="50%" style="padding:4px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0fdf4;border-radius:10px;">
+            <tr><td style="padding:16px;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#15803d;font-weight:600;">Completions</p>
+              <p style="margin:4px 0 0 0;font-size:28px;font-weight:700;color:#14532d;">{{ completions_this_period }}</p>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td width="50%" style="padding:4px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#faf5ff;border-radius:10px;">
+            <tr><td style="padding:16px;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#7e22ce;font-weight:600;">Certificates Issued</p>
+              <p style="margin:4px 0 0 0;font-size:28px;font-weight:700;color:#581c87;">{{ certificates_issued }}</p>
+            </td></tr>
+          </table>
+        </td>
+        <td width="50%" style="padding:4px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eff6ff;border-radius:10px;">
+            <tr><td style="padding:16px;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#1d4ed8;font-weight:600;">Active Students</p>
+              <p style="margin:4px 0 0 0;font-size:28px;font-weight:700;color:#1e3a8a;">{{ total_active_students }}</p>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:0 32px 24px 32px;">
+    <h2 style="font-size:15px;color:#1f2937;margin:0 0 12px 0;">Top Courses by Enrollment This Period</h2>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      <tr style="background-color:#f9fafb;">
+        <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#6b7280;">COURSE</td>
+        <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#6b7280;text-align:right;">ENROLLMENTS</td>
+      </tr>
+      {% for course in top_courses %}
+      <tr style="border-top:1px solid #f3f4f6;">
+        <td style="padding:10px 14px;font-size:14px;color:#374151;">{{ course.title }}</td>
+        <td style="padding:10px 14px;font-size:14px;color:#374151;text-align:right;font-weight:600;">{{ course.enrollments_this_period }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="2" style="padding:14px;font-size:13px;color:#9ca3af;text-align:center;">No enrollment activity this period.</td></tr>
+      {% endfor %}
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:0 32px 32px 32px;">
+    <table role="presentation" cellpadding="0" cellspacing="0">
+      <tr><td style="border-radius:8px;background-color:#4f46e5;">
+        <a href="{{ dashboard_url }}" style="display:inline-block;padding:12px 28px;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;">
+          View Full Analytics &rarr;
+        </a>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="background-color:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb;text-align:center;">
+    <p style="margin:0;font-size:12px;color:#6b7280;">&copy; {% now "Y" %} Ha-Shem LMS Portal. All rights reserved.</p>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

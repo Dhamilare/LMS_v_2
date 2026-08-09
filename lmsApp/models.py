@@ -13,6 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
 from datetime import timedelta
 from django.conf import settings
+from django.core.exceptions import ValidationError
 
 
 
@@ -192,6 +193,14 @@ class Module(models.Model):
         """
         if not user.is_authenticated or not user.is_student:
             return False
+
+        if hasattr(self, 'quiz') and self.quiz is not None:
+            from .models import StudentQuizAttempt  # avoid circular import issues if split into files
+            has_passed = StudentQuizAttempt.objects.filter(
+                student=user, quiz=self.quiz, passed=True
+            ).exists()
+            if not has_passed:
+                return False
         
         lessons_in_module = self.lessons.all()
         if not lessons_in_module.exists():
@@ -202,6 +211,7 @@ class Module(models.Model):
             if not lesson.is_completed_by_student(user):
                 return False
         return True
+    
 
 class Lesson(models.Model):
     """
@@ -332,6 +342,19 @@ class Enrollment(models.Model):
         limit_choices_to=~Q(is_student=True)
     )
     due_date = models.DateTimeField(null=True, blank=True)
+    reminder_7_sent = models.BooleanField(default=False)
+    reminder_3_sent = models.BooleanField(default=False)
+    followup_2mo_sent = models.BooleanField(default=False)
+    followup_3mo_sent = models.BooleanField(default=False)
+
+    ASSIGNMENT_REASON_CHOICES = [
+        ('self', 'Self-Enrolled'),
+        ('manual', 'Manually Assigned'),
+        ('bulk_department', 'Bulk Assigned by Department'),
+    ]
+    assignment_reason = models.CharField(
+        max_length=20, choices=ASSIGNMENT_REASON_CHOICES, default='self'
+    )
 
     class Meta:
         unique_together = ('student', 'course')
@@ -343,6 +366,12 @@ class Enrollment(models.Model):
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
+
+    @property
+    def days_until_due(self):
+        if not self.due_date:
+            return None
+        return (self.due_date.date() - timezone.now().date()).days
 
     @property
     def progress_percentage(self):
@@ -485,8 +514,12 @@ class Quiz(models.Model):
     """
     Represents a quiz, now linked directly to a Course.
     """
-    course = models.OneToOneField(Course, on_delete=models.CASCADE, related_name='quiz', null=True, blank=True,
-                                    help_text="The course this quiz is the main assessment for.")
+    QUIZ_TYPE_CHOICES = [
+        ('final', 'Final Course Assessment'),
+        ('module_check', 'Module Knowledge Check'),
+    ]
+    quiz_type = models.CharField(max_length=20, choices=QUIZ_TYPE_CHOICES, default='final')
+    course = models.OneToOneField(Course, on_delete=models.CASCADE, related_name='quiz', null=True, blank=True, help_text="Set only when quiz_type='final'. The course this quiz is the main assessment for.")
     title = models.CharField(max_length=255)
     allow_multiple_correct = models.BooleanField(default=False)
     description = CKEditor5Field(config_name='default')
@@ -498,6 +531,32 @@ class Quiz(models.Model):
         User, on_delete=models.CASCADE, related_name='created_quizzes',
         help_text="The instructor who created this quiz."
     )
+    module = models.OneToOneField(
+        Module, on_delete=models.CASCADE, related_name='quiz', null=True, blank=True,
+        help_text="Set only when quiz_type='module_check'. The module this knowledge check belongs to."
+    )
+
+    def clean(self):
+        super().clean()
+        if self.quiz_type == 'final' and not self.course:
+            raise ValidationError("A final assessment quiz must be linked to a course.")
+        if self.quiz_type == 'module_check' and not self.module:
+            raise ValidationError("A module knowledge check must be linked to a module.")
+        if self.course and self.module:
+            raise ValidationError("A quiz cannot be linked to both a course and a module.")
+ 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+ 
+    @property
+    def owning_course(self):
+        '''Returns the Course regardless of whether this is a final or module-level quiz.'''
+        if self.course:
+            return self.course
+        if self.module:
+            return self.module.course
+        return None
 
     def __str__(self):
         return self.title
@@ -556,18 +615,20 @@ class StudentQuizAttempt(models.Model):
     def save(self, *args, **kwargs):
         if self.score is not None and self.quiz.pass_percentage is not None:
             self.passed = self.score >= self.quiz.pass_percentage
-        
-        super().save(*args, **kwargs) 
-
-        if not self.enrollment and self.quiz.course:
-            self.enrollment = Enrollment.objects.filter(
-                student=self.student,
-                course=self.quiz.course
-            ).first()
-            if self.enrollment:
-                super().save(update_fields=['enrollment']) 
-
-        if self.enrollment:
+ 
+        super().save(*args, **kwargs)
+ 
+        if not self.enrollment:
+            owning_course = self.quiz.owning_course
+            if owning_course:
+                self.enrollment = Enrollment.objects.filter(
+                    student=self.student,
+                    course=owning_course
+                ).first()
+                if self.enrollment:
+                    super().save(update_fields=['enrollment'])
+ 
+        if self.enrollment and self.quiz.quiz_type == 'final':
             self.enrollment._sync_completion_status()
 
 
@@ -772,3 +833,149 @@ class CourseImportJob(models.Model):
         self.error_message = error[:5000]
         self.completed_at = timezone.now()
         self.save(update_fields=['status', 'error_message', 'completed_at'])
+
+
+
+class InstructorTraining(models.Model):
+    """
+    Tracks training assigned BY an admin/HR TO an instructor (not a student
+    Enrollment — instructors are excluded from most Enrollment-related querysets
+    by design, so this stays a separate, parallel model).
+    """
+    STATUS_CHOICES = [
+        ('assigned', 'Assigned'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+    ]
+ 
+    instructor = models.ForeignKey(
+        'User', on_delete=models.CASCADE, related_name='assigned_trainings',
+        limit_choices_to={'is_instructor': True}
+    )
+    course = models.ForeignKey(
+        'Course', on_delete=models.SET_NULL, null=True, blank=True, related_name='instructor_trainings'
+    )
+    external_title = models.CharField(max_length=255, blank=True, null=True)
+    external_url = models.URLField(blank=True, null=True)
+ 
+    assigned_by = models.ForeignKey(
+        'User', on_delete=models.SET_NULL, null=True, related_name='trainings_assigned_by_me'
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='assigned')
+    due_date = models.DateTimeField(null=True, blank=True)
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    proof_file = models.FileField(upload_to='instructor_training_proofs/', blank=True, null=True)
+    completion_note = models.TextField(blank=True, null=True)
+ 
+    def clean(self):
+        if not self.course and not (self.external_title and self.external_url):
+            raise ValidationError(
+                "Either an internal course, or both an external title and URL, must be provided."
+            )
+ 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        if self.status == 'completed' and not self.completed_at:
+            self.completed_at = timezone.now()
+        elif self.status != 'completed':
+            self.completed_at = None
+        super().save(*args, **kwargs)
+ 
+    @property
+    def training_title(self):
+        return self.course.title if self.course else self.external_title
+ 
+    def __str__(self):
+        instructor_name = self.instructor.get_full_name() or self.instructor.email
+        return f"{instructor_name} — {self.training_title} ({self.status})"
+ 
+    class Meta:
+        ordering = ['-assigned_at']
+
+
+class ExternalTrainingResource(models.Model):
+    PROVIDER_CHOICES = [
+        ('ms_learn', 'Microsoft Learn'),
+        ('cisco', 'Cisco'),
+        ('sophos', 'Sophos'),
+        ('linkedin_learning', 'LinkedIn Learning'),
+        ('coursera', 'Coursera'),
+        ('other', 'Other'),
+    ]
+    SOURCE_CHOICES = [
+        ('synced', 'Auto-Synced'),      # currently only Microsoft Learn
+        ('manual', 'Manually Curated'), # Cisco, Sophos, everything else today
+    ]
+ 
+    title = models.CharField(max_length=255)
+    provider = models.CharField(max_length=30, choices=PROVIDER_CHOICES, default='ms_learn')
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default='manual')
+    url = models.URLField()
+    description = models.TextField(blank=True, null=True)
+    tags = models.ManyToManyField('Tag', related_name='external_resources', blank=True)
+ 
+    # --- Metadata only populated for synced (Microsoft Learn) content ---
+    external_uid = models.CharField(
+        max_length=255, blank=True, null=True,
+        help_text="The provider's own content ID (e.g. MS Learn module UID). Used to dedupe on re-sync."
+    )
+    duration_minutes = models.PositiveIntegerField(blank=True, null=True)
+    level = models.CharField(max_length=50, blank=True, null=True)   # beginner/intermediate/advanced
+    product_area = models.CharField(max_length=255, blank=True, null=True)  # e.g. "Azure", "Microsoft 365"
+    last_synced_at = models.DateTimeField(blank=True, null=True)
+    added_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['provider', 'external_uid'],
+                condition=models.Q(source='synced'),
+                name='unique_synced_external_resource',
+            )
+        ]
+ 
+    def __str__(self):
+        return f"{self.title} ({self.get_provider_display()})"
+
+
+class ExternalTrainingCompletion(models.Model):
+    student = models.ForeignKey(
+        'User', on_delete=models.CASCADE, related_name='external_training_completions',
+        limit_choices_to={'is_student': True}
+    )
+    resource = models.ForeignKey(ExternalTrainingResource, on_delete=models.CASCADE, related_name='completions')
+    completed_at = models.DateTimeField(auto_now_add=True)
+    proof_file = models.FileField(upload_to='external_training_proofs/', blank=True, null=True)
+    verified = models.BooleanField(default=False)
+    verified_by = models.ForeignKey(
+        'User', on_delete=models.SET_NULL, null=True, blank=True, related_name='external_completions_verified'
+    )
+ 
+    class Meta:
+        unique_together = ('student', 'resource')
+        ordering = ['-completed_at']
+ 
+    def __str__(self):
+        student_name = self.student.get_full_name() or self.student.email
+        return f"{student_name} — {self.resource.title}"
+
+
+class ReportLog(models.Model):
+    REPORT_TYPE_CHOICES = [
+        ('monthly_usage', 'Monthly Platform Usage Report'),
+    ]
+    report_type = models.CharField(max_length=30, choices=REPORT_TYPE_CHOICES)
+    sent_at = models.DateTimeField(auto_now_add=True)
+    recipient_emails = models.TextField(help_text="Comma-separated list of recipients.")
+    period_start = models.DateField()
+    period_end = models.DateField()
+ 
+    def __str__(self):
+        return f"{self.get_report_type_display()} ({self.period_start} to {self.period_end})"
+ 
+    class Meta:
+        ordering = ['-sent_at']

@@ -12,7 +12,44 @@
         </h2>
 
         {% if is_admin %}
-            
+
+            <!-- NEW: Admin quick actions for newly added enterprise features -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                <a href="{% url 'instructor_assign_training' %}" class="bg-white p-5 rounded-xl shadow-md border border-gray-200 hover:border-indigo-300 hover:shadow-lg transition duration-200 flex items-center">
+                    <div class="h-10 w-10 rounded-lg bg-indigo-100 flex items-center justify-center mr-4">
+                        <i class="fas fa-chalkboard-teacher text-indigo-600"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 text-sm">Assign Instructor Training</p>
+                        <p class="text-xs text-gray-400">Assign &amp; track completion</p>
+                    </div>
+                </a>
+                <a href="{% url 'external_training_manage' %}" class="bg-white p-5 rounded-xl shadow-md border border-gray-200 hover:border-indigo-300 hover:shadow-lg transition duration-200 flex items-center">
+                    <div class="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center mr-4">
+                        <i class="fas fa-globe text-blue-600"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 text-sm">External Training Catalog</p>
+                        <p class="text-xs text-gray-400">
+                            {% if pending_verification_count %}
+                                {{ pending_verification_count }} pending verification
+                            {% else %}
+                                Manage resources
+                            {% endif %}
+                        </p>
+                    </div>
+                </a>
+                <a href="{% url 'admin_training_review' %}" class="bg-white p-5 rounded-xl shadow-md border border-gray-200 hover:border-indigo-300 hover:shadow-lg transition duration-200 flex items-center">
+                    <div class="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center mr-4">
+                        <i class="fas fa-clipboard-check text-green-600"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 text-sm">Review Completed Trainings</p>
+                        <p class="text-xs text-gray-400">Proof-of-completion review</p>
+                    </div>
+                </a>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex items-center justify-between">
                     <div>
@@ -126,6 +163,24 @@
             </div>
 
         {% elif is_instructor %}
+
+            <!-- NEW: pending instructor-led training banner (requires `pending_trainings_count`
+                 to be added to the dashboard view's is_instructor branch — see note below) -->
+            {% if pending_trainings_count %}
+                <div class="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-5 mb-8 flex items-start justify-between flex-col sm:flex-row">
+                    <div class="flex items-start mb-3 sm:mb-0">
+                        <i class="fas fa-graduation-cap text-amber-500 text-xl mt-0.5 mr-3"></i>
+                        <div>
+                            <p class="font-semibold text-amber-800">You have {{ pending_trainings_count }} training{{ pending_trainings_count|pluralize }} awaiting completion.</p>
+                            <p class="text-sm text-amber-700">Admin assigned these to you — update your status once done.</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'my_assigned_trainings' %}" class="bg-amber-500 text-white py-2 px-5 rounded-md hover:bg-amber-600 transition duration-300 text-sm font-medium shadow-sm whitespace-nowrap">
+                        View Trainings <i class="fas fa-arrow-right ml-1"></i>
+                    </a>
+                </div>
+            {% endif %}
+
             <div class="bg-white border border-gray-200 rounded-xl shadow-lg p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start">
                 <i class="fas fa-chalkboard-teacher text-4xl text-indigo-500 mr-4 mt-1 hidden sm:block"></i>
                 <div class="flex-grow">
@@ -215,6 +270,20 @@
                         </div>
                     </div>
                 </form>
+            </div>
+
+            <!-- NEW: External Learning promo card (feature #7) -->
+            <div class="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-xl shadow-lg p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-center justify-between text-white">
+                <div class="flex items-center mb-4 sm:mb-0">
+                    <i class="fas fa-globe text-3xl mr-4 opacity-90"></i>
+                    <div>
+                        <p class="font-bold text-lg">Explore External Learning</p>
+                        <p class="text-indigo-100 text-sm">Curated resources from Microsoft Learn, Cisco, Sophos, and more.</p>
+                    </div>
+                </div>
+                <a href="{% url 'external_training_catalog' %}" class="bg-white text-indigo-700 py-2 px-5 rounded-md hover:bg-indigo-50 transition duration-300 font-medium text-sm shadow-sm whitespace-nowrap">
+                    Browse Catalog <i class="fas fa-arrow-right ml-1"></i>
+                </a>
             </div>
 
             <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8 mb-8 border border-gray-200">

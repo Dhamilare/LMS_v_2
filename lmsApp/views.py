@@ -37,7 +37,7 @@ import tempfile
 from django.core.files.base import ContentFile
 import subprocess
 from urllib.parse import quote
-from .tasks import process_course_import_job
+from .tasks import *
 
 
 logger = logging.getLogger(__name__)
@@ -3323,3 +3323,427 @@ def ai_content_summary(request, content_id):
             'success': False, 
             'error': 'AI service is temporarily unavailable.'
         }, status=502)
+
+
+
+@login_required
+@user_passes_test(is_student)
+def module_quiz_take(request, module_id):
+    module = get_object_or_404(Module, id=module_id)
+    course = module.course
+    quiz = get_object_or_404(Quiz, module=module, quiz_type='module_check')
+    enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
+ 
+    if not course.is_published:
+        messages.error(request, "This knowledge check is not currently available.")
+        return redirect('course_detail', slug=course.slug)
+ 
+    lessons_done = all(
+        lesson.is_completed_by_student(request.user) for lesson in module.lessons.all()
+    )
+    if not lessons_done:
+        messages.error(request, "Complete all lessons in this module before taking its knowledge check.")
+        return redirect('course_detail', slug=course.slug)
+ 
+    if not quiz.questions.exists():
+        messages.info(request, "This knowledge check has no questions yet.")
+        return redirect('course_detail', slug=course.slug)
+ 
+    current_attempts_count = StudentQuizAttempt.objects.filter(student=request.user, quiz=quiz).count()
+ 
+    if current_attempts_count >= quiz.max_attempts:
+        has_passed_quiz = StudentQuizAttempt.objects.filter(
+            student=request.user, quiz=quiz, passed=True
+        ).exists()
+        if has_passed_quiz:
+            messages.success(request, f"You have already passed the knowledge check '{quiz.title}'.")
+        else:
+            messages.error(request, f"You have reached the maximum attempts ({quiz.max_attempts}) for this check.")
+        last_attempt = StudentQuizAttempt.objects.filter(student=request.user, quiz=quiz).order_by('-attempt_date').first()
+        if last_attempt:
+            return redirect('module_quiz_result', module_id=module.id, attempt_id=last_attempt.id)
+        return redirect('course_detail', slug=course.slug)
+ 
+    quiz_order_session_key = f'quiz_questions_order_{quiz.id}'
+    quiz_answers_session_key = f'quiz_answers_{quiz.id}'  # namespaced per-quiz, unlike the final quiz's shared key
+ 
+    if request.GET.get('new_attempt') or quiz_order_session_key not in request.session:
+        random_question_ids = list(quiz.questions.values_list('id', flat=True).order_by('?'))
+        request.session[quiz_order_session_key] = random_question_ids
+        request.session[quiz_answers_session_key] = {}
+        request.session.modified = True
+ 
+    ordered_question_ids = request.session.get(quiz_order_session_key, [])
+    quiz_answers = request.session.get(quiz_answers_session_key, {})
+ 
+    questions = list(Question.objects.filter(id__in=ordered_question_ids))
+    order_map = {qid: i for i, qid in enumerate(ordered_question_ids)}
+    questions.sort(key=lambda q: order_map[q.id])
+ 
+    try:
+        page_number = int(request.GET.get('page', 1))
+    except ValueError:
+        page_number = 1
+ 
+    paginator = Paginator(questions, 1)
+    page_obj = paginator.get_page(page_number)
+    current_question = page_obj.object_list[0]
+ 
+    if request.method == 'POST':
+        form = SingleQuestionForm(current_question, request.POST)
+        if form.is_valid():
+            field_name = f'question_{current_question.id}'
+            chosen_answer = form.cleaned_data.get(field_name)
+            answers = request.session.get(quiz_answers_session_key, {})
+            answers[str(current_question.id)] = chosen_answer
+            request.session[quiz_answers_session_key] = answers
+            request.session.modified = True
+ 
+            if page_obj.has_next():
+                next_page_url = f'{reverse("module_quiz_take", args=[module.id])}?page={page_obj.next_page_number()}'
+                return redirect(next_page_url)
+            return redirect('module_quiz_submit', module_id=module.id)
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        initial_data = {}
+        saved_answer = quiz_answers.get(str(current_question.id))
+        if saved_answer:
+            initial_data[f'question_{current_question.id}'] = saved_answer
+        form = SingleQuestionForm(current_question, initial=initial_data)
+ 
+    context = {
+        'course': course,
+        'module': module,
+        'quiz': quiz,
+        'form': form,
+        'page_obj': page_obj,
+        'current_attempts_count': current_attempts_count,
+        'max_attempts': quiz.max_attempts,
+        'attempts_remaining': quiz.max_attempts - current_attempts_count,
+    }
+    return render(request, 'student/module_quiz_take.html', context)
+
+
+@login_required
+@user_passes_test(is_student)
+def module_quiz_submit(request, module_id):
+    module = get_object_or_404(Module, id=module_id)
+    course = module.course
+    quiz = get_object_or_404(Quiz, module=module, quiz_type='module_check')
+    enrollment = get_object_or_404(Enrollment, student=request.user, course=course)
+ 
+    quiz_answers_session_key = f'quiz_answers_{quiz.id}'
+    quiz_answers = request.session.get(quiz_answers_session_key, {})
+    if not quiz_answers:
+        messages.error(request, "No answers found. Please try the knowledge check again.")
+        return redirect('module_quiz_take', module_id=module.id)
+ 
+    total_questions = quiz.questions.count()
+    correct_answers_count = 0
+    student_answers_to_create = []
+ 
+    with transaction.atomic():
+        attempt = StudentQuizAttempt.objects.create(
+            student=request.user, quiz=quiz, enrollment=enrollment, score=0, passed=False
+        )
+ 
+        for question_key, chosen_option_ids in quiz_answers.items():
+            question = get_object_or_404(Question, id=int(question_key), quiz=quiz)
+            correct_ids = set(question.options.filter(is_correct=True).values_list('id', flat=True))
+            if not isinstance(chosen_option_ids, list):
+                chosen_option_ids = [chosen_option_ids]
+            chosen_ids = set(int(cid) for cid in chosen_option_ids if cid)
+            if chosen_ids == correct_ids:
+                correct_answers_count += 1
+            student_answers_to_create.append(StudentAnswer(attempt=attempt, question=question))
+ 
+        StudentAnswer.objects.bulk_create(student_answers_to_create)
+ 
+        for question_key, chosen_option_ids in quiz_answers.items():
+            if not isinstance(chosen_option_ids, list):
+                chosen_option_ids = [chosen_option_ids]
+            if chosen_option_ids:
+                question_id = int(question_key)
+                student_answer = get_object_or_404(StudentAnswer, attempt=attempt, question_id=question_id)
+                student_answer.chosen_options.set(
+                    Option.objects.filter(id__in=chosen_option_ids, question_id=question_id)
+                )
+ 
+        score_percentage = (correct_answers_count / total_questions) * 100 if total_questions else 0
+        attempt.score = round(score_percentage, 2)
+        attempt.passed = score_percentage >= quiz.pass_percentage
+        attempt.save()  
+ 
+    del request.session[quiz_answers_session_key]
+ 
+    messages.success(request, f'Knowledge check "{quiz.title}" submitted! Score: {attempt.score:.2f}%')
+    return redirect('module_quiz_result', module_id=module.id, attempt_id=attempt.id)
+
+
+@login_required
+@user_passes_test(is_student)
+def module_quiz_result(request, module_id, attempt_id):
+    module = get_object_or_404(Module, id=module_id)
+    quiz = get_object_or_404(Quiz, module=module, quiz_type='module_check')
+    attempt = get_object_or_404(
+        StudentQuizAttempt.objects.prefetch_related('answers__chosen_options', 'answers__question__options'),
+        id=attempt_id, student=request.user, quiz=quiz
+    )
+ 
+    questions_with_answers = []
+    student_answers_map = {sa.question_id: sa for sa in attempt.answers.all()}
+    for question in quiz.questions.all().order_by('order'):
+        student_answer = student_answers_map.get(question.id)
+        correct_ids = set(question.options.filter(is_correct=True).values_list('id', flat=True))
+        chosen_ids = set(student_answer.chosen_options.values_list('id', flat=True)) if student_answer else set()
+        questions_with_answers.append({
+            'question': question,
+            'options': [
+                {'text': o.text, 'id': o.id, 'is_correct': o.is_correct, 'is_chosen': o.id in chosen_ids}
+                for o in question.options.all()
+            ],
+            'is_correct': chosen_ids == correct_ids,
+        })
+ 
+    current_attempts_count = StudentQuizAttempt.objects.filter(student=request.user, quiz=quiz).count()
+    can_retake = not attempt.passed and current_attempts_count < quiz.max_attempts
+ 
+    return render(request, 'student/module_quiz_result.html', {
+        'module': module,
+        'course': module.course,
+        'quiz': quiz,
+        'attempt': attempt,
+        'questions_with_answers': questions_with_answers,
+        'can_retake': can_retake,
+        'attempts_remaining': quiz.max_attempts - current_attempts_count,
+        'max_attempts': quiz.max_attempts,
+    })
+
+
+@login_required
+@user_passes_test(is_admin)
+def instructor_assign_training(request):
+    if request.method == 'POST':
+        form = InstructorTrainingAssignForm(request.POST)
+        if form.is_valid():
+            training = form.save(commit=False)
+            training.assigned_by = request.user
+            training.save()
+ 
+            current_site = get_current_site(request)
+            protocol = 'https' if request.is_secure() else 'http'
+            send_templated_email(
+                'emails/instructor_training_assigned.html',
+                f"New Training Assigned: {training.training_title}",
+                [training.instructor.email],
+                {
+                    'instructor_name': training.instructor.get_full_name() or training.instructor.email,
+                    'training_title': training.training_title,
+                    'due_date': training.due_date,
+                    'protocol': protocol,
+                    'domain': current_site.domain,
+                    'dashboard_url': f"{protocol}://{current_site.domain}{reverse('my_assigned_trainings')}",
+                }
+            )
+            messages.success(request, f'Training "{training.training_title}" assigned to {training.instructor.get_full_name()}.')
+            return redirect('instructor_assign_training')
+    else:
+        form = InstructorTrainingAssignForm()
+ 
+    trainings = InstructorTraining.objects.select_related('instructor', 'course').order_by('-assigned_at')
+    paginator = Paginator(trainings, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+ 
+    return render(request, 'admin/assign_training_to_instructor.html', {
+        'form': form, 'page_obj': page_obj, 'page_title': 'Assign Instructor Training',
+    })
+ 
+ 
+@login_required
+@user_passes_test(is_instructor)
+def my_assigned_trainings(request):
+    trainings = InstructorTraining.objects.filter(instructor=request.user).order_by('-assigned_at')
+    paginator = Paginator(trainings, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'instructor/my_assigned_trainings.html', {'page_obj': page_obj})
+ 
+ 
+@login_required
+@user_passes_test(is_instructor)
+def update_training_status(request, training_id):
+    training = get_object_or_404(InstructorTraining, id=training_id, instructor=request.user)
+    was_completed = training.status == 'completed'
+ 
+    if request.method == 'POST':
+        form = InstructorTrainingStatusForm(request.POST, request.FILES, instance=training)
+        if form.is_valid():
+            form.save()
+            if not was_completed and training.status == 'completed':
+                transaction.on_commit(
+                    lambda: notify_admin_instructor_training_completed.delay(training.id)
+                )
+                messages.success(request, "Marked complete. Admin has been notified with your proof of completion.")
+            else:
+                messages.success(request, "Training status updated.")
+            return redirect('my_assigned_trainings')
+    else:
+        form = InstructorTrainingStatusForm(instance=training)
+ 
+    return render(request, 'instructor/update_training_status.html', {'form': form, 'training': training})
+ 
+ 
+@login_required
+@user_passes_test(is_admin)
+def admin_training_review(request):
+    """Admin view of all completed instructor trainings with proof-of-completion links."""
+    completed_trainings = (
+        InstructorTraining.objects.filter(status='completed')
+        .select_related('instructor', 'course')
+        .order_by('-completed_at')
+    )
+    paginator = Paginator(completed_trainings, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'admin/training_review.html', {'page_obj': page_obj})
+
+
+@login_required
+@user_passes_test(is_student)
+def external_training_catalog(request):
+    resources = ExternalTrainingResource.objects.filter(is_active=True).order_by('title')
+    completed_ids = set(
+        ExternalTrainingCompletion.objects.filter(student=request.user)
+        .values_list('resource_id', flat=True)
+    )
+    context = {
+        'resources': resources,
+        'completed_ids': completed_ids,
+    }
+    return render(request, 'student/external_training_catalog.html', context)
+ 
+ 
+@login_required
+@user_passes_test(is_student)
+@require_POST
+def external_training_mark_complete(request, resource_id):
+    resource = get_object_or_404(ExternalTrainingResource, id=resource_id, is_active=True)
+    form = ExternalTrainingCompletionForm(request.POST, request.FILES)
+    if form.is_valid():
+        ExternalTrainingCompletion.objects.update_or_create(
+            student=request.user, resource=resource,
+            defaults={'proof_file': form.cleaned_data.get('proof_file')}
+        )
+        messages.success(request, f'Marked "{resource.title}" as completed. Pending admin verification.')
+    else:
+        messages.error(request, "Could not save completion — please check the uploaded file.")
+    return redirect('external_training_catalog')
+
+
+@login_required
+@user_passes_test(is_admin)
+def external_training_manage(request):
+    """Admin: add/manage catalog entries, verify self-reported completions."""
+    if request.method == 'POST':
+        form = ExternalTrainingResourceForm(request.POST)
+        if form.is_valid():
+            resource = form.save(commit=False)
+            resource.added_by = request.user
+            resource.save()
+            form.save_m2m()
+            messages.success(request, f'Added "{resource.title}" to the external training catalog.')
+            return redirect('external_training_manage')
+    else:
+        form = ExternalTrainingResourceForm()
+ 
+    pending_verification = (
+        ExternalTrainingCompletion.objects.filter(verified=False)
+        .select_related('student', 'resource')
+        .order_by('-completed_at')
+    )
+    return render(request, 'admin/external_training_manage.html', {
+        'form': form, 'pending_verification': pending_verification,
+    })
+ 
+ 
+@login_required
+@user_passes_test(is_admin)
+@require_POST
+def external_training_verify(request, completion_id):
+    completion = get_object_or_404(ExternalTrainingCompletion, id=completion_id)
+    completion.verified = True
+    completion.verified_by = request.user
+    completion.save()
+    messages.success(request, f'Verified completion for {completion.student.get_full_name()}.')
+    return redirect('external_training_manage')
+
+
+@login_required
+@user_passes_test(is_hr)
+def bulk_assign_by_department(request):
+    """
+    HR-only. Enrolls every student in the selected department into the
+    selected course in one action. Individual notification emails are
+    dispatched via Celery so this request doesn't block on 100+ sends.
+    """
+    if request.method == 'POST':
+        form = BulkAssignByDepartmentForm(request.POST)
+        if form.is_valid():
+            course = form.cleaned_data['course']
+            department = form.cleaned_data['department']
+ 
+            students_in_dept = User.objects.filter(
+                is_student=True, is_active=True, department=department
+            )
+            already_enrolled_ids = set(
+                Enrollment.objects.filter(course=course, student__in=students_in_dept)
+                .values_list('student_id', flat=True)
+            )
+            students_to_enroll = students_in_dept.exclude(id__in=already_enrolled_ids)
+ 
+            duration_days = max(course.default_duration_days or 0, 30)
+            calculated_due_date = timezone.now() + timezone.timedelta(days=duration_days)
+ 
+            with transaction.atomic():
+                new_enrollments = Enrollment.objects.bulk_create([
+                    Enrollment(
+                        student=student,
+                        course=course,
+                        assigned_by=request.user,
+                        due_date=calculated_due_date,
+                        assignment_reason='bulk_department',
+                    )
+                    for student in students_to_enroll
+                ])
+ 
+            skipped_count = len(already_enrolled_ids)
+            created_count = len(new_enrollments)
+ 
+            if created_count:
+                student_ids = [e.student_id for e in new_enrollments]
+                send_bulk_assignment_emails.delay(
+                    course_id=course.id,
+                    student_ids=student_ids,
+                    assigner_id=request.user.id,
+                    due_date_iso=calculated_due_date.isoformat(),
+                )
+ 
+            messages.success(
+                request,
+                f'Assigned "{course.title}" to {created_count} student(s) in "{department}". '
+                f'{skipped_count} were already enrolled and skipped.'
+            )
+            return redirect('bulk_assign_by_department')
+    else:
+        form = BulkAssignByDepartmentForm()
+ 
+    recent_bulk_assignments = (
+        Enrollment.objects.filter(assignment_reason='bulk_department')
+        .select_related('student', 'course')
+        .order_by('-enrolled_at')[:20]
+    )
+ 
+    return render(request, 'admin/bulk_assign_department.html', {
+        'form': form,
+        'recent_bulk_assignments': recent_bulk_assignments,
+        'page_title': 'Bulk Assign Course by Department',
+    })
