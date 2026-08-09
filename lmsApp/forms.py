@@ -549,17 +549,36 @@ class CoursePDFUploadForm(forms.Form):
             raise forms.ValidationError("File size exceeds the 100MB limit.")
         return pdf_file
 
+
 class BulkAssignByDepartmentForm(forms.Form):
     course = forms.ModelChoiceField(
         queryset=Course.objects.filter(is_published=True),
-        help_text="Select the course to assign."
+        help_text="Select the course to assign.",
+        widget=forms.Select(attrs={
+            'class': (
+                'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 '
+                'text-sm text-gray-700 shadow-sm transition '
+                'focus:border-indigo-500 focus:outline-none '
+                'focus:ring-2 focus:ring-indigo-500/20'
+            ),
+        }),
     )
+
     department = forms.ChoiceField(
-        help_text="All students in this department will be enrolled."
+        help_text="All students in this department will be enrolled.",
+        widget=forms.Select(attrs={
+            'class': (
+                'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 '
+                'text-sm text-gray-700 shadow-sm transition '
+                'focus:border-indigo-500 focus:outline-none '
+                'focus:ring-2 focus:ring-indigo-500/20'
+            ),
+        }),
     )
- 
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         dept_choices = (
             User.objects.filter(is_student=True)
             .exclude(department__isnull=True)
@@ -568,42 +587,267 @@ class BulkAssignByDepartmentForm(forms.Form):
             .distinct()
             .order_by('department')
         )
-        self.fields['department'].choices = [(d, d) for d in dept_choices]
+
+        self.fields['department'].choices = [
+            (d, d) for d in dept_choices
+        ]
+
 
 class InstructorTrainingAssignForm(forms.ModelForm):
     """Admin-side: assign training to an instructor."""
+
     class Meta:
         model = InstructorTraining
-        fields = ['instructor', 'course', 'external_title', 'external_url', 'due_date']
- 
+        fields = [
+            'instructor',
+            'course',
+            'external_title',
+            'external_url',
+            'due_date',
+        ]
+
+        widgets = {
+            'instructor': forms.Select(attrs={
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white '
+                    'px-4 py-2.5 text-sm text-gray-900 '
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 '
+                    'focus:outline-none'
+                ),
+            }),
+
+            'course': forms.Select(attrs={
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white '
+                    'px-4 py-2.5 text-sm text-gray-900 '
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 '
+                    'focus:outline-none'
+                ),
+            }),
+
+            'external_title': forms.TextInput(attrs={
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white '
+                    'px-4 py-2.5 text-sm text-gray-900 '
+                    'placeholder-gray-400 '
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 '
+                    'focus:outline-none'
+                ),
+                'placeholder': 'Enter training title',
+            }),
+
+            'external_url': forms.URLInput(attrs={
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white '
+                    'px-4 py-2.5 text-sm text-gray-900 '
+                    'placeholder-gray-400 '
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 '
+                    'focus:outline-none'
+                ),
+                'placeholder': 'https://learn.microsoft.com/...',
+            }),
+
+            'due_date': forms.DateInput(attrs={
+                'type': 'date',
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white '
+                    'px-4 py-2.5 text-sm text-gray-900 '
+                    'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 '
+                    'focus:outline-none'
+                ),
+            }),
+        }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['instructor'].queryset = User.objects.filter(is_instructor=True).order_by('email')
+
+        self.fields['instructor'].queryset = (
+            User.objects
+            .filter(is_instructor=True)
+            .order_by('email')
+        )
+
         self.fields['due_date'].required = False
  
  
 class InstructorTrainingStatusForm(forms.ModelForm):
     """Instructor-side: update status and attach proof of completion."""
+
     class Meta:
         model = InstructorTraining
         fields = ['status', 'proof_file', 'completion_note']
- 
+
+        widgets = {
+            'status': forms.Select(attrs={
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 '
+                    'text-sm text-gray-700 shadow-sm transition '
+                    'focus:border-indigo-500 focus:outline-none focus:ring-2 '
+                    'focus:ring-indigo-500/20'
+                ),
+            }),
+            'proof_file': forms.ClearableFileInput(attrs={
+                'class': (
+                    'block w-full rounded-lg border border-gray-300 bg-white '
+                    'text-sm text-gray-700 shadow-sm file:mr-4 file:rounded-l-lg '
+                    'file:border-0 file:border-r file:border-gray-300 '
+                    'file:bg-gray-50 file:px-4 file:py-2.5 file:text-sm '
+                    'file:font-medium file:text-gray-700 '
+                    'hover:file:bg-gray-100 '
+                    'focus:border-indigo-500 focus:outline-none '
+                    'focus:ring-2 focus:ring-indigo-500/20'
+                ),
+                'accept': '.pdf,.jpg,.jpeg,.png',
+            }),
+            'completion_note': forms.Textarea(attrs={
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 '
+                    'text-sm text-gray-700 shadow-sm transition '
+                    'placeholder:text-gray-400 '
+                    'focus:border-indigo-500 focus:outline-none '
+                    'focus:ring-2 focus:ring-indigo-500/20'
+                ),
+                'rows': 4,
+                'placeholder': 'Add any notes about your training completion...',
+            }),
+        }
+
     def clean(self):
         cleaned = super().clean()
-        if cleaned.get('status') == 'completed' and not cleaned.get('proof_file') and not self.instance.proof_file:
+
+        if (
+            cleaned.get('status') == 'completed'
+            and not cleaned.get('proof_file')
+            and not self.instance.proof_file
+        ):
             raise forms.ValidationError(
-                "Please attach proof of completion (certificate/screenshot) before marking this complete."
+                'Please attach proof of completion '
+                '(certificate/screenshot) before marking this complete.'
             )
+
         return cleaned
  
  
 class ExternalTrainingResourceForm(forms.ModelForm):
     """Admin/HR-side: add a curated external resource to the catalog."""
+
     class Meta:
         model = ExternalTrainingResource
-        fields = ['title', 'provider', 'url', 'description', 'tags', 'is_active']
+        fields = [
+            'title',
+            'provider',
+            'url',
+            'description',
+            'tags',
+            'is_active',
+        ]
+
+        widgets = {
+            # ─────────────────────────────────────────────
+            # Title
+            # ─────────────────────────────────────────────
+            'title': forms.TextInput(attrs={
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white '
+                    'px-4 py-2.5 text-sm text-gray-900 '
+                    'placeholder-gray-400 '
+                    'focus:border-indigo-500 focus:ring-2 '
+                    'focus:ring-indigo-500 focus:outline-none '
+                    'transition duration-150'
+                ),
+                'placeholder': 'Enter resource title',
+            }),
+
+            # ─────────────────────────────────────────────
+            # Provider
+            # ─────────────────────────────────────────────
+            'provider': forms.Select(attrs={
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white '
+                    'px-4 py-2.5 text-sm text-gray-900 '
+                    'focus:border-indigo-500 focus:ring-2 '
+                    'focus:ring-indigo-500 focus:outline-none '
+                    'transition duration-150 cursor-pointer'
+                ),
+            }),
+
+            # ─────────────────────────────────────────────
+            # URL
+            # ─────────────────────────────────────────────
+            'url': forms.URLInput(attrs={
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white '
+                    'px-4 py-2.5 text-sm text-gray-900 '
+                    'placeholder-gray-400 '
+                    'focus:border-indigo-500 focus:ring-2 '
+                    'focus:ring-indigo-500 focus:outline-none '
+                    'transition duration-150'
+                ),
+                'placeholder': 'https://learn.microsoft.com/...',
+            }),
+
+            # ─────────────────────────────────────────────
+            # Description
+            # ─────────────────────────────────────────────
+            'description': forms.Textarea(attrs={
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white '
+                    'px-4 py-3 text-sm text-gray-900 '
+                    'placeholder-gray-400 '
+                    'focus:border-indigo-500 focus:ring-2 '
+                    'focus:ring-indigo-500 focus:outline-none '
+                    'resize-y transition duration-150'
+                ),
+                'placeholder': 'Describe this training resource...',
+                'rows': 5,
+            }),
+
+            # ─────────────────────────────────────────────
+            # Tags
+            # ─────────────────────────────────────────────
+            'tags': forms.SelectMultiple(attrs={
+                'class': (
+                    'w-full rounded-lg border border-gray-300 bg-white '
+                    'px-3 py-2 text-sm text-gray-900 '
+                    'focus:border-indigo-500 focus:ring-2 '
+                    'focus:ring-indigo-500 focus:outline-none '
+                    'transition duration-150 cursor-pointer'
+                ),
+                'size': 4,
+            }),
+
+            # ─────────────────────────────────────────────
+            # Active
+            # ─────────────────────────────────────────────
+            'is_active': forms.CheckboxInput(attrs={
+                'class': (
+                    'h-4 w-4 rounded border-gray-300 '
+                    'text-indigo-600 '
+                    'focus:ring-2 focus:ring-indigo-500 '
+                    'cursor-pointer'
+                ),
+            }),
+        }
  
- 
+
 class ExternalTrainingCompletionForm(forms.Form):
     """Student-side: self-report completion of an external resource."""
-    proof_file = forms.FileField(required=False, help_text="Optional: attach a certificate or screenshot.")
+
+    proof_file = forms.FileField(
+        required=True,
+        help_text="Attach a certificate or screenshot.",
+        widget=forms.ClearableFileInput(attrs={
+            'class': (
+                'block w-full rounded-lg border border-gray-300 bg-white '
+                'text-sm text-gray-700 shadow-sm '
+                'file:mr-4 file:rounded-l-lg file:border-0 '
+                'file:border-r file:border-gray-300 '
+                'file:bg-gray-50 file:px-4 file:py-2.5 '
+                'file:text-sm file:font-medium file:text-gray-700 '
+                'hover:file:bg-gray-100 '
+                'focus:border-indigo-500 focus:outline-none '
+                'focus:ring-2 focus:ring-indigo-500/20'
+            ),
+            'accept': '.pdf,.jpg,.jpeg,.png',
+        }),
+    )

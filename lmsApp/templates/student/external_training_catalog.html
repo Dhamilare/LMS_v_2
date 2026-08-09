@@ -13,9 +13,9 @@
         <p class="text-gray-500 mb-8">Curated training from Microsoft Learn, Cisco, Sophos, and other providers. Mark a resource complete once you've finished it — an admin will verify it.</p>
 
         {% if resources %}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 {% for resource in resources %}
-                    <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 flex flex-col">
+                    <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-200 p-6 flex flex-col">
                         <div class="flex items-center justify-between mb-3">
                             <span class="px-3 py-1 text-xs font-semibold rounded-full
                                 {% if resource.provider == 'ms_learn' %}bg-blue-100 text-blue-800
@@ -28,7 +28,7 @@
                                 <span class="text-green-600 text-xs font-semibold"><i class="fas fa-check-circle mr-1"></i> Completed</span>
                             {% endif %}
                         </div>
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ resource.title }}</h3>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">{{ resource.title }}</h3>
                         {% if resource.description %}
                             <p class="text-sm text-gray-500 mb-3 line-clamp-3">{{ resource.description }}</p>
                         {% endif %}
@@ -38,20 +38,20 @@
                         </div>
 
                         <a href="{{ resource.url }}" target="_blank" rel="noopener"
-                           class="text-sm text-indigo-600 hover:text-indigo-800 font-medium mb-4">
+                           class="text-sm text-indigo-600 hover:text-indigo-800 font-medium mb-4 inline-flex items-center">
                             <i class="fas fa-external-link-alt mr-1"></i> Open Resource
                         </a>
 
                         <div class="mt-auto pt-4 border-t border-gray-100">
                             {% if resource.id in completed_ids %}
-                                <button disabled class="w-full bg-green-50 text-green-700 py-2 px-4 rounded-md text-sm font-medium cursor-default">
+                                <button disabled class="w-full bg-green-50 text-green-700 py-2 px-4 rounded-md text-sm font-medium cursor-default border border-green-200">
                                     <i class="fas fa-check mr-2"></i> Marked Complete
                                 </button>
                             {% else %}
                                 <form method="post" action="{% url 'external_training_mark_complete' resource_id=resource.id %}" enctype="multipart/form-data" class="space-y-2">
                                     {% csrf_token %}
-                                    <input type="file" name="proof_file" class="block w-full text-xs text-gray-500 border border-gray-200 rounded-md p-1.5">
-                                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 text-sm font-medium shadow-sm">
+                                    <input type="file" name="proof_file" class="block w-full text-xs text-gray-500 border border-gray-200 rounded-md p-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-200 text-sm font-medium shadow-sm flex items-center justify-center">
                                         <i class="fas fa-check mr-2"></i> Mark as Completed
                                     </button>
                                 </form>
@@ -60,6 +60,90 @@
                     </div>
                 {% endfor %}
             </div>
+
+            <!-- Sleek Pagination Bar -->
+            {% if resources.has_other_pages %}
+                <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 rounded-xl shadow-sm">
+                    <!-- Mobile Pagination Buttons -->
+                    <div class="flex-1 flex justify-between sm:hidden">
+                        {% if resources.has_previous %}
+                            <a href="?page={{ resources.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                Previous
+                            </a>
+                        {% else %}
+                            <span class="relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed">
+                                Previous
+                            </span>
+                        {% endif %}
+
+                        {% if resources.has_next %}
+                            <a href="?page={{ resources.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                Next
+                            </a>
+                        {% else %}
+                            <span class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed">
+                                Next
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Desktop Pagination Bar -->
+                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">
+                                Showing
+                                <span class="font-semibold text-gray-900">{{ resources.start_index }}</span>
+                                to
+                                <span class="font-semibold text-gray-900">{{ resources.end_index }}</span>
+                                of
+                                <span class="font-semibold text-gray-900">{{ resources.paginator.count }}</span>
+                                results
+                            </p>
+                        </div>
+                        <div>
+                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                <!-- Previous Page -->
+                                {% if resources.has_previous %}
+                                    <a href="?page={{ resources.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <span class="sr-only">Previous</span>
+                                        <i class="fas fa-chevron-left h-4 w-4 flex items-center justify-center"></i>
+                                    </a>
+                                {% else %}
+                                    <span class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-200 bg-gray-50 text-sm font-medium text-gray-300 cursor-not-allowed">
+                                        <i class="fas fa-chevron-left h-4 w-4 flex items-center justify-center"></i>
+                                    </span>
+                                {% endif %}
+
+                                <!-- Page Numbers -->
+                                {% for num in resources.paginator.page_range %}
+                                    {% if resources.number == num %}
+                                        <span aria-current="page" class="z-10 bg-indigo-600 border-indigo-600 text-white relative inline-flex items-center px-4 py-2 border text-sm font-semibold">
+                                            {{ num }}
+                                        </span>
+                                    {% elif num > resources.number|add:'-3' and num < resources.number|add:'3' %}
+                                        <a href="?page={{ num }}" class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                            {{ num }}
+                                        </a>
+                                    {% endif %}
+                                {% endfor %}
+
+                                <!-- Next Page -->
+                                {% if resources.has_next %}
+                                    <a href="?page={{ resources.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <span class="sr-only">Next</span>
+                                        <i class="fas fa-chevron-right h-4 w-4 flex items-center justify-center"></i>
+                                    </a>
+                                {% else %}
+                                    <span class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-200 bg-gray-50 text-sm font-medium text-gray-300 cursor-not-allowed">
+                                        <i class="fas fa-chevron-right h-4 w-4 flex items-center justify-center"></i>
+                                    </span>
+                                {% endif %}
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
         {% else %}
             <div class="text-center py-14 bg-white rounded-xl shadow-sm border border-gray-200">
                 <i class="fas fa-box-open text-4xl text-gray-300 mb-3"></i>

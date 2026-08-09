@@ -11,16 +11,204 @@ from .services import *
 from .models import ExternalTrainingResource
 import requests
 
-logger = logging.getLogger(__name__)
-
-LEARN_PLATFORM_API_BASE = "https://learn.microsoft.com/api/v1" 
-LEARN_PLATFORM_API_VERSION = "2023-11-01-preview" 
-LEARN_PLATFORM_LOCALE = "en-us"
-
 def _site_and_protocol():
     site = Site.objects.get_current()
     protocol = 'https' if not settings.DEBUG else 'http'
     return site.domain, protocol
+
+logger = logging.getLogger(__name__)
+
+LEARN_CATALOG_API_BASE = "https://learn.microsoft.com/api/catalog/"
+LEARN_PLATFORM_LOCALE = "en-us"
+
+
+def _metadata_names(items):
+    """
+    Extracts name attributes from lists of metadata dicts or strings.
+    """
+    if not items:
+        return ""
+
+    names = []
+    for item in items:
+        if isinstance(item, dict):
+            name = item.get("name")
+            if name:
+                names.append(name)
+        elif isinstance(item, str):
+            names.append(item)
+
+    return ", ".join(names)
+
+
+def _fetch_learn_resources(
+    products=None,
+    roles=None,
+    levels=None,
+    subjects=None,
+):
+    """
+    Generator that fetches pages from the public Microsoft Learn Catalog API.
+    """
+    params = {
+        "locale": LEARN_PLATFORM_LOCALE,
+    }
+
+    if products:
+        params["products"] = ",".join(products)
+    if roles:
+        params["roles"] = ",".join(roles)
+    if levels:
+        params["levels"] = ",".join(levels)
+    if subjects:
+        params["subjects"] = ",".join(subjects)
+
+    url = LEARN_CATALOG_API_BASE
+
+    while url:
+        logger.info("Requesting Microsoft Learn catalog: %s", url)
+
+        response = requests.get(
+            url,
+            params=params,
+            timeout=60,
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        yield data
+
+        # Pagination support (params are set to None as nextLink contains the full query string)
+        url = data.get("nextLink")
+        params = None
+
+
+def _sync_resource(item, now):
+    """
+    Creates or updates one Microsoft Learn resource in the database.
+    """
+    external_uid = item.get("uid") or item.get("id")
+    
+    if not external_uid:
+        logger.warning("Skipping resource without an ID: %s", item)
+        return None, False
+
+    # Standard public API specifies type as 'module' or 'learningPath'
+    resource_type = item.get("type")
+    if resource_type and resource_type not in ("module", "learningPath"):
+        return None, False
+
+    title = item.get("title") or "Untitled"
+    description = item.get("summary") or item.get("description") or ""
+
+    levels = _metadata_names(item.get("levels", []))
+    products = _metadata_names(item.get("products", []))
+
+    duration = item.get("durationInMinutes") or item.get("duration_in_minutes")
+    if duration is not None:
+        try:
+            duration = int(duration)
+            if duration < 0:
+                duration = None
+        except (TypeError, ValueError):
+            duration = None
+
+    defaults = {
+        "title": title[:255],
+        "provider": "ms_learn",
+        "source": "synced",
+        "url": item.get("url") or "",
+        "description": description[:2000],
+        "duration_minutes": duration,
+        "level": levels[:50] if levels else None,
+        "product_area": products[:255] if products else None,
+        "last_synced_at": now,
+        "is_active": True,
+    }
+
+    resource, created = ExternalTrainingResource.objects.update_or_create(
+        provider="ms_learn",
+        external_uid=external_uid,
+        source="synced",
+        defaults=defaults,
+    )
+
+    return resource, created
+
+
+@shared_task(
+    bind=True,
+    max_retries=3,
+    autoretry_for=(requests.RequestException,),
+    retry_backoff=True,
+    retry_backoff_max=300,
+)
+def sync_microsoft_learn_catalog(
+    self,
+    products=None,
+    roles=None,
+    levels=None,
+    subjects=None,
+    updated_after=None,
+):
+    """
+    Celery task to synchronize Microsoft Learn modules and learning paths.
+    """
+    logger.info("Starting Microsoft Learn catalog synchronization.")
+
+    created = 0
+    updated = 0
+    processed = 0
+    skipped = 0
+    pages = 0
+
+    now = timezone.now()
+
+    for page in _fetch_learn_resources(
+        products=products,
+        roles=roles,
+        levels=levels,
+        subjects=subjects,
+    ):
+        pages += 1
+
+        # The public API may return items under 'resources', or split between 'modules' and 'learningPaths'
+        resources = page.get("resources")
+        if resources is None:
+            modules = page.get("modules", [])
+            learning_paths = page.get("learningPaths", [])
+            resources = modules + learning_paths
+
+        logger.info(
+            "Microsoft Learn page %s returned %s resources.",
+            pages,
+            len(resources),
+        )
+
+        for item in resources:
+            resource, was_created = _sync_resource(item=item, now=now)
+
+            if resource is None:
+                skipped += 1
+                continue
+
+            processed += 1
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+
+    message = (
+        "Microsoft Learn synchronization complete: "
+        f"{created} created, "
+        f"{updated} updated, "
+        f"{processed} processed, "
+        f"{skipped} skipped, "
+        f"{pages} pages."
+    )
+
+    logger.info(message)
+    return message
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
@@ -73,270 +261,6 @@ def process_course_import_job(self, job_id: int):
     except Exception as e:
         logger.exception(f"Unexpected error processing import job {job_id}")
         job.mark_failed(f"Unexpected error: {e}")
-
-
-def _get_entra_access_token():
-
-    token_url = (
-        f"https://login.microsoftonline.com/"
-        f"{settings.SOCIAL_AUTH_AZUREAD_OAUTH2_TENANT_ID }/oauth2/v2.0/token"
-    )
-
-    response = requests.post(
-        token_url,
-        data={
-            "client_id": settings.SOCIAL_AUTH_AZUREAD_OAUTH2_KEY,
-            "client_secret": settings.SOCIAL_AUTH_AZUREAD_OAUTH2_SECRET,
-            "scope": "https://learn.microsoft.com/.default",
-            "grant_type": "client_credentials",
-        },
-        timeout=15,
-    )
-
-    response.raise_for_status()
-
-    token_data = response.json()
-
-    access_token = token_data.get("access_token")
-
-    if not access_token:
-        raise RuntimeError(
-            "Microsoft Entra token response did not contain an access_token."
-        )
-
-    return access_token
-
-
-def _metadata_names(items):
-
-    if not items:
-        return ""
-
-    names = []
-
-    for item in items:
-        if isinstance(item, dict):
-            name = item.get("name")
-
-            if name:
-                names.append(name)
-
-        elif isinstance(item, str):
-            names.append(item)
-
-    return ", ".join(names)
-
-
-def _fetch_learn_resources(
-    headers,
-    products=None,
-    roles=None,
-    levels=None,
-    subjects=None,
-    updated_after=None,
-):
-
-    params = {
-        "api-version": LEARN_PLATFORM_API_VERSION,
-        "locale": LEARN_PLATFORM_LOCALE,
-        "maxpagesize": 100,
-    }
-
-    if products:
-        params["products"] = ",".join(products)
-
-    if roles:
-        params["roles"] = ",".join(roles)
-
-    if levels:
-        params["levels"] = ",".join(levels)
-
-    if subjects:
-        params["subjects"] = ",".join(subjects)
-
-    if updated_after:
-        params["updatedAt.gt"] = updated_after
-
-    url = LEARN_PLATFORM_API_BASE
-
-    while url:
-
-        logger.info(
-            "Requesting Microsoft Learn catalog: %s",
-            url,
-        )
-
-        response = requests.get(
-            url,
-            headers=headers,
-            params=params,
-            timeout=60,
-        )
-
-        response.raise_for_status()
-        data = response.json()
-        yield data
-        url = data.get("nextLink")
-        params = None
-
-
-def _sync_resource(item, now):
-    """
-    Create or update one Microsoft Learn resource.
-    """
-
-    external_uid = item.get("id")
-
-    if not external_uid:
-        logger.warning(
-            "Skipping Microsoft Learn resource without an ID: %s",
-            item,
-        )
-        return None, False
-
-    resource_type = item.get("type")
-
-    if resource_type not in ("module", "learningPath"):
-        return None, False
-
-    title = item.get("title") or "Untitled"
-
-    description = (
-        item.get("summary")
-        or item.get("description")
-        or ""
-    )
-
-    levels = _metadata_names(
-        item.get("levels", [])
-    )
-
-    products = _metadata_names(
-        item.get("products", [])
-    )
-
-    duration = item.get("durationInMinutes")
-
-    if duration is not None:
-        try:
-            duration = int(duration)
-
-            if duration < 0:
-                duration = None
-
-        except (TypeError, ValueError):
-            duration = None
-
-    defaults = {
-        "title": title[:255],
-        "provider": "ms_learn",
-        "source": "synced",
-        "url": item.get("url") or "",
-        "description": description[:2000],
-        "duration_minutes": duration,
-        "level": levels[:50] if levels else None,
-        "product_area": products[:255] if products else None,
-        "last_synced_at": now,
-        "is_active": True,
-    }
-
-    resource, created = (
-        ExternalTrainingResource.objects.update_or_create(
-            provider="ms_learn",
-            external_uid=external_uid,
-            source="synced",
-            defaults=defaults,
-        )
-    )
-
-    return resource, created
-
-
-@shared_task(
-    bind=True,
-    max_retries=3,
-    autoretry_for=(requests.RequestException,),
-    retry_backoff=True,
-    retry_backoff_max=300,
-)
-def sync_microsoft_learn_catalog(
-    self,
-    products=None,
-    roles=None,
-    levels=None,
-    subjects=None,
-    updated_after=None,
-):
-
-    logger.info(
-        "Starting Microsoft Learn catalog synchronization."
-    )
-
-    token = _get_entra_access_token()
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
-    }
-
-    created = 0
-    updated = 0
-    processed = 0
-    skipped = 0
-    pages = 0
-
-    now = timezone.now()
-
-    for page in _fetch_learn_resources(
-        headers=headers,
-        products=products,
-        roles=roles,
-        levels=levels,
-        subjects=subjects,
-        updated_after=updated_after,
-    ):
-
-        pages += 1
-
-        resources = page.get("resources", [])
-
-        logger.info(
-            "Microsoft Learn page %s returned %s resources.",
-            pages,
-            len(resources),
-        )
-
-        for item in resources:
-
-            resource, was_created = _sync_resource(
-                item=item,
-                now=now,
-            )
-
-            if resource is None:
-                skipped += 1
-                continue
-
-            processed += 1
-
-            if was_created:
-                created += 1
-            else:
-                updated += 1
-
-    message = (
-        "Microsoft Learn synchronization complete: "
-        f"{created} created, "
-        f"{updated} updated, "
-        f"{processed} processed, "
-        f"{skipped} skipped, "
-        f"{pages} pages."
-    )
-
-    logger.info(message)
-
-    return message
-
 
 
 @shared_task(bind=True, max_retries=3)

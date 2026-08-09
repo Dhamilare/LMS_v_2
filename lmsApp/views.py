@@ -3610,11 +3610,22 @@ def admin_training_review(request):
 @login_required
 @user_passes_test(is_student)
 def external_training_catalog(request):
-    resources = ExternalTrainingResource.objects.filter(is_active=True).order_by('title')
+    resource_list = ExternalTrainingResource.objects.filter(is_active=True).order_by('title')
+    paginator = Paginator(resource_list, 12)
+    page_number = request.GET.get('page')
+    
+    try:
+        resources = paginator.page(page_number)
+    except PageNotAnInteger:
+        resources = paginator.page(1)
+    except EmptyPage:
+        resources = paginator.page(paginator.num_pages)
+
     completed_ids = set(
         ExternalTrainingCompletion.objects.filter(student=request.user)
         .values_list('resource_id', flat=True)
     )
+    
     context = {
         'resources': resources,
         'completed_ids': completed_ids,
@@ -3635,7 +3646,7 @@ def external_training_mark_complete(request, resource_id):
         )
         messages.success(request, f'Marked "{resource.title}" as completed. Pending admin verification.')
     else:
-        messages.error(request, "Could not save completion — please check the uploaded file.")
+        messages.error(request, "Could not save completion. Please ensure you have either uploaded a file or check the file is a supported format.")
     return redirect('external_training_catalog')
 
 
