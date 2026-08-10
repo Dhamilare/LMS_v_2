@@ -3643,6 +3643,15 @@ def admin_training_review(request):
 @user_passes_test(is_student)
 def external_training_catalog(request):
     resource_list = ExternalTrainingResource.objects.filter(is_active=True).order_by('title')
+    
+    search_query = request.GET.get('q', '').strip()
+    if search_query:
+        resource_list = resource_list.filter(
+            Q(title__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(provider__icontains=search_query)
+        )
+
     paginator = Paginator(resource_list, 12)
     page_number = request.GET.get('page')
     
@@ -3661,6 +3670,7 @@ def external_training_catalog(request):
     context = {
         'resources': resources,
         'completed_ids': completed_ids,
+        'search_query': search_query,
     }
     return render(request, 'student/external_training_catalog.html', context)
  
