@@ -196,31 +196,34 @@ class Module(models.Model):
         ordering = ['order']
         # unique_together = ('course', 'order')
 
-    def is_completed_by_student(self, user):
-        """
-        Checks if all lessons within this module are completed by the given student.
-        A module is completed if all its lessons are completed.
-        """
+    def is_lessons_completed_by_student(self, user):
         if not user.is_authenticated or not user.is_student:
             return False
-
-        if hasattr(self, 'quiz') and self.quiz is not None:
-            from .models import StudentQuizAttempt  # avoid circular import issues if split into files
-            has_passed = StudentQuizAttempt.objects.filter(
-                student=user, quiz=self.quiz, passed=True
-            ).exists()
-            if not has_passed:
-                return False
-        
+ 
         lessons_in_module = self.lessons.all()
         if not lessons_in_module.exists():
             return True
-
-        # Check if ALL lessons are completed by the student
+ 
         for lesson in lessons_in_module:
             if not lesson.is_completed_by_student(user):
                 return False
         return True
+ 
+    def is_knowledge_check_passed_by_student(self, user):
+        '''True if this module has no knowledge check, or the student has passed it.'''
+        if not hasattr(self, 'quiz') or self.quiz is None:
+            return True
+        if not user.is_authenticated or not user.is_student:
+            return False
+        return StudentQuizAttempt.objects.filter(
+            student=user, quiz=self.quiz, passed=True
+        ).exists()
+ 
+    def is_completed_by_student(self, user):
+        return (
+            self.is_lessons_completed_by_student(user)
+            and self.is_knowledge_check_passed_by_student(user)
+        )
     
 
 class Lesson(models.Model):
@@ -417,13 +420,11 @@ class Enrollment(models.Model):
 
     @property
     def is_content_completed(self):
-        """Returns True if all modules and their contained lessons/content are completed."""
         all_modules = self.course.modules.all()
         if not all_modules.exists():
             return True
-
         for module in all_modules:
-            if not module.is_completed_by_student(self.student):
+            if not module.is_lessons_completed_by_student(self.student):
                 return False
         return True
 

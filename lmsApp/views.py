@@ -333,6 +333,15 @@ def is_ajax(request):
 def is_instructor_or_admin(user):
     return user.is_authenticated and (user.is_instructor or user.is_staff)
 
+def _is_module_accessible_to_student(module, student):
+    earlier_modules = Module.objects.filter(
+        course=module.course, order__lt=module.order
+    ).order_by('order')
+    for earlier_module in earlier_modules:
+        if not earlier_module.is_lessons_completed_by_student(student):
+            return False
+    return True
+
 
 # --- Authentication and Dashboard Views ---
 
@@ -826,7 +835,7 @@ def course_detail(request, slug):
     )
 
     modules_data = []
-    previous_module_completed = True
+    previous_module_lessons_completed = True
 
     for module in modules_queryset:
         module_accessible = False
@@ -836,11 +845,13 @@ def course_detail(request, slug):
         elif request.user.is_staff:
             module_accessible = True
         elif request.user.is_student and is_enrolled:
-            if previous_module_completed:
+            if previous_module_lessons_completed:
                 module_accessible = True
 
         current_module_is_completed = False
+        current_module_lessons_completed = False
         if request.user.is_student and is_enrolled and module_accessible:
+            current_module_lessons_completed = module.is_lessons_completed_by_student(request.user)
             current_module_is_completed = module.is_completed_by_student(request.user)
 
         lessons_data = []
@@ -882,7 +893,7 @@ def course_detail(request, slug):
             'is_completed': current_module_is_completed,
         })
 
-        previous_module_completed = current_module_is_completed
+        previous_module_lessons_completed = current_module_lessons_completed
 
     # Check for quiz status
     has_passed_final_quiz = False
@@ -1219,15 +1230,25 @@ def content_detail(request, course_slug, module_id, lesson_id, content_id):
         )
 
     can_view_content_page = False
+    module_locked = False
+ 
     if request.user.is_authenticated:
         if request.user.is_instructor and course.instructor == request.user:
             can_view_content_page = True
-        elif request.user.is_student and course.is_published and Enrollment.objects.filter(student=request.user, course=course).exists():
+        elif request.user.is_staff:
             can_view_content_page = True
-
+        elif request.user.is_student and course.is_published and Enrollment.objects.filter(student=request.user, course=course).exists():
+            if _is_module_accessible_to_student(module, request.user):
+                can_view_content_page = True
+            else:
+                module_locked = True
+ 
     if not can_view_content_page:
-        messages.error(request, "You do not have permission to view this content.")
-        return redirect('dashboard')
+        if module_locked:
+            messages.error(request, f"'{module.title}' is locked. Complete the previous module first.")
+        else:
+            messages.error(request, "You do not have permission to view this content.")
+        return redirect('course_detail', slug=course.slug) if module_locked else redirect('dashboard')
     
     # --- CONTENT DISPLAY LOGIC ---
     content_file_url = None
@@ -1266,6 +1287,13 @@ def content_detail(request, course_slug, module_id, lesson_id, content_id):
             else:
                 content_file_url = request.build_absolute_uri(quote(file_url))
 
+    quiz_obj = None
+    if content.content_type == 'quiz':
+        if hasattr(module, 'quiz') and module.quiz is not None:
+            quiz_obj = module.quiz
+        elif hasattr(course, 'quiz') and course.quiz is not None:
+            quiz_obj = course.quiz
+
     context = {
         'course': course,
         'module': module,
@@ -1275,6 +1303,7 @@ def content_detail(request, course_slug, module_id, lesson_id, content_id):
         'GEMINI_API_KEY': settings.GEMINI_API_KEY,
         'content_file_url': content_file_url,
         'slide_images': slide_images,
+        'quiz_obj': quiz_obj,
     }
     return render(request, 'content_detail.html', context)
 
