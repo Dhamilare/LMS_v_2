@@ -455,10 +455,26 @@ class Enrollment(models.Model):
             self.completed = True
             self.completed_at = timezone.now()
             self.save(update_fields=['completed', 'completed_at'])
+            self._award_competencies()
         elif not should_be_completed and self.completed:
             self.completed = False
             self.completed_at = None
             self.save(update_fields=['completed', 'completed_at'])
+
+    def _award_competencies(self):
+        for course_competency in self.course.course_competencies.select_related('competency'):
+            record, created = EmployeeCompetency.objects.get_or_create(
+                user=self.student,
+                competency=course_competency.competency,
+                defaults={
+                    'proficiency_level': course_competency.proficiency_level,
+                    'source_course': self.course,
+                },
+            )
+            if not created and course_competency.proficiency_level > record.proficiency_level:
+                record.proficiency_level = course_competency.proficiency_level
+                record.source_course = self.course
+                record.save(update_fields=['proficiency_level', 'source_course', 'achieved_at'])
 
     def save(self, *args, **kwargs):
         if not self.pk and not self.due_date:
@@ -1038,3 +1054,57 @@ class ExternalResourceImportJob(models.Model):
  
     def __str__(self):
         return f"Import job #{self.pk} ({self.status}) by {self.instructor}"
+
+
+PROFICIENCY_LEVEL_CHOICES = [
+    (1, 'Foundational'),
+    (2, 'Intermediate'),
+    (3, 'Advanced'),
+    (4, 'Expert'),
+]
+ 
+ 
+class Competency(models.Model):
+    name = models.CharField(max_length=150, unique=True)
+    description = models.TextField(blank=True, null=True)
+    category = models.CharField(
+        max_length=100, blank=True, null=True,
+        help_text="Optional grouping, e.g. 'Technical', 'Leadership', 'Compliance'."
+    )
+ 
+    def __str__(self):
+        return self.name
+ 
+    class Meta:
+        verbose_name_plural = "Competencies"
+        ordering = ['category', 'name']
+ 
+ 
+class CourseCompetency(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='course_competencies')
+    competency = models.ForeignKey(Competency, on_delete=models.CASCADE, related_name='courses')
+    proficiency_level = models.PositiveSmallIntegerField(choices=PROFICIENCY_LEVEL_CHOICES, default=1)
+ 
+    class Meta:
+        unique_together = ('course', 'competency')
+ 
+    def __str__(self):
+        return f"{self.course.title} → {self.competency.name} (Level {self.proficiency_level})"
+ 
+ 
+class EmployeeCompetency(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='competency_records')
+    competency = models.ForeignKey(Competency, on_delete=models.CASCADE, related_name='employee_records')
+    proficiency_level = models.PositiveSmallIntegerField(choices=PROFICIENCY_LEVEL_CHOICES, default=1)
+    achieved_at = models.DateTimeField(auto_now=True)
+    source_course = models.ForeignKey(
+        Course, null=True, blank=True, on_delete=models.SET_NULL,
+        help_text="The course that most recently drove this competency to its current level."
+    )
+ 
+    class Meta:
+        unique_together = ('user', 'competency')
+        verbose_name_plural = "Employee Competencies"
+ 
+    def __str__(self):
+        return f"{self.user.get_full_name() or self.user.email} — {self.competency.name} (Level {self.proficiency_level})"

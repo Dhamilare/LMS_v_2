@@ -158,6 +158,11 @@
                         <span class="font-medium">Dashboard</span>
                     </a>
 
+                    <a href="{% url 'training_record' %}" class="{{ link_class }}">
+                        <i class="fa-solid fa-id-card-clip fa-fw mr-3 text-lg"></i>
+                        <span class="font-medium">My Training Record</span>
+                    </a>
+
                     {% if user.is_instructor %}
                         <div class="relative">
                             <button id="courses-dropdown-toggle" class="w-full flex justify-between items-center p-3 text-indigo-200 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200 focus:outline-none">

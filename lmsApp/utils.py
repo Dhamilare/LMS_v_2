@@ -4,6 +4,7 @@ from django.conf import settings
 from datetime import datetime
 from django.contrib.sites.shortcuts import get_current_site
 import traceback
+from .models import *
 from django.contrib.sites.shortcuts import get_current_site
 from django.http import HttpRequest
 from django.urls import reverse
@@ -107,3 +108,50 @@ def send_course_notification(course, matching_students, action_type, request=Non
         recipient_list=[student.email],
         context=context
     )
+
+
+def get_recommended_courses_for_user(user, limit=5):
+    if not user.is_authenticated or not user.is_student:
+        return Course.objects.none()
+ 
+    enrolled_ids = Enrollment.objects.filter(student=user).values_list('course_id', flat=True)
+    achieved = {
+        ec.competency_id: ec.proficiency_level
+        for ec in EmployeeCompetency.objects.filter(user=user)
+    }
+ 
+    candidate_courses = (
+        Course.objects.filter(is_published=True)
+        .exclude(id__in=enrolled_ids)
+        .prefetch_related('course_competencies__competency')
+        .distinct()
+    )
+ 
+    scored = []
+    for course in candidate_courses:
+        score = 0
+        competency_gaps = []
+        for cc in course.course_competencies.all():
+            current_level = achieved.get(cc.competency_id, 0)
+            if cc.proficiency_level > current_level:
+                score += (cc.proficiency_level - current_level) * 2
+                competency_gaps.append(cc.competency.name)
+ 
+        if user.department and user.department != 'General':
+            if course.tags.filter(name__icontains=user.department).exists():
+                score += 1
+ 
+        if score > 0:
+            scored.append((score, course, competency_gaps))
+ 
+    scored.sort(key=lambda x: x[0], reverse=True)
+ 
+    if scored:
+        return [{'course': c, 'reason': f"Builds: {', '.join(gaps)}" if gaps else 'Recommended for you'}
+                for score, c, gaps in scored[:limit]]
+ 
+    # Fallback: no competency data yet — just department-matched, unenrolled, published courses.
+    fallback_qs = candidate_courses
+    if user.department and user.department != 'General':
+        fallback_qs = fallback_qs.filter(tags__name__icontains=user.department).distinct()
+    return [{'course': c, 'reason': 'Popular in your department'} for c in fallback_qs[:limit]]

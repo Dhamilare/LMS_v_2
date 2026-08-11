@@ -534,6 +534,7 @@ def dashboard(request):
             available_page_obj = available_paginator.page(1)
             
         context['available_courses'] = available_page_obj
+        context['recommended_courses'] = get_recommended_courses_for_user(user, limit=3)
 
     return render(request, 'dashboard.html', context)
 
@@ -3970,3 +3971,81 @@ def external_resource_import_status(request, job_id):
         data['redirect_url'] = job.course.get_absolute_url()
         data['course_title'] = job.course.title
     return JsonResponse(data)
+
+
+@login_required
+def training_record(request, user_id=None):
+    if user_id:
+        if not (request.user.is_staff or request.user.is_hr):
+            messages.error(request, "You do not have permission to view other employees' training records.")
+            return redirect('dashboard')
+        target_user = get_object_or_404(User, id=user_id)
+    else:
+        target_user = request.user
+ 
+    enrollments = (
+        Enrollment.objects.filter(student=target_user)
+        .select_related('course')
+        .order_by('-enrolled_at')
+    )
+ 
+    instructor_trainings = (
+        InstructorTraining.objects.filter(instructor=target_user).order_by('-assigned_at')
+        if target_user.is_instructor else InstructorTraining.objects.none()
+    )
+ 
+    external_completions = (
+        ExternalTrainingCompletion.objects.filter(student=target_user)
+        .select_related('resource')
+        .order_by('-completed_at')
+    )
+ 
+    certificates = Certificate.objects.filter(student=target_user).order_by('-issue_date')
+ 
+    competencies = (
+        EmployeeCompetency.objects.filter(user=target_user)
+        .select_related('competency', 'source_course')
+        .order_by('competency__category', 'competency__name')
+    )
+ 
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="training_record_{target_user.username}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Type', 'Title', 'Status', 'Date'])
+        for e in enrollments:
+            writer.writerow(['Internal Course', e.course.title, 'Completed' if e.completed else 'In Progress',
+                              e.completed_at or e.enrolled_at])
+        for t in instructor_trainings:
+            writer.writerow(['Instructor Training', t.training_title, t.get_status_display(), t.completed_at or t.assigned_at])
+        for ec in external_completions:
+            writer.writerow(['External Training', ec.resource.title, 'Verified' if ec.verified else 'Pending Verification', ec.completed_at])
+        for c in certificates:
+            writer.writerow(['Certificate', c.course.title, 'Issued', c.issue_date])
+        return response
+ 
+    context = {
+        'target_user': target_user,
+        'is_own_record': target_user == request.user,
+        'enrollments': enrollments,
+        'instructor_trainings': instructor_trainings,
+        'external_completions': external_completions,
+        'certificates': certificates,
+        'competencies': competencies,
+    }
+    return render(request, 'admin/training_record.html', context)
+
+
+@login_required
+@user_passes_test(lambda u: u.is_student)
+def my_competencies(request):
+    competencies = (
+        EmployeeCompetency.objects.filter(user=request.user)
+        .select_related('competency', 'source_course')
+        .order_by('competency__category', 'competency__name')
+    )
+    recommendations = get_recommended_courses_for_user(request.user, limit=6)
+    return render(request, 'student/my_competencies.html', {
+        'competencies': competencies,
+        'recommendations': recommendations,
+    })

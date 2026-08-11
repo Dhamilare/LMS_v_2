@@ -45,6 +45,10 @@ class QuizAdminForm(forms.ModelForm):
         }
 
 
+class CourseCompetencyInline(admin.TabularInline):
+    model = CourseCompetency
+    extra = 1
+    verbose_name_plural = "Competencies this course builds"
 
 # Custom User Admin
 @admin.register(User)
@@ -154,6 +158,7 @@ class QuestionAdmin(admin.ModelAdmin):
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
     form = CourseAdminForm
+    inlines = [CourseCompetencyInline]
     list_display = ('title', 'category', 'instructor', 'price', 'is_published', 'created_at')
     list_filter = ('is_published', 'instructor')
     search_fields = ('title', 'category', 'description', 'instructor__email', 'instructor__first_name', 'instructor__last_name')
@@ -472,5 +477,25 @@ class ReportLogAdmin(admin.ModelAdmin):
         # Report logs are created only by the Celery task, never manually.
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+ 
+ 
+@admin.register(Competency)
+class CompetencyAdmin(admin.ModelAdmin):
+    list_display = ('name', 'category')
+    list_filter = ('category',)
+    search_fields = ('name', 'description')
+ 
+@admin.register(EmployeeCompetency)
+class EmployeeCompetencyAdmin(admin.ModelAdmin):
+    list_display = ('user', 'competency', 'proficiency_level', 'source_course', 'achieved_at')
+    list_filter = ('proficiency_level', 'competency')
+    search_fields = ('user__email', 'user__first_name', 'user__last_name', 'competency__name')
+    raw_id_fields = ('user', 'competency', 'source_course')
+ 
+    def has_add_permission(self, request):
+        return False
+ 
     def has_change_permission(self, request, obj=None):
         return False

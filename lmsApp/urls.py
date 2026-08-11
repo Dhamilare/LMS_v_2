@@ -7,6 +7,10 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('preferences/', views.preference_setup_view, name='preference_setup'),
 
+    path('training-record/', views.training_record, name='training_record'),
+    path('training-record/<int:user_id>/', views.training_record, name='training_record_for_user'),
+    path('my-competencies/', views.my_competencies, name='my_competencies'),
+
     path('instructors/', views.instructor_list, name='instructor_list'),
     path('instructors/<int:pk>/delete/', views.instructor_delete, name='instructor_delete'),
     path('audit-logs/', views.audit_logs, name='audit_logs'),
