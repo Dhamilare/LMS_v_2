@@ -1,66 +1,114 @@
-<!-- support/submit_ticket.html -->
-
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Submit a Support Ticket{% endblock %}
+{% block title %}Submit Support Ticket | Ha-Shem LMS{% endblock %}
 
 {% block content %}
-<div class="max-w-xl mx-auto bg-white rounded-3xl shadow-2xl p-8 md:p-12 border border-gray-100">
+<div class="-mx-6 -mt-6 md:-mx-8 md:-mt-8 bg-gray-100 min-h-screen pb-16">
 
-    <!-- Header Section with Icon -->
-    <div class="text-center mb-8">
-        <div class="inline-block p-4 rounded-full bg-blue-100 text-blue-600 mb-4">
-            <i class="fa-solid fa-headset text-4xl"></i>
+    {# --- HERO BANNER & BREADCRUMBS --- #}
+    <div class="bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-800 text-white py-8 px-6 sm:px-10 border-b border-indigo-950 shadow-md">
+        <div class="max-w-3xl mx-auto space-y-2 text-center sm:text-left">
+            
+            {# Breadcrumb Navigation Path #}
+            <nav class="flex items-center justify-center sm:justify-start gap-2 text-xs text-indigo-200 font-medium">
+                <a href="{% url 'dashboard' %}" class="hover:text-white transition">Dashboard</a>
+                <i class="fas fa-chevron-right text-[10px] text-indigo-400"></i>
+                <span class="text-white font-semibold">Submit Support Ticket</span>
+            </nav>
+
+            <div class="flex flex-col sm:flex-row items-center gap-3 pt-1">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-800/80 border border-indigo-600/50 flex items-center justify-center text-indigo-300 text-2xl shadow-inner flex-shrink-0">
+                    <i class="fa-solid fa-headset"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                        We're Here to Help
+                    </h1>
+                    <p class="text-xs sm:text-sm text-indigo-200 mt-0.5">
+                        Have a question, issue, or feature request? Submit a ticket and our support team will assist you.
+                    </p>
+                </div>
+            </div>
+
         </div>
-        <h2 class="text-4xl font-extrabold text-gray-800 tracking-tight">
-            We're here to help!
-        </h2>
-        <p class="text-md text-gray-500 mt-2">
-            Submit your request, and we'll get back to you as soon as possible.
-        </p>
     </div>
 
-    <!-- The Form -->
-    <form method="post" action="{% url 'submit_ticket' %}" class="space-y-6">
-        {% csrf_token %}
+    {# --- FORM CONTAINER --- #}
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-xs p-6 sm:p-8 space-y-6">
+            
+            <div class="border-b border-gray-100 pb-4">
+                <h2 class="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-indigo-700"></i> Ticket Details
+                </h2>
+                <p class="text-xs text-gray-500 mt-0.5">Provide clear details to help us resolve your issue promptly.</p>
+            </div>
 
-        <!-- Subject Field -->
-        <div>
-            <label for="{{ form.subject.id_for_label }}" class="block text-gray-700 font-semibold mb-2">
-                Subject
-            </label>
-            {{ form.subject }}
-            {% if form.subject.errors %}
-                <p class="text-red-500 text-sm mt-1">{{ form.subject.errors.0 }}</p>
-            {% endif %}
-        </div>
+            <form method="post" action="{% url 'submit_ticket' %}" class="space-y-5">
+                {% csrf_token %}
 
-        <!-- Description Field -->
-        <div>
-            <label for="{{ form.description.id_for_label }}" class="block text-gray-700 font-semibold mb-2">
-                Description
-            </label>
-            {{ form.description }}
-            {% if form.description.errors %}
-                <p class="text-red-500 text-sm mt-1">{{ form.description.errors.0 }}</p>
-            {% endif %}
-        </div>
+                {# Subject Field #}
+                <div class="space-y-1.5">
+                    <label for="{{ form.subject.id_for_label }}" class="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        Subject / Brief Title
+                    </label>
+                    <div class="relative">
+                        {{ form.subject }}
+                    </div>
+                    {% if form.subject.errors %}
+                        <p class="text-rose-600 font-semibold text-xs mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ form.subject.errors.0 }}
+                        </p>
+                    {% endif %}
+                </div>
 
-        <!-- Submit Button -->
-        <div>
-            <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:bg-blue-700 transition-colors duration-200 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
-                <i class="fa-solid fa-paper-plane mr-2"></i>
-                Submit Ticket
-            </button>
+                {# Description Field #}
+                <div class="space-y-1.5">
+                    <label for="{{ form.description.id_for_label }}" class="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        Detailed Description
+                    </label>
+                    <div class="relative">
+                        {{ form.description }}
+                    </div>
+                    {% if form.description.errors %}
+                        <p class="text-rose-600 font-semibold text-xs mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ form.description.errors.0 }}
+                        </p>
+                    {% endif %}
+                </div>
+
+                {# Submit Button #}
+                <div class="pt-3">
+                    <button type="submit" class="w-full bg-indigo-800 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition shadow-xs text-xs flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>Submit Support Ticket</span>
+                    </button>
+                </div>
+            </form>
+
         </div>
-    </form>
+    </div>
+
 </div>
 
-<!-- Custom styles for form elements to override default Django widget styling -->
 <style>
-    .form-control {
-        @apply w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200;
+    /* Styling overrides for Django form fields */
+    input[type="text"], textarea, select {
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        font-size: 0.875rem;
+        border-radius: 0.75rem;
+        border: 1rem;
+        border: 1px solid #cbd5e1;
+        background-color: #ffffff;
+        color: #0f172a;
+        transition: all 0.2s ease-in-out;
+    }
+    input[type="text"]:focus, textarea:focus, select:focus {
+        outline: none;
+        border-color: #3730a3;
+        box-shadow: 0 0 0 2px rgba(55, 48, 163, 0.15);
     }
 </style>
 {% endblock %}
