@@ -836,6 +836,8 @@ def course_detail(request, slug):
 
     modules_data = []
     previous_module_lessons_completed = True
+    total_lessons_count = 0
+    total_contents_count = 0
 
     for module in modules_queryset:
         module_accessible = False
@@ -855,9 +857,28 @@ def course_detail(request, slug):
             current_module_is_completed = module.is_completed_by_student(request.user)
 
         lessons_data = []
+        # Track sequential lesson access within the accessible module
+        previous_lesson_completed = True
+
         for lesson in module.lessons.all():
+            total_lessons_count += 1
+            lesson_accessible = False
+
+            if request.user.is_instructor and course.instructor == request.user:
+                lesson_accessible = True
+            elif request.user.is_staff:
+                lesson_accessible = True
+            elif request.user.is_student and is_enrolled and module_accessible:
+                if previous_lesson_completed:
+                    lesson_accessible = True
+
+            lesson_is_completed = False
+            if request.user.is_student and is_enrolled:
+                lesson_is_completed = lesson.is_completed_by_student(request.user)
+
             contents_data = []
             for content_item in lesson.contents.all():
+                total_contents_count += 1
                 content_is_completed = False
                 if request.user.is_student and is_enrolled:
                     content_is_completed = content_item.is_completed_by_student(request.user)
@@ -867,12 +888,8 @@ def course_detail(request, slug):
                     'title': content_item.title,
                     'content_type': content_item.content_type,
                     'is_completed': content_is_completed,
-                    'get_content_type_display': content_item.get_content_type_display,
+                    'get_content_type_display': content_item.get_content_type_display(),
                 })
-
-            lesson_is_completed = False
-            if request.user.is_student and is_enrolled:
-                lesson_is_completed = lesson.is_completed_by_student(request.user)
 
             lessons_data.append({
                 'id': lesson.id,
@@ -881,7 +898,11 @@ def course_detail(request, slug):
                 'order': lesson.order,
                 'contents': contents_data,
                 'is_completed': lesson_is_completed,
+                'is_accessible': lesson_accessible,
             })
+
+            # Update status for next lesson in sequence
+            previous_lesson_completed = lesson_is_completed
 
         modules_data.append({
             'id': module.id,
@@ -891,6 +912,9 @@ def course_detail(request, slug):
             'lessons': lessons_data,
             'is_accessible': module_accessible,
             'is_completed': current_module_is_completed,
+            'quiz': getattr(module, 'quiz', None),
+            'quiz_passed': getattr(module, 'quiz_passed', False),
+            'lessons_completed': current_module_lessons_completed,
         })
 
         previous_module_lessons_completed = current_module_lessons_completed
@@ -926,6 +950,8 @@ def course_detail(request, slug):
     context = {
         'course': course,
         'modules': modules_data,
+        'total_lessons_count': total_lessons_count,
+        'total_contents_count': total_contents_count,
         'is_enrolled': is_enrolled,
         'enrollment': enrollment,
         'course_quiz': course_quiz,

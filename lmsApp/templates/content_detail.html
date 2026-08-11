@@ -2,7 +2,7 @@
 {% load static %}
 {% load custom_filters %}
 
-{% block title %}{{ content.title }} - {{ lesson.title }}{% endblock %}
+{% block title %}{{ content.title }} | {{ lesson.title }}{% endblock %}
 
 {% block extra_head %}
  {{ block.super }}
@@ -34,20 +34,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
         viewerContainer.innerHTML = `
             <div class="text-center py-20">
-                <i class="fas fa-spinner fa-spin fa-3x text-indigo-600"></i>
-                <p class="mt-3 text-gray-700 font-medium">Loading page...</p>
+                <i class="fas fa-spinner fa-spin fa-3x text-indigo-600 mb-3"></i>
+                <p class="text-gray-600 font-medium text-sm">Rendering Document Page...</p>
             </div>
         `;
 
         pdfDoc.getPage(num).then(page => {
             const containerWidth = document.getElementById('pdf-viewer-container')?.clientWidth || 800;
             const viewport = page.getViewport({ scale: 1 });
-            const scale = containerWidth / viewport.width;
-            const scaledViewport = page.getViewport({ scale });
+            const scale = (containerWidth - 32) / viewport.width;
+            const scaledViewport = page.getViewport({ scale: Math.max(scale, 0.8) });
 
             const canvas = document.createElement('canvas');
             canvas.width = scaledViewport.width;
             canvas.height = scaledViewport.height;
+            canvas.className = "rounded-lg shadow-md border border-gray-200 mx-auto";
             const context = canvas.getContext('2d');
 
             page.render({ canvasContext: context, viewport: scaledViewport }).promise
@@ -59,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch(err => {
                     console.error('Render error:', err);
-                    viewerContainer.innerHTML = '<p class="text-red-600 mt-20">Error rendering page.</p>';
+                    viewerContainer.innerHTML = '<p class="text-red-600 py-10 font-medium">Error rendering page.</p>';
                     rendering = false;
                 });
         });
@@ -88,9 +89,10 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(err => {
             console.error('PDF load error:', err);
             viewerContainer.innerHTML = `
-                <p class="text-red-600 mt-20 text-center">
-                    <i class="fas fa-exclamation-triangle mr-2"></i> Failed to load document.
-                </p>
+                <div class="text-center py-16">
+                    <i class="fas fa-exclamation-circle text-4xl text-rose-500 mb-2"></i>
+                    <p class="text-rose-600 font-medium">Failed to load document preview.</p>
+                </div>
             `;
         });
 });
@@ -100,238 +102,276 @@ document.addEventListener('DOMContentLoaded', function() {
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@latest/dist/css/splide.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@latest/dist/js/splide.min.js"></script>
 
-<!-- Mermaid.js for rendering generated conceptual diagrams -->
+<!-- Mermaid.js -->
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script>
     if (window.mermaid) {
-        mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'strict' });
+        mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'strict' });
     }
 </script>
 {% endblock %}
 
 
 {% block content %}
-<div class="bg-white p-6 sm:p-10 rounded-xl shadow-2xl shadow-indigo-100 w-full md:max-w-7xl mx-auto my-8 border border-gray-100">
+<div class="-mx-6 -mt-6 md:-mx-8 md:-mt-8 bg-gray-100 min-h-screen pb-24">
 
-    {# --- HEADER SECTION --- #}
-    <div class="mb-8 border-b pb-4 border-gray-200">
-        <div class="flex items-center justify-between">
-            <h1 class="text-4xl font-extrabold text-gray-900 flex items-center">
-                {% if content.content_type == 'video' %}<i class="fas fa-video mr-3 text-indigo-600"></i>
-                {% elif content.content_type == 'pdf' %}<i class="fas fa-file-pdf mr-3 text-red-600"></i>
-                {% elif content.content_type == 'text' %}<i class="fas fa-file-alt mr-3 text-blue-600"></i>
-                {% elif content.content_type == 'slide' %}<i class="fas fa-file-powerpoint mr-3 text-orange-600"></i>
-                {% elif content.content_type == 'image' %}<i class="fas fa-image mr-3 text-teal-600"></i>
-                {% elif content.content_type == 'diagram' %}<i class="fas fa-diagram-project mr-3 text-cyan-600"></i>
-                {% elif content.content_type == 'quiz' %}<i class="fas fa-question-circle mr-3 text-green-600"></i>
-                {% elif content.content_type == 'assignment' %}<i class="fas fa-tasks mr-3 text-purple-600"></i>
-                {% endif %}
-                {{ content.title }}
-            </h1>
-        </div>
+    {# --- SLEEK HEADER BANNER --- #}
+    <div class="bg-indigo-900 text-white border-b border-indigo-950 py-6 px-4 sm:px-8">
+        <div class="max-w-7xl mx-auto space-y-3">
+            
+            {# Breadcrumb Navigation Path #}
+            <nav class="flex flex-wrap items-center gap-2 text-xs text-indigo-200 font-medium">
+                <a href="{% url 'dashboard' %}" class="hover:text-white transition">Dashboard</a>
+                <i class="fas fa-chevron-right text-[10px] text-indigo-400"></i>
+                <a href="{% url 'course_detail' slug=course.slug %}" class="hover:text-white transition truncate max-w-[150px] sm:max-w-xs">{{ course.title }}</a>
+                <i class="fas fa-chevron-right text-[10px] text-indigo-400"></i>
+                <span class="text-indigo-300 truncate max-w-[120px] sm:max-w-none">{{ module.title }}</span>
+                <i class="fas fa-chevron-right text-[10px] text-indigo-400"></i>
+                <span class="text-white truncate font-semibold max-w-[150px] sm:max-w-none">{{ lesson.title }}</span>
+            </nav>
 
-        <div class="text-gray-500 text-base mt-2 flex flex-wrap items-center space-x-2">
-            <a href="{% url 'course_detail' slug=course.slug %}" class="text-indigo-600 hover:text-indigo-800 hover:underline transition duration-150 flex items-center">
-                <i class="fas fa-book mr-1"></i> {{ course.title }}
-            </a>
-            <i class="fas fa-chevron-right text-sm"></i>
-            <span class="font-medium text-gray-700">{{ module.title }}</span>
-            <i class="fas fa-chevron-right text-sm"></i>
-            <span>{{ lesson.title }}</span>
-        </div>
-    </div>
-
-    {# --- CONTENT DISPLAY AREA --- #}
-    <div class="mb-10 bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-inner">
-        {% if content.content_type == 'video' %}
-            <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><i class="fas fa-video mr-2 text-indigo-600"></i> Video Lesson</h2>
-            {% if content.video_url %}
-                <div class="relative rounded-xl overflow-hidden shadow-xl" style="padding-bottom: 56.25%; height: 0; max-width: 100%;">
-                    <iframe class="absolute top-0 left-0 w-full h-full"
-                            src="{{ content.video_url|youtube_embed_url }}"
-                            frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowfullscreen>
-                        </iframe>
-                </div>
-                <p class="text-gray-500 text-sm mt-4">Source: <a href="{{ content.video_url }}" target="_blank" class="text-indigo-500 hover:underline truncate inline-block max-w-full">{{ content.video_url }}</a></p>
-            {% elif content.file %}
-                <video controls class="w-full rounded-xl shadow-xl border border-gray-300">
-                    <source src="{{ content_file_url }}"
-                    type="{% if content.file.name|lower|slice:'-4:' == '.mp4' %}video/mp4
-                        {% elif content.file.name|lower|slice:'-5:' == '.webm' %}video/webm
-                        {% elif content.file.name|lower|slice:'-4:' == '.ogg' %}video/ogg
-                        {% else %}video/mp4{% endif %}">
-                </video>
-            {% else %}
-                <div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg"><i class="fas fa-exclamation-triangle mr-2"></i> No video content available.</div>
-            {% endif %}
-
-        {% elif content.content_type == 'pdf' or content.content_type == 'slide' %}
-            <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center">
-                {% if content.content_type == 'pdf' %}
-                    <i class="fas fa-file-pdf text-red-600 mr-2"></i> PDF Document
-                {% else %}
-                    <i class="fas fa-file-powerpoint text-orange-600 mr-2"></i> Presentation (via PDF Viewer)
-                {% endif %}
-            </h2>
-
-            {% if content_file_url %}
-                <div class="flex justify-center space-x-4 mb-4">
-                    <button id="pdf-prev" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center">
-                        <i class="fas fa-chevron-left mr-2"></i> Previous
-                    </button>
-                    <span id="pdf-page-indicator" class="px-4 py-2 text-gray-700 font-medium bg-gray-200 rounded-lg flex items-center">Page 1 of ?</span>
-                    <button id="pdf-next" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center">
-                        Next <i class="fas fa-chevron-right ml-2"></i>
-                    </button>
-                </div>
-
-                <div id="pdf-viewer-container" class="bg-white rounded-xl shadow-2xl border border-gray-300">
-                    <div id="pdf-viewer" class="w-full h-[600px] overflow-auto flex justify-center items-start p-4">
-                        <div class="text-center py-20">
-                            <i class="fas fa-spinner fa-spin fa-3x text-indigo-600"></i>
-                            <p class="mt-3 text-gray-700 font-medium">Loading Document...</p>
-                        </div>
+            {# Content Title & Type Badge #}
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+                <div class="flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-xl bg-indigo-800 border border-indigo-700 flex items-center justify-center text-lg shadow-xs">
+                        {% if content.content_type == 'video' %}<i class="fas fa-play text-indigo-300"></i>
+                        {% elif content.content_type == 'pdf' %}<i class="fas fa-file-pdf text-rose-400"></i>
+                        {% elif content.content_type == 'text' %}<i class="fas fa-file-alt text-blue-300"></i>
+                        {% elif content.content_type == 'slide' %}<i class="fas fa-file-powerpoint text-amber-400"></i>
+                        {% elif content.content_type == 'image' %}<i class="fas fa-image text-emerald-300"></i>
+                        {% elif content.content_type == 'diagram' %}<i class="fas fa-diagram-project text-cyan-300"></i>
+                        {% elif content.content_type == 'quiz' %}<i class="fas fa-question-circle text-emerald-400"></i>
+                        {% elif content.content_type == 'assignment' %}<i class="fas fa-tasks text-purple-300"></i>
+                        {% endif %}
+                    </span>
+                    <div>
+                        <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-indigo-800/90 text-indigo-200 border border-indigo-700">
+                            {{ content.get_content_type_display|default:content.content_type }}
+                        </span>
+                        <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight mt-0.5">
+                            {{ content.title }}
+                        </h1>
                     </div>
                 </div>
-                <input type="hidden" id="pdf-url" value="{{ content_file_url }}">
-            {% else %}
-                <div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg"><i class="fas fa-exclamation-triangle mr-2"></i> File processing failed or no document available.</div>
-            {% endif %}
 
-        {% elif content.content_type == 'text' %}
-            <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><i class="fas fa-file-alt mr-2 text-blue-600"></i> Text Article</h2>
-            <div id="content-text-area" class="prose max-w-none text-gray-800 p-4 border rounded-lg bg-white shadow-inner">
-                {{ content.text_content|safe }}
+                {# Back to Module Link #}
+                <a href="{% url 'course_detail' slug=course.slug %}" class="inline-flex items-center gap-2 text-xs font-semibold bg-indigo-800 hover:bg-indigo-700 text-indigo-100 px-3.5 py-2 rounded-lg transition border border-indigo-700 self-start sm:self-center">
+                    <i class="fas fa-list-ul"></i> Curriculum
+                </a>
             </div>
 
-        {# --- Real image/diagram extracted from the source PDF --- #}
-        {% elif content.content_type == 'image' %}
-            <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><i class="fas fa-image mr-2 text-teal-600"></i> Figure</h2>
-            {% if content.image %}
-                <figure class="bg-white rounded-xl shadow-xl border border-gray-200 p-4 text-center">
-                    <img src="{{ content.image.url }}" alt="{{ content.title }}" class="max-w-full h-auto mx-auto rounded-lg">
-                    <figcaption class="text-sm text-gray-500 mt-3">
-                        {{ content.title }}
-                        {% if content.source_page_number %} &middot; Source: page {{ content.source_page_number }} of the original document{% endif %}
-                    </figcaption>
-                </figure>
-            {% else %}
-                <div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg"><i class="fas fa-exclamation-triangle mr-2"></i> Image file missing.</div>
-            {% endif %}
+        </div>
+    </div>
 
-        {# --- AI-generated conceptual diagram (Mermaid.js) --- #}
-        {% elif content.content_type == 'diagram' %}
-            <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center"><i class="fas fa-diagram-project mr-2 text-cyan-600"></i> Concept Diagram</h2>
-            {% if content.diagram_code %}
-                <div class="bg-white rounded-xl shadow-xl border border-gray-200 p-6 overflow-x-auto">
-                    <pre class="mermaid">{{ content.diagram_code }}</pre>
-                </div>
-                <p class="text-xs text-gray-400 mt-2">Diagram generated to illustrate this concept's structure.</p>
-            {% else %}
-                <div class="p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg"><i class="fas fa-info-circle mr-2"></i> No diagram data available.</div>
-            {% endif %}
-
-        {% elif content.content_type == 'quiz' %}
-            {# --- UPDATED: resolves to this module's knowledge check first,
-                 falling back to the course's final quiz. quiz_obj and its
-                 quiz_type must be supplied by the view — see accompanying
-                 view patch. --- #}
-            <div class="text-center p-8 bg-green-50 border border-green-300 rounded-xl shadow-md">
-                <i class="fas fa-question-circle text-6xl text-green-600 mb-4"></i>
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">Ready for the Quiz?</h2>
-                {% if quiz_obj %}
-                    <p class="text-gray-600 text-lg mb-4">
-                        <span class="font-semibold">{{ quiz_obj.title }}</span>
-                        {% if quiz_obj.description %}- {{ quiz_obj.description|safe }}{% endif %}
-                    </p>
-                    {% if quiz_obj.quiz_type == 'module_check' %}
-                        <a href="{% url 'module_quiz_take' module_id=module.id %}"
-                            class="inline-flex items-center px-8 py-3 border border-transparent text-lg font-medium rounded-full shadow-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-green-500 transition duration-300 transform hover:scale-105">
-                            <i class="fas fa-play-circle mr-3"></i> Start Module Knowledge Check
-                        </a>
-                        <p class="text-xs text-gray-400 mt-3">This is a knowledge check for {{ module.title }}, not the final course assessment.</p>
+    {# --- MAIN CONTENT VIEWER CONTAINER --- #}
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+        
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            
+            {% if content.content_type == 'video' %}
+                {# VIDEO PLAYER SECTION #}
+                <div class="bg-slate-900 p-4 sm:p-6">
+                    {% if content.video_url %}
+                        <div class="relative rounded-xl overflow-hidden shadow-2xl border border-slate-800 aspect-video max-w-5xl mx-auto">
+                            <iframe class="absolute top-0 left-0 w-full h-full"
+                                    src="{{ content.video_url|youtube_embed_url }}"
+                                    frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowfullscreen>
+                            </iframe>
+                        </div>
+                        <div class="mt-4 text-center">
+                            <a href="{{ content.video_url }}" target="_blank" class="text-xs text-slate-400 hover:text-indigo-300 transition inline-flex items-center gap-1">
+                                <i class="fas fa-external-link-alt"></i> External Source URL
+                            </a>
+                        </div>
+                    {% elif content.file %}
+                        <div class="max-w-5xl mx-auto">
+                            <video controls class="w-full rounded-xl shadow-2xl border border-slate-800 aspect-video">
+                                <source src="{{ content_file_url }}"
+                                type="{% if content.file.name|lower|slice:'-4:' == '.mp4' %}video/mp4
+                                    {% elif content.file.name|lower|slice:'-5:' == '.webm' %}video/webm
+                                    {% elif content.file.name|lower|slice:'-4:' == '.ogg' %}video/ogg
+                                    {% else %}video/mp4{% endif %}">
+                            </video>
+                        </div>
                     {% else %}
-                        <a href="{% url 'quiz_take' course_slug=course.slug %}"
-                            class="inline-flex items-center px-8 py-3 border border-transparent text-lg font-medium rounded-full shadow-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-green-500 transition duration-300 transform hover:scale-105">
-                            <i class="fas fa-play-circle mr-3"></i> Start Final Assessment
-                        </a>
+                        <div class="p-8 text-center text-rose-400">
+                            <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+                            <p class="font-semibold text-sm">No video source file found.</p>
+                        </div>
                     {% endif %}
+                </div>
+
+            {% elif content.content_type == 'pdf' or content.content_type == 'slide' %}
+                {# PDF / PRESENTATION VIEWER #}
+                {% if content_file_url %}
+                    <div class="p-4 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                        <span class="text-xs font-semibold text-slate-300 flex items-center gap-2">
+                            <i class="fas fa-file-pdf text-rose-400"></i> Document Preview
+                        </span>
+
+                        {# Toolbar Controls #}
+                        <div class="flex items-center gap-2">
+                            <button id="pdf-prev" class="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold flex items-center gap-1">
+                                <i class="fas fa-chevron-left text-[10px]"></i> Prev
+                            </button>
+                            <span id="pdf-page-indicator" class="px-3 py-1 text-xs font-semibold text-slate-200 bg-slate-800 rounded-lg border border-slate-700">
+                                Page 1 of ?
+                            </span>
+                            <button id="pdf-next" class="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold flex items-center gap-1">
+                                Next <i class="fas fa-chevron-right text-[10px]"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="pdf-viewer-container" class="p-4 bg-slate-100 min-h-[600px] flex justify-center items-center">
+                        <div id="pdf-viewer" class="w-full overflow-auto flex justify-center items-center">
+                            <div class="text-center py-20">
+                                <i class="fas fa-spinner fa-spin fa-3x text-indigo-600"></i>
+                                <p class="mt-3 text-gray-600 font-medium text-sm">Loading Document...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="pdf-url" value="{{ content_file_url }}">
                 {% else %}
-                    <p class="text-red-600 flex items-center justify-center"><i class="fas fa-exclamation-triangle mr-2"></i> No quiz found linked to this module or course. Please link one in the admin panel.</p>
+                    <div class="p-8 text-center text-rose-600">
+                        <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+                        <p class="font-semibold text-sm">Document processing failed or file missing.</p>
+                    </div>
+                {% endif %}
+
+            {% elif content.content_type == 'text' %}
+                {# TEXT ARTICLE READER #}
+                <div class="p-6 sm:p-10 max-w-4xl mx-auto space-y-6">
+                    <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+                        <span class="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 flex items-center gap-1.5">
+                            <i class="fas fa-book-open"></i> Reading Material
+                        </span>
+                        {% if content.text_content %}
+                            <button onclick="generateAISummary('{{ content.title|escapejs }}', {{ content.id }})" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition shadow-xs flex items-center gap-1.5">
+                                <i class="fas fa-brain"></i> AI Summary
+                            </button>
+                        {% endif %}
+                    </div>
+
+                    <div id="content-text-area" class="prose max-w-none text-gray-800 leading-relaxed text-base">
+                        {{ content.text_content|safe }}
+                    </div>
+                </div>
+
+            {% elif content.content_type == 'image' %}
+                {# FIGURE / IMAGE #}
+                <div class="p-6 sm:p-8 text-center bg-gray-50">
+                    {% if content.image %}
+                        <figure class="max-w-3xl mx-auto bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                            <img src="{{ content.image.url }}" alt="{{ content.title }}" class="max-w-full h-auto mx-auto rounded-lg">
+                            <figcaption class="text-xs text-gray-500 mt-3 font-medium">
+                                {{ content.title }}
+                                {% if content.source_page_number %} &middot; Source: Page {{ content.source_page_number }}{% endif %}
+                            </figcaption>
+                        </figure>
+                    {% else %}
+                        <div class="p-8 text-rose-600">
+                            <i class="fas fa-image text-3xl mb-2"></i>
+                            <p class="font-semibold text-sm">Image file is missing.</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+            {% elif content.content_type == 'diagram' %}
+                {# MERMAID DIAGRAM #}
+                <div class="p-6 sm:p-8 space-y-4">
+                    <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <span class="text-xs font-bold text-gray-700 uppercase tracking-wider">Concept Diagram</span>
+                        <span class="text-[10px] bg-cyan-50 text-cyan-700 font-semibold px-2.5 py-0.5 rounded-full border border-cyan-200">Interactive Canvas</span>
+                    </div>
+                    {% if content.diagram_code %}
+                        <div class="bg-slate-50 p-6 rounded-xl border border-gray-200 overflow-x-auto flex justify-center">
+                            <pre class="mermaid">{{ content.diagram_code }}</pre>
+                        </div>
+                    {% else %}
+                        <p class="text-xs text-gray-400 italic">No diagram data available.</p>
+                    {% endif %}
+                </div>
+
+            {% elif content.content_type == 'quiz' %}
+                {# KNOWLEDGE CHECK / QUIZ #}
+                <div class="p-8 sm:p-12 text-center bg-emerald-50/50 space-y-4">
+                    <div class="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
+                        <i class="fas fa-question-circle"></i>
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-gray-900">Knowledge Check Ready</h2>
+                    
+                    {% if quiz_obj %}
+                        <p class="text-sm text-gray-600 max-w-md mx-auto">
+                            <strong class="text-gray-900">{{ quiz_obj.title }}</strong>
+                            {% if quiz_obj.description %}<br>{{ quiz_obj.description|striptags }}{% endif %}
+                        </p>
+
+                        <div class="pt-2">
+                            {% if quiz_obj.quiz_type == 'module_check' %}
+                                <a href="{% url 'module_quiz_take' module_id=module.id %}" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl transition shadow-md text-sm">
+                                    <i class="fas fa-play"></i> Start Knowledge Check
+                                </a>
+                            {% else %}
+                                <a href="{% url 'quiz_take' course_slug=course.slug %}" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl transition shadow-md text-sm">
+                                    <i class="fas fa-play"></i> Start Assessment
+                                </a>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <p class="text-xs text-rose-600 font-medium">No quiz linked to this module yet.</p>
+                    {% endif %}
+                </div>
+
+            {% elif content.content_type == 'assignment' %}
+                {# ASSIGNMENT #}
+                <div class="p-8 sm:p-12 text-center bg-purple-50/50 space-y-3">
+                    <div class="w-16 h-16 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mx-auto text-3xl shadow-xs">
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">Assignment Activity</h2>
+                    <p class="text-xs text-gray-600 max-w-md mx-auto">Review project details and submission guidelines.</p>
+                </div>
+
+            {% else %}
+                <div class="p-8 text-center text-gray-500">
+                    <p class="text-sm">Content type not supported for direct preview.</p>
+                </div>
+            {% endif %}
+
+        </div>
+
+    </div>
+
+    {# --- FLOATING BOTTOM ACTION BAR --- #}
+    <div class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 p-4 z-40 shadow-lg">
+        <div class="max-w-6xl mx-auto flex items-center justify-between gap-4">
+            
+            <a href="{% url 'course_detail' slug=course.slug %}" class="inline-flex items-center gap-2 text-xs font-semibold text-gray-600 hover:text-indigo-700 transition">
+                <i class="fas fa-arrow-left"></i> <span class="hidden sm:inline">Back to</span> Curriculum
+            </a>
+
+            <div class="flex items-center gap-3">
+                {% if request.user.is_student and student_progress %}
+                    {% if student_progress.completed %}
+                        <button disabled class="bg-emerald-100 text-emerald-800 font-bold px-5 py-2.5 rounded-xl border border-emerald-200 text-xs flex items-center gap-2 cursor-not-allowed">
+                            <i class="fas fa-check-circle text-emerald-600"></i> Completed
+                        </button>
+                    {% elif content.content_type != 'quiz' %}
+                        <button id="markCompleteBtn" onclick="markContentCompleted('{% url 'mark_content_completed' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')" class="bg-indigo-800 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl transition shadow-md text-xs flex items-center gap-2">
+                            <i class="fas fa-check-circle"></i> Mark as Complete
+                        </button>
+                    {% endif %}
                 {% endif %}
             </div>
 
-        {% elif content.content_type == 'assignment' %}
-            <div class="text-center p-8 bg-purple-50 border border-purple-300 rounded-xl shadow-md">
-                <i class="fas fa-tasks text-6xl text-purple-600 mb-4"></i>
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">Assignment Details</h2>
-                <p class="text-gray-700 text-lg">This is an **Assignment**! The submission interface (upload, instructions, due date) will be implemented here.</p>
-            </div>
-        {% else %}
-            <div class="p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg"><i class="fas fa-info-circle mr-2"></i> Content type not supported for direct display yet.</div>
-        {% endif %}
-    </div>
-
-    {# --- BOTTOM ACTIONS --- #}
-    <div class="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 pt-4 border-t border-gray-200">
-        <div class="flex space-x-4">
-            <a href="{% url 'course_detail' slug=course.slug %}" class="text-gray-600 hover:text-indigo-600 transition duration-150 flex items-center font-medium">
-                <i class="fas fa-list-alt mr-2"></i> All Course Content
-            </a>
-            <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-indigo-600 transition duration-150 flex items-center font-medium">
-                <i class="fas fa-arrow-left mr-2"></i> Dashboard
-            </a>
-        </div>
-
-        <div class="flex space-x-3 items-center">
-            {% if content.content_type == 'text' %}
-                <button onclick="generateAISummary('{{ content.title|escapejs }}', {{ content.id }})"
-                    class="bg-purple-600 text-white py-2 px-4 rounded-full hover:bg-purple-700 transition duration-300 flex items-center shadow-lg hover:shadow-xl text-sm font-semibold transform hover:scale-105">
-                    <i class="fas fa-brain mr-2"></i> AI Summary
-                </button>
-            {% endif %}
-
-            {% if request.user.is_student and student_progress %}
-                {% if student_progress.completed %}
-                    <button id="markCompleteBtn"
-                            disabled
-                            class="py-2 px-4 rounded-full flex items-center shadow-lg bg-green-600 text-white opacity-90 cursor-not-allowed text-sm font-semibold">
-                        <i class="fas fa-check-circle mr-2"></i> Completed
-                    </button>
-                {% elif content.content_type != 'quiz' %}
-                    <button id="markCompleteBtn"
-                            onclick="markContentCompleted('{% url 'mark_content_completed' course_slug=course.slug module_id=module.id lesson_id=lesson.id content_id=content.id %}')"
-                            class="py-2 px-4 rounded-full transition duration-300 flex items-center shadow-lg hover:shadow-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transform hover:scale-105">
-                        <i class="fas fa-check-circle mr-2"></i> Mark as Complete
-                    </button>
-                {% endif %}
-            {% endif %}
         </div>
     </div>
+
 </div>
-
-<style>
-    .tooltip {
-        position: relative;
-    }
-    .tooltip:hover::after {
-        content: attr(data-tooltip);
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        white-space: nowrap;
-        background-color: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        z-index: 10;
-        margin-top: 5px;
-        pointer-events: none;
-    }
-</style>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -339,34 +379,28 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 
     function displayMessage(type, message) {
-        const toast = document.createElement('div');
-        toast.textContent = message;
-        toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-lg text-white font-medium z-50 transform transition duration-300 ease-out translate-y-0 ${
-            type === 'success' ? 'bg-green-500' : 'bg-red-500'
-        }`;
-        document.body.appendChild(toast);
-        setTimeout(() => {
-            toast.classList.add('translate-y-full');
-            setTimeout(() => toast.remove(), 500);
-        }, 3000);
+        if (window.showToast) {
+            window.showToast(type, message);
+        } else {
+            alert(message);
+        }
     }
-    window.displayMessage = displayMessage;
 
     function showContentModal(title, content) {
         let modal = document.getElementById('simple-content-modal');
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'simple-content-modal';
-            modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-[100] transition-opacity duration-300 hidden';
+            modal.className = 'fixed inset-0 bg-gray-900/75 flex items-center justify-center p-4 z-[100] transition-opacity duration-300 hidden';
             modal.innerHTML = `
-                <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all duration-300 scale-95">
-                    <div class="flex justify-between items-center p-4 border-b border-gray-200">
-                        <h3 class="text-xl font-bold text-gray-900" id="simple-modal-title"></h3>
-                        <button onclick="document.getElementById('simple-content-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-times text-2xl"></i>
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all duration-300 scale-95 border border-gray-200">
+                    <div class="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
+                        <h3 class="text-base font-bold text-gray-900" id="simple-modal-title"></h3>
+                        <button onclick="document.getElementById('simple-content-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 p-1">
+                            <i class="fas fa-times text-lg"></i>
                         </button>
                     </div>
-                    <div class="p-6 max-h-[80vh] overflow-y-auto" id="simple-modal-body"></div>
+                    <div class="p-6 max-h-[75vh] overflow-y-auto text-sm" id="simple-modal-body"></div>
                 </div>
             `;
             document.body.appendChild(modal);
@@ -376,8 +410,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('simple-modal-body').innerHTML = content;
 
         modal.classList.remove('hidden');
-        document.querySelector('#simple-content-modal > div').classList.remove('scale-95');
-        document.querySelector('#simple-content-modal > div').classList.add('scale-100');
     }
 
     async function generateAISummary(contentTitle, contentId) {
@@ -385,13 +417,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!contentDiv) return displayMessage('error', 'No text content found.');
 
         const rawText = contentDiv.innerText.trim();
-        if (rawText.length < 50) return displayMessage('error', 'Content too short for AI summary.');
+        if (rawText.length < 50) return displayMessage('error', 'Content is too short for AI summary.');
 
         showContentModal(
-            `Generating AI Summary for: ${contentTitle}`,
-            `<div class="text-center py-10">
-                <i class="fas fa-brain fa-spin fa-3x text-purple-600"></i>
-                <p class="mt-3 text-gray-700 font-medium">Analyzing content, please wait...</p>
+            `AI Summary: ${contentTitle}`,
+            `<div class="text-center py-8">
+                <i class="fas fa-brain fa-spin fa-3x text-indigo-600 mb-3"></i>
+                <p class="text-gray-700 font-medium text-xs">Analyzing content details...</p>
             </div>`
         );
 
@@ -409,13 +441,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!response.ok || !result.success) {
                 return showContentModal('Summary Failed',
-                    `<p class="text-red-600 font-medium">${result.error || 'The AI service returned an error.'}</p>`
+                    `<p class="text-rose-600 font-medium text-xs">${result.error || 'The AI service returned an error.'}</p>`
                 );
             }
 
             const summary = result.summary;
-
-            // Line-by-line markdown → HTML conversion
             const lines = summary.split('\n');
             let htmlSummary = '';
             let inList = false;
@@ -427,41 +457,38 @@ document.addEventListener('DOMContentLoaded', function() {
                     continue;
                 }
                 if (/^[\*\-]\s+/.test(trimmed)) {
-                    if (!inList) { htmlSummary += '<ul class="list-disc space-y-1 my-2 pl-5">'; inList = true; }
+                    if (!inList) { htmlSummary += '<ul class="list-disc space-y-1 my-2 pl-5 text-xs text-gray-700">'; inList = true; }
                     const text = trimmed.replace(/^[\*\-]\s+/, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                     htmlSummary += `<li>${text}</li>`;
                 } else {
                     if (inList) { htmlSummary += '</ul>'; inList = false; }
                     const text = trimmed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                    htmlSummary += `<p class="mb-2">${text}</p>`;
+                    htmlSummary += `<p class="mb-2 text-xs text-gray-700 leading-relaxed">${text}</p>`;
                 }
             }
             if (inList) htmlSummary += '</ul>';
 
             showContentModal(
                 `AI Summary: ${contentTitle}`,
-                `<div class="prose max-w-none text-gray-800 leading-relaxed">${htmlSummary}</div>`
+                `<div class="prose max-w-none text-gray-800 leading-relaxed text-xs">${htmlSummary}</div>`
             );
 
         } catch (err) {
             console.error('AI Summary network error:', err);
             showContentModal('Summary Failed',
-                `<p class="text-red-600 font-medium">Network error connecting to AI service. Check your connection.</p>`
+                `<p class="text-rose-600 font-medium text-xs">Network error connecting to AI service.</p>`
             );
         }
     }
 
-    // ------------------------------
-    // Mark content as completed
-    // ------------------------------
     async function markContentCompleted(url) {
         const markCompleteBtn = document.getElementById('markCompleteBtn');
+        if (!markCompleteBtn) return;
+
         const originalHtml = markCompleteBtn.innerHTML;
-        const originalClasses = markCompleteBtn.className;
 
         markCompleteBtn.disabled = true;
-        markCompleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Updating...';
-        markCompleteBtn.className = 'py-2 px-4 rounded-full flex items-center shadow-lg bg-gray-400 text-white text-sm font-semibold cursor-wait';
+        markCompleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
         try {
             const response = await fetch(url, {
@@ -477,20 +504,22 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
 
             if (response.ok && result.completed) {
-                window.displayMessage('success', result.message || 'Content marked as complete!');
-                markCompleteBtn.className = 'py-2 px-4 rounded-full flex items-center shadow-lg bg-green-600 text-white opacity-90 cursor-not-allowed text-sm font-semibold';
-                markCompleteBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Completed';
+                displayMessage('success', result.message || 'Marked as complete!');
+                markCompleteBtn.className = 'bg-emerald-100 text-emerald-800 font-bold px-5 py-2.5 rounded-xl border border-emerald-200 text-xs flex items-center gap-2 cursor-not-allowed';
+                markCompleteBtn.innerHTML = '<i class="fas fa-check-circle text-emerald-600"></i> Completed';
                 markCompleteBtn.disabled = true;
+
+                setTimeout(() => {
+                    window.location.href = "{% url 'course_detail' slug=course.slug %}";
+                }, 1000);
             } else {
-                window.displayMessage('error', result.error || 'Failed to update progress or already completed.');
-                markCompleteBtn.className = originalClasses;
+                displayMessage('error', result.error || 'Failed to update progress.');
                 markCompleteBtn.innerHTML = originalHtml;
                 markCompleteBtn.disabled = false;
             }
         } catch (error) {
             console.error('Error marking content completed:', error);
-            window.displayMessage('error', 'A network error occurred while updating progress.');
-            markCompleteBtn.className = originalClasses;
+            displayMessage('error', 'A network error occurred.');
             markCompleteBtn.innerHTML = originalHtml;
             markCompleteBtn.disabled = false;
         }

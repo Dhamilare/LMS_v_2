@@ -32,6 +32,36 @@
             font-family: 'Century Gothic';
             background-color: #f3f4f6;
         }
+
+        /* 1. Set comfortable root scaling */
+        html {
+            font-size: 16px;
+        }
+
+        /* 2. Override ultra-small hardcoded Tailwind pixel classes */
+        .text-\[9px\],
+        .text-\[10px\],
+        .text-\[11px\] {
+            font-size: 0.8125rem !important; /* Bumps 10px up to ~13px */
+            line-height: 1.25rem !important;
+        }
+
+        /* 3. Upgrade 12px text-xs to a readable 14px */
+        .text-xs {
+            font-size: 0.875rem !important; /* Bumps 12px up to 14px */
+            line-height: 1.25rem !important;
+        }
+
+        /* 4. Upgrade 14px text-sm to 15px */
+        .text-sm {
+            font-size: 0.9375rem !important; /* Bumps 14px up to 15px */
+            line-height: 1.375rem !important;
+        }
+
+        /* 5. Ensure form controls & buttons inherit font sizing properly */
+        button, input, select, textarea {
+            font-family: inherit;
+        }
         
         /* Mobile sidebar transition and positioning */
         .sidebar {
