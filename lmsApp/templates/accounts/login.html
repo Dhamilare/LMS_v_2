@@ -1,17 +1,16 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LMS - Login</title>
+    <title>Ha-Shem LMS | Sign In</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     
     <script>
@@ -30,41 +29,20 @@
         body {
             font-family: 'Poppins', sans-serif;
         }
-    
-        /* Animation keyframes */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+
+        /* Subtle Ambient Glow Effect */
+        .glow-effect {
+            box-shadow: 0 0 50px -12px rgba(79, 70, 229, 0.25);
         }
         
-        /* Animation class */
-        .fade-in-up {
-            animation: fadeInUp 0.6s ease-out forwards;
-            opacity: 0; /* Start hidden */
-        }
-        
-        /* Staggered delay classes */
-        .delay-100 { animation-delay: 0.1s; }
-        .delay-200 { animation-delay: 0.2s; }
-        .delay-300 { animation-delay: 0.3s; }
-        .delay-400 { animation-delay: 0.4s; }
-        
-        /* Custom modal for terms */
+        /* Modal Backdrop Fade & Blur */
         .terms-modal {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            inset: 0;
             z-index: 100;
-            background-color: rgba(0, 0, 0, 0.75);
-            transition: opacity 0.3s ease-out;
+            background-color: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
             opacity: 0;
             visibility: hidden;
             display: flex;
@@ -72,118 +50,195 @@
             justify-content: center;
             padding: 1rem;
         }
+
         .terms-modal.active {
             opacity: 1;
             visibility: visible;
         }
+
         .terms-content {
             transform: scale(0.95);
             transition: transform 0.3s ease-out;
         }
+
         .terms-modal.active .terms-content {
             transform: scale(1);
         }
     </style>
 </head>
 
-<body class="bg-gradient-to-br from-gray-50 to-indigo-100 flex items-center justify-center min-h-screen p-4">
+<body class="bg-slate-100 flex items-center justify-center min-h-screen p-4 sm:p-6 md:p-8">
 
-    <div class="flex flex-col md:flex-row w-full max-w-6xl bg-white shadow-xl overflow-hidden border border-gray-200 rounded-lg 
-                transition-all duration-300 hover:shadow-2xl fade-in-up">
+    {# --- MAIN SPLIT CONTAINER --- #}
+    <div class="flex flex-col md:flex-row w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200/80 glow-effect min-h-[620px]">
         
-        <div class="hidden md:flex md:w-1/2 p-10 bg-indigo-600 text-white flex-col justify-center items-center text-center space-y-6">
-            <div class="mb-4 fade-in-up delay-100">
-                <img src="{% static 'images/Ha-Shem-Blue-Condensed-Logo-2.png'  %}" 
-                     alt="LMS Logo" 
-                     class="w-48 mx-auto"
+        {# --- LEFT PANEL: BRAND HERO & FEATURES --- #}
+        <div class="hidden md:flex md:w-1/2 bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 text-white p-10 flex-col justify-between relative overflow-hidden">
+            
+            {# Background Decorative Circle Overlay #}
+            <div class="absolute -top-24 -left-24 w-72 h-72 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+            {# Brand Logo & Portal Tag #}
+            <div class="relative z-10 space-y-3">
+                <div class="inline-flex items-center gap-2 bg-indigo-800/80 text-indigo-200 border border-indigo-700/60 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider shadow-inner">
+                    <i class="fas fa-shield-alt text-emerald-400"></i> Learning Management System
+                </div>
+
+                <div>
+                    <img src="{% static 'images/Ha-Shem-Blue-Condensed-Logo-2.png' %}" 
+                         alt="Ha-Shem Logo" 
+                         class="h-12 w-auto object-contain brightness-0 invert"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                    >
+                    <div style="display:none;" class="text-2xl font-extrabold tracking-tight text-white">Ha-Shem LMS</div>
+                </div>
+            </div>
+
+            {# Headline & Description #}
+            <div class="relative z-10 my-auto py-6 space-y-6">
+                <div>
+                    <h1 class="text-3xl lg:text-4xl font-extrabold text-white tracking-tight leading-tight">
+                        Empowering Enterprise Learning
+                    </h1>
+                    <p class="text-indigo-200 text-sm mt-3 leading-relaxed">
+                        Access structured training, track professional achievements, and engage with interactive learning tracks.
+                    </p>
+                </div>
+
+                {# Feature Bullets #}
+                <div class="space-y-3.5 text-xs text-indigo-100">
+                    <div class="flex items-center gap-3 bg-indigo-900/60 p-3 rounded-xl border border-indigo-700/50 backdrop-blur-xs">
+                        <div class="w-8 h-8 rounded-lg bg-indigo-700/80 flex items-center justify-center text-indigo-200 flex-shrink-0">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-white">Interactive Learning Tracks</p>
+                            <p class="text-[11px] text-indigo-300">Access curated internal & external learning tracks.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 bg-indigo-900/60 p-3 rounded-xl border border-indigo-700/50 backdrop-blur-xs">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-700/80 flex items-center justify-center text-emerald-200 flex-shrink-0">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-white">Progress Analytics</p>
+                            <p class="text-[11px] text-indigo-300">Track module completion and assessment scores.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 bg-indigo-900/60 p-3 rounded-xl border border-indigo-700/50 backdrop-blur-xs">
+                        <div class="w-8 h-8 rounded-lg bg-amber-700/80 flex items-center justify-center text-amber-200 flex-shrink-0">
+                            <i class="fas fa-certificate"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-white">Verified Certifications</p>
+                            <p class="text-[11px] text-indigo-300">Earn official completion credentials.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Footer Note #}
+            <div class="relative z-10 text-[11px] text-indigo-300 border-t border-indigo-800/60 pt-3">
+                &copy; {% now "Y" %} Ha-Shem Enterprise LMS. All rights reserved.
+            </div>
+
+        </div>
+
+        {# --- RIGHT PANEL: LOGIN ACTION CARD --- #}
+        <div class="w-full md:w-1/2 p-8 sm:p-12 flex flex-col justify-between bg-white">
+            
+            {# Mobile Logo Header (visible on mobile only) #}
+            <div class="md:hidden text-center mb-6">
+                <img src="{% static 'images/Ha-Shem-Blue-Condensed-Logo-2.png' %}" 
+                     alt="Ha-Shem Logo" 
+                     class="h-10 mx-auto object-contain"
                      onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
                 >
-                <div style="display:none;" class="text-2xl font-bold">Ha-Shem LMS</div>
+                <div style="display:none;" class="text-xl font-bold text-gray-900">Ha-Shem LMS</div>
             </div>
-            <h1 class="text-4xl font-bold fade-in-up delay-200">Welcome to the LMS</h1>
-            <p class="text-lg leading-relaxed fade-in-up delay-300">
-                Your platform for seamless learning and teaching. Dive into a world of knowledge with interactive courses, lessons, and smart analytics.
-            </p>
-            
-            <div class="space-y-4 text-left fade-in-up delay-400">
-                <div class="flex items-center space-x-3">
-                    <i class="fa-solid fa-graduation-cap text-2xl"></i>
-                    <p>Access a wide range of courses and track your progress.</p>
+
+            <div class="my-auto space-y-6 max-w-sm mx-auto w-full">
+                
+                {# Card Heading #}
+                <div class="text-center space-y-2">
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                        Sign In to Portal
+                    </h2>
+                    <p class="text-xs sm:text-sm text-slate-500">
+                        Authentication is managed securely via Microsoft Azure AD Single Sign-On (SSO).
+                    </p>
                 </div>
-                <div class="flex items-center space-x-3">
-                    <i class="fa-solid fa-chalkboard-user text-2xl"></i>
-                    <p>Instructors can manage courses, manage assessments, assign courses to students, etc.</p>
+
+                {# Django Error Messages Alert Box #}
+                {% if messages %}
+                    <div class="space-y-2">
+                        {% for message in messages %}
+                            <div class="p-3.5 rounded-xl border text-xs font-semibold flex items-center gap-2.5
+                                {% if message.tags == 'error' %}
+                                    border-rose-200 bg-rose-50 text-rose-800
+                                {% elif message.tags == 'success' %}
+                                    border-emerald-200 bg-emerald-50 text-emerald-800
+                                {% else %}
+                                    border-indigo-200 bg-indigo-50 text-indigo-800
+                                {% endif %}
+                            ">
+                                <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle text-rose-600{% elif message.tags == 'success' %}fa-check-circle text-emerald-600{% else %}fa-info-circle text-indigo-600{% endif %} text-base"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {# Microsoft SSO Login CTA Button #}
+                <div class="pt-2 space-y-4">
+                    <a href="{% url 'social:begin' 'azuread-oauth2' %}" 
+                       class="w-full flex items-center justify-center gap-3 py-3.5 px-5 border border-slate-300 shadow-md text-sm font-bold 
+                              text-slate-800 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-600 
+                              transition rounded-xl hover:shadow-lg transform active:scale-98">
+                        
+                        {# Microsoft 4-Color Logo SVG #}
+                        <svg class="w-5 h-5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23">
+                            <path d="M10.8809 10.8809H0V0H10.8809V10.8809Z" fill="#F25022"/>
+                            <path d="M23 10.8809H12.1191V0H23V10.8809Z" fill="#7FBA00"/>
+                            <path d="M10.8809 23H0V12.1191H10.8809V23Z" fill="#00A4EF"/>
+                            <path d="M23 23H12.1191V12.1191H23V23Z" fill="#FFB900"/>
+                        </svg>
+                        <span>Sign in with Microsoft</span>
+                    </a>
+
+                    <div class="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-medium">
+                        <i class="fas fa-lock text-emerald-500"></i>
+                        <span>Secure SSL OAuth2 Authentication</span>
+                    </div>
                 </div>
-                <div class="flex items-center space-x-3">
-                    <i class="fa-solid fa-chart-line text-2xl"></i>
-                    <p>Admins get full insight into activities and user management.</p>
-                </div>
+
             </div>
+
+            {# Terms of Service Trigger Footnote #}
+            <div class="text-center text-xs text-slate-500 pt-6">
+                By signing in, you agree to the 
+                <a href="#" onclick="event.preventDefault(); window.showTermsModal()" class="font-bold text-indigo-700 hover:underline">
+                    Terms of Service
+                </a>.
+            </div>
+
         </div>
 
-        <div class="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
-            
-            <div class="text-center mb-8 fade-in-up delay-100">
-                <h2 class="text-3xl font-bold text-gray-800">Sign in to your Account</h2>
-                <p class="text-gray-500 mt-2">Please sign in with your Microsoft account.</p>
-            </div>
-
-            {% if messages %}
-                <ul class="mb-4 space-y-2 fade-in-up delay-200">
-                    {% for message in messages %}
-                        <li class="p-3 border text-sm font-medium rounded
-                            {% if message.tags == 'error' %}
-                                border-red-300 bg-red-50 text-red-700
-                            {% elif message.tags == 'success' %}
-                                border-green-300 bg-green-50 text-green-700
-                            {% else %}
-                                border-blue-300 bg-blue-50 text-blue-700
-                            {% endif %}
-                        ">
-                            {{ message }}
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-            
-            <div class="mt-6 fade-in-up delay-300">
-                <a href="{% url 'social:begin' 'azuread-oauth2' %}" 
-                   class="w-full flex items-center justify-center py-3 px-4 border border-transparent shadow-sm text-base font-medium 
-                           text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none 
-                           focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition rounded-lg
-                           transform hover:scale-105 hover:shadow-lg">
-                    
-                    <svg class="w-5 h-5 mr-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" fill="currentColor">
-                        <path d="M10.8809 10.8809H0V0H10.8809V10.8809Z" fill="#F25022"/>
-                        <path d="M23 10.8809H12.1191V0H23V10.8809Z" fill="#7FBA00"/>
-                        <path d="M10.8809 23H0V12.1191H10.8809V23Z" fill="#00A4EF"/>
-                        <path d="M23 23H12.1191V12.1191H23V23Z" fill="#FFB900"/>
-                    </svg>
-                    Sign in with Microsoft
-                </a>
-            </div>
-
-            <div class="mt-8 text-center fade-in-up delay-400">
-                <p class="text-sm text-gray-600">
-                    By signing in, you agree to our 
-                    <a href="#" onclick="event.preventDefault(); window.showTermsModal()" class="font-medium text-indigo-600 hover:text-indigo-500">Terms of Service</a>.
-                </p>
-            </div>
-        </div>
     </div>
     
-    <div id="termsModalBackdrop" class="terms-modal" 
-         onclick="window.hideTermsModal()">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-xl terms-content max-h-[90vh] overflow-y-auto"
-             onclick="event.stopPropagation()">
-             
+    {# --- TERMS OF SERVICE MODAL BACKDROP --- #}
+    <div id="termsModalBackdrop" class="terms-modal" onclick="window.hideTermsModal()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl terms-content max-h-[90vh] overflow-y-auto border border-slate-200" onclick="event.stopPropagation()">
             {% include 'accounts/terms_modal.html' %} 
-
         </div>
     </div>
 
+    {# --- JAVASCRIPT LOGIC --- #}
     <script>
-        // CRITICAL URL: The actual Microsoft SSO endpoint
+        // Microsoft SSO Endpoint
         const MICROSOFT_AUTH_URL = "{% url 'social:begin' 'azuread-oauth2' %}";
 
         function showTermsModal() {
@@ -200,22 +255,21 @@
             }
         }
         
-        // Globalize functions for inline use
         window.showTermsModal = showTermsModal;
         window.hideTermsModal = hideTermsModal;
         
-        // Final action logic (not used in this version but kept for consistency)
         window.acceptTermsAndLogin = function() {
             window.location.href = MICROSOFT_AUTH_URL;
         };
         
-        // Prevent backdrop close if the user clicks inside the content area
-        document.getElementById('termsModalBackdrop').addEventListener('click', function(e) {
-            if (e.target.id === 'termsModalBackdrop') {
-                hideTermsModal();
-            }
-        });
-        
+        const backdrop = document.getElementById('termsModalBackdrop');
+        if (backdrop) {
+            backdrop.addEventListener('click', function(e) {
+                if (e.target.id === 'termsModalBackdrop') {
+                    hideTermsModal();
+                }
+            });
+        }
     </script>
 </body>
 </html>
