@@ -1,6 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
-from lmsApp.models import Course, Module, Lesson, Content, Tag
+from django.utils import timezone
+from datetime import timedelta
+from lmsApp.models import (
+    Course, Module, Lesson, Content, Tag,
+    Quiz, Question, Option,
+    Enrollment, Certificate,
+    ExternalTrainingResource,
+    InstructorTraining,
+)
 
 User = get_user_model()
 
@@ -8,6 +16,24 @@ TAGS = [
     "Python", "Data Science", "Machine Learning", "Marketing", "UX/UI",
     "Web Development", "Django", "React", "Cybersecurity", "Cloud", "AWS",
     "Full-Stack", "Design", "Analytics",
+]
+
+# NEW: must match PreferenceForm.DEPARTMENT_CHOICES exactly, or bulk-assign-by-
+# department and the HR appraisal dashboard's department filter won't line up
+# with these seeded students.
+DEPARTMENTS = [
+    "IT", "Marketing", "Sales", "People Ops", "Business Applications", "Finance",
+]
+
+# NEW: demo students, one per department, so bulk-assign-by-department has
+# something real to target during testing.
+DEMO_STUDENTS = [
+    {"username": "amina_it", "email": "amina.it@example.com", "first_name": "Amina", "last_name": "Bello", "department": "IT"},
+    {"username": "tunde_marketing", "email": "tunde.marketing@example.com", "first_name": "Tunde", "last_name": "Salako", "department": "Marketing"},
+    {"username": "chioma_sales", "email": "chioma.sales@example.com", "first_name": "Chioma", "last_name": "Nnamdi", "department": "Sales"},
+    {"username": "efe_peopleops", "email": "efe.peopleops@example.com", "first_name": "Efe", "last_name": "Okoro", "department": "People Ops"},
+    {"username": "biodun_bizapps", "email": "biodun.bizapps@example.com", "first_name": "Biodun", "last_name": "Fashola", "department": "Business Applications"},
+    {"username": "grace_finance", "email": "grace.finance@example.com", "first_name": "Grace", "last_name": "Uche", "department": "Finance"},
 ]
 
 course_data = [
@@ -1064,8 +1090,172 @@ course_data = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# NEW: generic placeholder quiz question generators. These are intentionally
+# generic (not tailored per-course) — they exist purely to give the seeded
+# quizzes real Question/Option rows so the take/submit/result flows and the
+# module-check vs. final-quiz gating can be exercised end-to-end.
+# ---------------------------------------------------------------------------
+def _final_quiz_question_bank(course_title):
+    return [
+        {
+            "text": f"Which statement best reflects a core objective of '{course_title}'?",
+            "options": [
+                ("Building a working understanding of the subject's core concepts", True),
+                ("Memorizing unrelated trivia", False),
+                ("Skipping foundational material entirely", False),
+                ("Avoiding any hands-on practice", False),
+            ],
+        },
+        {
+            "text": "Which approach generally leads to better retention of course material?",
+            "options": [
+                ("Active practice combined with review", True),
+                ("Passive reading only, never revisited", False),
+                ("Ignoring assignments", False),
+                ("Skipping to the final assessment without reviewing content", False),
+            ],
+        },
+        {
+            "text": f"In the context of '{course_title}', why do structured modules matter?",
+            "options": [
+                ("They build concepts progressively so later topics make sense", True),
+                ("They add unnecessary complexity", False),
+                ("They exist only for record-keeping", False),
+                ("They have no effect on learning outcomes", False),
+            ],
+        },
+        {
+            "text": "What is the primary purpose of a final course assessment?",
+            "options": [
+                ("To verify the learner has understood the material across the whole course", True),
+                ("To make the course harder for no reason", False),
+                ("To replace the need for lessons entirely", False),
+                ("To test unrelated general knowledge", False),
+            ],
+        },
+        {
+            "text": "Which best describes effective use of supplementary resources (PDFs, slides, videos)?",
+            "options": [
+                ("Reinforcing and expanding on lesson content", True),
+                ("Replacing the need to read lesson text", False),
+                ("Being entirely optional and irrelevant", False),
+                ("Serving no instructional purpose", False),
+            ],
+        },
+    ]
+
+
+def _module_quiz_question_bank(module_title):
+    return [
+        {
+            "text": f"What is the main focus of the module '{module_title}'?",
+            "options": [
+                ("The specific topic covered by this module's lessons", True),
+                ("An unrelated topic from a different course", False),
+                ("Nothing in particular", False),
+                ("Only administrative course details", False),
+            ],
+        },
+        {
+            "text": "Why do knowledge checks exist at the module level?",
+            "options": [
+                ("To give learners a quick formative check before moving on", True),
+                ("To permanently block learners from continuing the course", False),
+                ("To replace the final assessment entirely", False),
+                ("To penalize learners with no feedback", False),
+            ],
+        },
+        {
+            "text": f"Which best describes readiness to move past '{module_title}'?",
+            "options": [
+                ("Having reviewed all lessons and content in the module", True),
+                ("Never having opened any lesson in the module", False),
+                ("Skipping the module description entirely", False),
+                ("Randomly guessing without reviewing anything", False),
+            ],
+        },
+    ]
+
+
+def _create_quiz_with_questions(quiz_type, title, description, pass_percentage,
+                                 max_attempts, created_by, question_bank,
+                                 course=None, module=None):
+    """Creates a Quiz (final or module_check) plus its Question/Option rows."""
+    quiz_kwargs = dict(
+        title=title,
+        description=description,
+        quiz_type=quiz_type,
+        pass_percentage=pass_percentage,
+        max_attempts=max_attempts,
+        created_by=created_by,
+    )
+    if quiz_type == 'final':
+        quiz_kwargs['course'] = course
+    else:
+        quiz_kwargs['module'] = module
+
+    quiz = Quiz.objects.create(**quiz_kwargs)
+
+    for order, q_data in enumerate(question_bank, start=1):
+        question = Question.objects.create(
+            quiz=quiz, text=q_data["text"], is_multi_select=False, order=order,
+        )
+        for option_text, is_correct in q_data["options"]:
+            Option.objects.create(question=question, text=option_text, is_correct=is_correct)
+
+    return quiz
+
+
+# NEW: manually-curated external training catalog entries (Cisco/Sophos have
+# no public API, so these — and any Microsoft Learn entries not yet pulled
+# in by the sync task — are always added this way).
+EXTERNAL_TRAINING_RESOURCES = [
+    {
+        "title": "Microsoft Entra ID Fundamentals",
+        "provider": "ms_learn",
+        "source": "manual",
+        "url": "https://learn.microsoft.com/en-us/training/paths/identity-fundamentals/",
+        "description": "Foundational concepts of identity, access management, and Microsoft Entra ID.",
+        "level": "Beginner",
+        "product_area": "Microsoft Entra ID",
+        "tags": ["Cybersecurity", "Cloud"],
+    },
+    {
+        "title": "Microsoft 365 Fundamentals",
+        "provider": "ms_learn",
+        "source": "manual",
+        "url": "https://learn.microsoft.com/en-us/training/paths/m365-fundamentals/",
+        "description": "Core Microsoft 365 services, security, compliance, and licensing concepts.",
+        "level": "Beginner",
+        "product_area": "Microsoft 365",
+        "tags": ["Cloud"],
+    },
+    {
+        "title": "Cisco Certified Network Associate (CCNA) Overview",
+        "provider": "cisco",
+        "source": "manual",
+        "url": "https://www.cisco.com/site/us/en/learn/training-certifications/certifications/enterprise/ccna/index.html",
+        "description": "Networking fundamentals, IP services, security fundamentals, and automation basics.",
+        "level": "Intermediate",
+        "product_area": "Networking",
+        "tags": ["Cybersecurity"],
+    },
+    {
+        "title": "Sophos Certified Administrator",
+        "provider": "sophos",
+        "source": "manual",
+        "url": "https://www.sophos.com/en-us/support/training",
+        "description": "Administering Sophos endpoint and network security products.",
+        "level": "Intermediate",
+        "product_area": "Endpoint Security",
+        "tags": ["Cybersecurity"],
+    },
+]
+
+
 class Command(BaseCommand):
-    help = 'Seeds the database with initial course, tag, and instructor data for the LMS.'
+    help = 'Seeds the database with initial course, tag, role, quiz, and training data for the LMS.'
 
     def handle(self, *args, **options):
         self.stdout.write("Starting to seed LMS data...\n")
@@ -1083,8 +1273,74 @@ class Command(BaseCommand):
         self.stdout.write("")
 
         # -------------------------------------------------------------------
-        # STEP 2 — Create courses
+        # STEP 2 — NEW: Departmental demo students, HR user, and admin user.
+        # Needed for bulk-assign-by-department, HR-only screens, and the
+        # monthly report's recipient list to have real targets during testing.
         # -------------------------------------------------------------------
+        self.stdout.write("Creating demo students by department...")
+        demo_student_objects = []
+        for student_info in DEMO_STUDENTS:
+            student_user, created = User.objects.get_or_create(
+                username=student_info["username"],
+                defaults={
+                    "email": student_info["email"],
+                    "first_name": student_info["first_name"],
+                    "last_name": student_info["last_name"],
+                    "department": student_info["department"],
+                    "is_student": True,
+                    "is_instructor": False,
+                    "is_staff": False,
+                },
+            )
+            if created:
+                student_user.set_password("securepass123")
+                student_user.save()
+            demo_student_objects.append(student_user)
+            status = "Created" if created else "Exists"
+            self.stdout.write(f"  [{status}] Student: {student_user.get_full_name()} — {student_user.department}")
+
+        self.stdout.write("\nCreating HR demo user...")
+        hr_user, created = User.objects.get_or_create(
+            username="hr_manager",
+            defaults={
+                "email": "hr.manager@example.com",
+                "first_name": "Halima",
+                "last_name": "Yusuf",
+                "is_hr": True,
+                "is_student": False,
+                "is_instructor": False,
+                "is_staff": False,
+            },
+        )
+        if created:
+            hr_user.set_password("securepass123")
+            hr_user.save()
+        self.stdout.write(f"  [{'Created' if created else 'Exists'}] HR user: {hr_user.get_full_name()}")
+
+        self.stdout.write("\nCreating admin demo user...")
+        admin_user, created = User.objects.get_or_create(
+            username="lms_admin",
+            defaults={
+                "email": "admin@example.com",
+                "first_name": "Site",
+                "last_name": "Admin",
+                "is_staff": True,
+                "is_superuser": True,
+                "is_student": False,
+                "is_instructor": False,
+            },
+        )
+        if created:
+            admin_user.set_password("securepass123")
+            admin_user.save()
+        self.stdout.write(f"  [{'Created' if created else 'Exists'}] Admin user: {admin_user.get_full_name()}\n")
+
+        # -------------------------------------------------------------------
+        # STEP 3 — Create courses (+ modules/lessons/content), then attach a
+        # final quiz and a module-level knowledge check to each course.
+        # -------------------------------------------------------------------
+        created_courses = []
+
         for course_info in course_data:
             # ---- Instructor ------------------------------------------------
             instr = course_info["instructor"]
@@ -1094,7 +1350,12 @@ class Command(BaseCommand):
                     "email": instr["email"],
                     "first_name": instr["first_name"],
                     "last_name": instr["last_name"],
-                    "is_staff": True,
+                    # FIXED: instructors must NOT be is_staff=True — the
+                    # dashboard view checks `if user.is_staff` unconditionally
+                    # ahead of the role-specific elif chain, so an instructor
+                    # with is_staff=True would always be shown the admin
+                    # dashboard and never their own instructor view.
+                    "is_staff": False,
                     "is_instructor": True,
                     "is_student": False,
                 },
@@ -1123,14 +1384,13 @@ class Command(BaseCommand):
                 "is_published": course_info.get("is_published", False),
                 "default_duration_days": course_info.get("default_duration_days", 30),
             }
-            # price is nullable — only set it when provided
             if course_info.get("price") is not None:
                 course_kwargs["price"] = course_info["price"]
-            # thumbnail is nullable — only set when a path is provided
             if course_info.get("thumbnail"):
                 course_kwargs["thumbnail"] = course_info["thumbnail"]
 
             course = Course.objects.create(**course_kwargs)
+            created_courses.append(course)
 
             # ---- Tags (M2M — must be set after the course has a PK) --------
             course_tag_names = course_info.get("tags", [])
@@ -1147,6 +1407,7 @@ class Command(BaseCommand):
             )
 
             # ---- Modules ---------------------------------------------------
+            first_module_obj = None
             for module_index, module_info in enumerate(course_info["modules"], 1):
                 module = Module.objects.create(
                     course=course,
@@ -1154,6 +1415,8 @@ class Command(BaseCommand):
                     description=module_info["description"],
                     order=module_index,
                 )
+                if module_index == 1:
+                    first_module_obj = module
                 self.stdout.write(f"  Module {module_index}: {module.title}")
 
                 # ---- Lessons -----------------------------------------------
@@ -1188,6 +1451,145 @@ class Command(BaseCommand):
                             f"({content_info.get('duration', 0)} min)"
                         )
 
+            # ---- NEW: Final course quiz -------------------------------------
+            _create_quiz_with_questions(
+                quiz_type='final',
+                title=f"{course.title} Final Assessment",
+                description=f"<p>Final assessment for {course.title}.</p>",
+                pass_percentage=70,
+                max_attempts=3,
+                created_by=instructor_user,
+                question_bank=_final_quiz_question_bank(course.title),
+                course=course,
+            )
+            self.stdout.write(f"  + Final quiz created for '{course.title}'")
+
+            # ---- NEW: Module-level knowledge check on the FIRST module ------
+            if first_module_obj:
+                _create_quiz_with_questions(
+                    quiz_type='module_check',
+                    title=f"{first_module_obj.title} Knowledge Check",
+                    description=f"<p>Quick knowledge check for {first_module_obj.title}.</p>",
+                    pass_percentage=70,
+                    max_attempts=3,
+                    created_by=instructor_user,
+                    question_bank=_module_quiz_question_bank(first_module_obj.title),
+                    module=first_module_obj,
+                )
+                self.stdout.write(f"  + Knowledge check created for module '{first_module_obj.title}'")
+
             self.stdout.write("")  # blank line between courses
 
+        # -------------------------------------------------------------------
+        # STEP 4 — NEW: Enrollments in varied states, so certificate,
+        # reminder, and follow-up email logic all have something to act on.
+        # -------------------------------------------------------------------
+        self.stdout.write("Creating demo enrollments...\n")
+
+        if len(created_courses) >= 2 and len(demo_student_objects) >= 3:
+            course_a, course_b = created_courses[0], created_courses[1]
+            student_1, student_2, student_3 = demo_student_objects[0], demo_student_objects[1], demo_student_objects[2]
+
+            # Self-enrolled, in progress.
+            Enrollment.objects.get_or_create(
+                student=student_1, course=course_a,
+                defaults={"assignment_reason": "self"},
+            )
+            self.stdout.write(f"  Self-enrolled: {student_1.get_full_name()} -> {course_a.title}")
+
+            # Bulk-assigned by HR, due in exactly 7 days (fires the 7-day
+            # reminder task the next time it runs).
+            Enrollment.objects.get_or_create(
+                student=student_2, course=course_a,
+                defaults={
+                    "assignment_reason": "bulk_department",
+                    "assigned_by": hr_user,
+                    "due_date": timezone.now() + timedelta(days=7),
+                },
+            )
+            self.stdout.write(f"  Bulk-assigned: {student_2.get_full_name()} -> {course_a.title} (due in 7 days)")
+
+            # Already completed, ~65 days ago (falls inside the 2-month
+            # follow-up window) with a certificate on file.
+            completed_enrollment, created = Enrollment.objects.get_or_create(
+                student=student_3, course=course_b,
+                defaults={
+                    "assignment_reason": "self",
+                    "completed": True,
+                    "completed_at": timezone.now() - timedelta(days=65),
+                    "has_completed_survey": True,
+                },
+            )
+            if created:
+                Certificate.objects.get_or_create(student=student_3, course=course_b)
+            self.stdout.write(
+                f"  Completed + certificated: {student_3.get_full_name()} -> {course_b.title} (completed 65 days ago)"
+            )
+
+        self.stdout.write("")
+
+        # -------------------------------------------------------------------
+        # STEP 5 — NEW: External training catalog (Microsoft Learn manual
+        # entries + Cisco + Sophos, since only Microsoft Learn has a sync task).
+        # -------------------------------------------------------------------
+        self.stdout.write("Creating external training catalog entries...")
+        for resource_info in EXTERNAL_TRAINING_RESOURCES:
+            resource, created = ExternalTrainingResource.objects.get_or_create(
+                title=resource_info["title"],
+                provider=resource_info["provider"],
+                defaults={
+                    "source": resource_info["source"],
+                    "url": resource_info["url"],
+                    "description": resource_info["description"],
+                    "level": resource_info["level"],
+                    "product_area": resource_info["product_area"],
+                    "added_by": admin_user,
+                    "is_active": True,
+                },
+            )
+            if created:
+                resource.tags.set([tag_objects[name] for name in resource_info["tags"] if name in tag_objects])
+            self.stdout.write(f"  [{'Created' if created else 'Exists'}] {resource.title} ({resource.get_provider_display()})")
+        self.stdout.write("")
+
+        # -------------------------------------------------------------------
+        # STEP 6 — NEW: Instructor-led training assignments, in varied states.
+        # -------------------------------------------------------------------
+        self.stdout.write("Creating instructor training assignments...")
+        first_instructor = User.objects.filter(is_instructor=True).first()
+        if first_instructor:
+            InstructorTraining.objects.get_or_create(
+                instructor=first_instructor,
+                external_title="Microsoft Entra ID Fundamentals",
+                external_url="https://learn.microsoft.com/en-us/training/paths/identity-fundamentals/",
+                defaults={
+                    "assigned_by": admin_user,
+                    "status": "assigned",
+                    "due_date": timezone.now() + timedelta(days=30),
+                },
+            )
+            self.stdout.write(f"  Assigned (pending): {first_instructor.get_full_name()} — Microsoft Entra ID Fundamentals")
+
+            InstructorTraining.objects.get_or_create(
+                instructor=first_instructor,
+                external_title="Cisco Certified Network Associate (CCNA) Overview",
+                external_url="https://www.cisco.com/site/us/en/learn/training-certifications/certifications/enterprise/ccna/index.html",
+                defaults={
+                    "assigned_by": admin_user,
+                    "status": "completed",
+                    "completion_note": "Completed via self-paced study; certificate attached separately.",
+                },
+            )
+            self.stdout.write(f"  Completed: {first_instructor.get_full_name()} — CCNA Overview")
+        self.stdout.write("")
+
         self.stdout.write(self.style.SUCCESS("✅ All LMS seed data created successfully!"))
+        self.stdout.write(
+            self.style.SUCCESS(
+                "\nDemo logins (password: securepass123):\n"
+                f"  Admin: {admin_user.email}\n"
+                f"  HR:    {hr_user.email}\n"
+                f"  Students: {', '.join(s.email for s in demo_student_objects)}\n"
+                f"  Instructors: {', '.join(c['instructor']['email'] for c in course_data)}"
+            )
+        )

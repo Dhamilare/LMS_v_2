@@ -141,6 +141,13 @@
                                 <a href="{% url 'course_create' %}" class="flex items-center p-2 text-sm text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200">
                                     <i class="fa-solid fa-plus-circle fa-fw mr-2"></i> Create new course
                                 </a>
+                                <a href="{% url 'course_create_from_pdf' %}" class="flex items-center p-2 text-sm text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200">
+                                    <i class="fa-solid fa-file-pdf fa-fw mr-2"></i> Generate from PDF
+                                </a>
+                                <!-- NEW: AI-curate an internal course from the external training catalog -->
+                                <a href="{% url 'create_course_from_external_resources' %}" class="flex items-center p-2 text-sm text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200">
+                                    <i class="fa-solid fa-wand-magic-sparkles fa-fw mr-2"></i> Curate from External
+                                </a>
                                 <a href="{% url 'course_list' %}" class="flex items-center p-2 text-sm text-indigo-300 hover:bg-indigo-700 hover:text-white rounded-lg transition-colors duration-200">
                                     <i class="fa-solid fa-edit fa-fw mr-2"></i> Manage courses
                                 </a>
@@ -247,6 +254,12 @@
                         <a href="{% url 'external_training_manage' %}" class="{{ link_class }}">
                             <i class="fa-solid fa-globe fa-fw mr-3 text-lg"></i>
                             <span class="font-medium">External Training</span>
+                        </a>
+
+                        <!-- NEW: admin can also trigger AI course curation from the external catalog -->
+                        <a href="{% url 'create_course_from_external_resources' %}" class="{{ link_class }}">
+                            <i class="fa-solid fa-wand-magic-sparkles fa-fw mr-3 text-lg"></i>
+                            <span class="font-medium">Curate Course (AI)</span>
                         </a>
 
                         <a href="{% url 'admin_ticket_list' %}" class="{{ link_class }}">
