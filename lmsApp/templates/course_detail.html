@@ -320,7 +320,7 @@
                                                             </span>
                                                         {% elif module.lessons_completed %}
                                                             <a href="{% url 'module_quiz_take' module_id=module.id %}" class="bg-indigo-800 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition shadow-xs">
-                                                                Take Knowledge Check
+                                                                Knowledge Check
                                                             </a>
                                                         {% else %}
                                                             <span class="text-xs text-gray-400 font-medium flex items-center gap-1">
@@ -401,6 +401,7 @@
                                     <i class="fas fa-tasks text-indigo-700"></i> Your Progress
                                 </h4>
                                 
+                                {# Progress Bar #}
                                 <div>
                                     <div class="flex justify-between text-xs font-bold text-gray-600 mb-1">
                                         <span>Progress</span>
@@ -411,27 +412,71 @@
                                     </div>
                                 </div>
 
-                                {# Action CTA #}
-                                <div class="space-y-2 pt-2">
+                                {# Step Checklist #}
+                                <ul class="space-y-2 text-xs text-gray-700 border-t border-b border-indigo-100/80 py-3">
+                                    <li class="flex items-center justify-between font-medium {% if enrollment.is_content_completed %}text-emerald-700{% else %}text-gray-600{% endif %}">
+                                        <span class="flex items-center gap-2">
+                                            <i class="fas {% if enrollment.is_content_completed %}fa-check-circle text-emerald-600{% else %}fa-circle-notch text-gray-400{% endif %}"></i>
+                                            1. All Content Completed
+                                        </span>
+                                    </li>
+
+                                    {% if course_quiz %}
+                                        <li class="flex items-center justify-between font-medium {% if has_passed_final_quiz %}text-emerald-700{% elif has_failed_course %}text-rose-700{% else %}text-gray-600{% endif %}">
+                                            <span class="flex items-center gap-2">
+                                                <i class="fas {% if has_passed_final_quiz %}fa-check-circle text-emerald-600{% elif has_failed_course %}fa-times-circle text-rose-600{% else %}fa-circle-notch text-gray-400{% endif %}"></i>
+                                                2. Final Assessment ({{ course_quiz.pass_percentage }}%)
+                                            </span>
+                                        </li>
+                                    {% endif %}
+
+                                    <li class="flex items-center justify-between font-medium {% if enrollment.has_completed_survey %}text-emerald-700{% else %}text-gray-600{% endif %}">
+                                        <span class="flex items-center gap-2">
+                                            <i class="fas {% if enrollment.has_completed_survey %}fa-check-circle text-emerald-600{% else %}fa-circle-notch text-gray-400{% endif %}"></i>
+                                            {% if course_quiz %}3{% else %}2{% endif %}. Course Evaluation Form
+                                        </span>
+                                    </li>
+                                </ul>
+
+                                {# Action CTA Buttons #}
+                                <div class="space-y-2 pt-1">
                                     {% if enrollment.has_certificate %}
                                         <div class="bg-emerald-100 text-emerald-800 font-bold p-2.5 rounded-lg text-xs text-center flex items-center justify-center gap-1">
-                                            <i class="fas fa-medal"></i> Certificate Claimed
+                                            <i class="fas fa-medal text-emerald-600"></i> Certificate Claimed
                                         </div>
+
                                     {% elif enrollment.can_claim_certificate %}
                                         <button onclick="showConfirmationModal('{% url 'issue_certificate' course_slug=course.slug %}', 'Claim Certificate', 'Issue your certificate now?')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-lg text-xs transition shadow flex items-center justify-center gap-1">
                                             <i class="fas fa-medal"></i> Claim Certificate
                                         </button>
+
+                                    {% elif has_failed_course %}
+                                        <div class="bg-rose-100 text-rose-800 font-bold p-2.5 rounded-lg text-xs text-center border border-rose-200 flex items-center justify-center gap-1">
+                                            <i class="fas fa-times-circle text-rose-600"></i> Final Assessment Failed (Max Attempts)
+                                        </div>
+
                                     {% elif has_passed_final_quiz and enrollment.is_content_completed and not enrollment.has_completed_survey %}
                                         <a href="{% url 'course_evaluation' course_slug=course.slug %}" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-3 rounded-lg text-xs transition shadow flex items-center justify-center gap-1 block text-center">
-                                            <i class="fas fa-clipboard-list"></i> Course Survey Required
+                                            <i class="fas fa-clipboard-list"></i> Course Survey (Required)
                                         </a>
+
                                     {% elif course_quiz and enrollment.is_content_completed %}
                                         <a href="{% url 'quiz_take' course_slug=course.slug %}" class="w-full bg-indigo-800 hover:bg-indigo-700 text-white font-bold py-2.5 px-3 rounded-lg text-xs transition shadow flex items-center justify-center gap-1 block text-center">
-                                            <i class="fas fa-play"></i> Start Assessment
+                                            <i class="fas fa-play"></i> Start Final Assessment
                                         </a>
+
+                                    {% elif not course_quiz and enrollment.is_content_completed and not enrollment.has_completed_survey %}
+                                        <a href="{% url 'course_evaluation' course_slug=course.slug %}" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-3 rounded-lg text-xs transition shadow flex items-center justify-center gap-1 block text-center">
+                                            <i class="fas fa-clipboard-list"></i> Course Survey (Required)
+                                        </a>
+
+                                    {% else %}
+                                        <div class="bg-gray-100 text-gray-500 font-medium p-2.5 rounded-lg text-xs text-center border border-gray-200 flex items-center justify-center gap-1">
+                                            <i class="fas fa-lock"></i> Complete lessons to unlock
+                                        </div>
                                     {% endif %}
 
-                                    {# --- RESTORED: VIEW COURSE TRANSCRIPT LINK --- #}
+                                    {# Course Transcript Link #}
                                     {% if course_quiz %}
                                         <a href="{% url 'course_transcript' course_slug=course.slug %}" class="w-full bg-white hover:bg-gray-50 text-gray-700 font-bold py-2.5 px-3 rounded-lg text-xs transition border border-gray-300 flex items-center justify-center gap-1.5 shadow-2xs">
                                             <i class="fas fa-file-invoice text-indigo-700"></i> View Course Transcript
