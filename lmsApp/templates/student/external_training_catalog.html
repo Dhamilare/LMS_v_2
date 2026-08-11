@@ -13,31 +13,84 @@
         </h2>
         <p class="text-gray-500 mb-6">Curated training from Microsoft Learn, Cisco, Sophos, and other providers. Mark a resource complete once you've finished it — an admin will verify it.</p>
 
-        <!-- Search Bar -->
-        <form method="get" action="" class="mb-8 flex flex-col sm:flex-row gap-3">
-            <div class="relative flex-1">
-                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                    <i class="fas fa-search"></i>
+        <!-- Search & Filter Controls -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-8">
+            <form method="get" action="" class="space-y-4">
+                <!-- Search & Dropdowns Row -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                    
+                    <!-- Search Input -->
+                    <div class="relative md:col-span-5">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <input type="text" 
+                               name="q" 
+                               value="{{ search_query }}" 
+                               placeholder="Search title, description..." 
+                               class="block w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                    </div>
+
+                    <!-- Workload Dropdown -->
+                    <div class="md:col-span-3">
+                        <select name="workload" 
+                                onchange="this.form.submit()"
+                                class="block w-full py-2.5 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                            <option value="">All Workloads / Topics</option>
+                            {% for w in workloads %}
+                                <option value="{{ w }}" {% if selected_workload == w %}selected{% endif %}>{{ w }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Provider Dropdown -->
+                    <div class="md:col-span-2">
+                        <select name="provider" 
+                                onchange="this.form.submit()"
+                                class="block w-full py-2.5 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                            <option value="">All Providers</option>
+                            {% for code, name in providers %}
+                                <option value="{{ code }}" {% if selected_provider == code %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="md:col-span-2 flex gap-2">
+                        <button type="submit" 
+                                class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg text-sm transition duration-200 shadow-sm flex items-center justify-center gap-2">
+                            <i class="fas fa-filter text-xs"></i> Filter
+                        </button>
+                        {% if search_query or selected_workload or selected_provider %}
+                            <a href="{% url 'external_training_catalog' %}" 
+                               title="Clear Filters"
+                               class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium py-2.5 px-3 rounded-lg text-sm transition duration-200 flex items-center justify-center">
+                                <i class="fas fa-times"></i>
+                            </a>
+                        {% endif %}
+                    </div>
                 </div>
-                <input type="text" 
-                       name="q" 
-                       value="{{ search_query }}" 
-                       placeholder="Search resources by title, description, or provider..." 
-                       class="block w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition duration-150">
-            </div>
-            <div class="flex gap-2">
-                <button type="submit" 
-                        class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-5 rounded-lg text-sm transition duration-200 shadow-sm flex items-center justify-center gap-2">
-                    <i class="fas fa-search"></i> Search
-                </button>
-                {% if search_query %}
-                    <a href="{% url 'external_training_catalog' %}" 
-                       class="w-full sm:w-auto bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 px-4 rounded-lg text-sm transition duration-200 flex items-center justify-center gap-2 shadow-sm">
-                        <i class="fas fa-times text-gray-400"></i> Clear
-                    </a>
-                {% endif %}
-            </div>
-        </form>
+
+                <!-- Quick Workload Badges (Horizontal scroll on mobile) -->
+                <div class="pt-2 border-t border-gray-100">
+                    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Quick Workload Filters:</span>
+                    <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                        <a href="?{% if search_query %}q={{ search_query }}&{% endif %}{% if selected_provider %}provider={{ selected_provider }}&{% endif %}"
+                           class="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors duration-150
+                                  {% if not selected_workload %}bg-indigo-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+                            All
+                        </a>
+                        {% for w in workloads %}
+                            <a href="?workload={{ w }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_provider %}&provider={{ selected_provider }}{% endif %}"
+                               class="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors duration-150
+                                      {% if selected_workload == w %}bg-indigo-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+                                {{ w }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </form>
+        </div>
 
         {% if resources %}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -94,7 +147,7 @@
                     <!-- Mobile Pagination Buttons -->
                     <div class="flex-1 flex justify-between sm:hidden">
                         {% if resources.has_previous %}
-                            <a href="?page={{ resources.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            <a href="?page={{ resources.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_workload %}&workload={{ selected_workload }}{% endif %}{% if selected_provider %}&provider={{ selected_provider }}{% endif %}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                                 Previous
                             </a>
                         {% else %}
@@ -104,7 +157,7 @@
                         {% endif %}
 
                         {% if resources.has_next %}
-                            <a href="?page={{ resources.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            <a href="?page={{ resources.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_workload %}&workload={{ selected_workload }}{% endif %}{% if selected_provider %}&provider={{ selected_provider }}{% endif %}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                                 Next
                             </a>
                         {% else %}
@@ -131,7 +184,7 @@
                             <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                                 <!-- Previous Page -->
                                 {% if resources.has_previous %}
-                                    <a href="?page={{ resources.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                    <a href="?page={{ resources.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_workload %}&workload={{ selected_workload }}{% endif %}{% if selected_provider %}&provider={{ selected_provider }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                                         <span class="sr-only">Previous</span>
                                         <i class="fas fa-chevron-left h-4 w-4 flex items-center justify-center"></i>
                                     </a>
@@ -148,7 +201,7 @@
                                             {{ num }}
                                         </span>
                                     {% elif num > resources.number|add:'-3' and num < resources.number|add:'3' %}
-                                        <a href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}" class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                        <a href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_workload %}&workload={{ selected_workload }}{% endif %}{% if selected_provider %}&provider={{ selected_provider }}{% endif %}" class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
                                             {{ num }}
                                         </a>
                                     {% endif %}
@@ -156,7 +209,7 @@
 
                                 <!-- Next Page -->
                                 {% if resources.has_next %}
-                                    <a href="?page={{ resources.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                    <a href="?page={{ resources.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_workload %}&workload={{ selected_workload }}{% endif %}{% if selected_provider %}&provider={{ selected_provider }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                                         <span class="sr-only">Next</span>
                                         <i class="fas fa-chevron-right h-4 w-4 flex items-center justify-center"></i>
                                     </a>
@@ -174,10 +227,10 @@
         {% else %}
             <div class="text-center py-14 bg-white rounded-xl shadow-sm border border-gray-200">
                 <i class="fas fa-box-open text-4xl text-gray-300 mb-3"></i>
-                {% if search_query %}
-                    <p class="text-gray-600 text-lg">No external training resources found matching "<span class="font-semibold text-gray-900">{{ search_query }}</span>".</p>
-                    <a href="{% url 'external_training_catalog' %}" class="inline-flex items-center mt-4 px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition duration-200">
-                        Clear search
+                {% if search_query or selected_workload or selected_provider %}
+                    <p class="text-gray-600 text-lg mb-2">No external training resources found matching your active filters.</p>
+                    <a href="{% url 'external_training_catalog' %}" class="inline-flex items-center mt-2 px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition duration-200">
+                        Clear all filters
                     </a>
                 {% else %}
                     <p class="text-gray-600 text-lg">No external training resources are available yet.</p>

@@ -3643,8 +3643,13 @@ def admin_training_review(request):
 @user_passes_test(is_student)
 def external_training_catalog(request):
     resource_list = ExternalTrainingResource.objects.filter(is_active=True).order_by('title')
-    
+
+    # Get query parameters
     search_query = request.GET.get('q', '').strip()
+    selected_workload = request.GET.get('workload', '').strip()
+    selected_provider = request.GET.get('provider', '').strip()
+
+    # Search filter
     if search_query:
         resource_list = resource_list.filter(
             Q(title__icontains=search_query) |
@@ -3652,9 +3657,88 @@ def external_training_catalog(request):
             Q(provider__icontains=search_query)
         )
 
+    # Workload / Topic filter
+    if selected_workload:
+        try:
+            resource_list = resource_list.filter(
+                Q(workload__iexact=selected_workload) |
+                Q(title__icontains=selected_workload) |
+                Q(description__icontains=selected_workload)
+            )
+        except Exception:
+            resource_list = resource_list.filter(
+                Q(title__icontains=selected_workload) |
+                Q(description__icontains=selected_workload)
+            )
+
+    # Provider filter
+    if selected_provider:
+        resource_list = resource_list.filter(provider__iexact=selected_provider)
+
+    # Populate workload options (combining dynamic distinct values if field exists + standard Microsoft workloads)
+    default_workloads = [
+    'AI & Machine Learning',
+    'Azure',
+    'Cloud Computing',
+    'Cloud Infrastructure',
+    'Cybersecurity',
+    'Data',
+    'Data Analytics',
+    'Data Engineering',
+    'Databases',
+    'Development',
+    'DevOps',
+    'DevSecOps',
+    'GitHub',
+    'Copilot',
+    'Identity',
+    'Microsoft 365',
+    'Microsoft Entra',
+    'Endpoint Management',
+    'Networking',
+    'Infrastructure',
+    'Windows',
+    'Windows Server',
+    'Containers',
+    'Kubernetes',
+    'Automation',
+    'Monitoring',
+    'Storage',
+    'Architecture',
+    'Governance',
+    'Compliance',
+    'Privacy',
+    'Integration',
+    'Power Platform',
+    'Business Applications',
+    'Internet of Things',
+    'Site Reliability Engineering',
+    'Security',
+    ]
+    
+    try:
+        db_workloads = list(
+            ExternalTrainingResource.objects.filter(is_active=True)
+            .exclude(workload__isnull=True).exclude(workload__exact='')
+            .values_list('workload', flat=True).distinct()
+        )
+        workloads = sorted(list(set(default_workloads + db_workloads)))
+    except Exception:
+        workloads = default_workloads
+
+    # Populate provider options
+    providers = [
+        ('ms_learn', 'Microsoft Learn'),
+        ('cisco', 'Cisco'),
+        ('sophos', 'Sophos'),
+        ('coursera', 'Coursera'),
+        ('other', 'Other'),
+    ]
+
+    # Pagination
     paginator = Paginator(resource_list, 12)
     page_number = request.GET.get('page')
-    
+
     try:
         resources = paginator.page(page_number)
     except PageNotAnInteger:
@@ -3666,11 +3750,15 @@ def external_training_catalog(request):
         ExternalTrainingCompletion.objects.filter(student=request.user)
         .values_list('resource_id', flat=True)
     )
-    
+
     context = {
         'resources': resources,
         'completed_ids': completed_ids,
         'search_query': search_query,
+        'selected_workload': selected_workload,
+        'selected_provider': selected_provider,
+        'workloads': workloads,
+        'providers': providers,
     }
     return render(request, 'student/external_training_catalog.html', context)
  
