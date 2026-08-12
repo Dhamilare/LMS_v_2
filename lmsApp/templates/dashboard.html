@@ -37,7 +37,7 @@
 
             {# Role Specific Header Action Shortcut #}
             <div class="flex items-center gap-3">
-                {% if is_admin or is_instructor %}
+                {% if is_instructor %}
                     <a href="{% url 'course_create' %}" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-md flex items-center gap-2">
                         <i class="fas fa-plus-circle"></i> Create Course
                     </a>

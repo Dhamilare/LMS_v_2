@@ -2,212 +2,280 @@
 {% load static %}
 {% load custom_filters %}
 
-{% block title %}HR Appraisal Dashboard{% endblock %}
+{% block title %}HR Appraisal & L&D Performance Dashboard | Ha-Shem LMS{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 sm:p-10 rounded-xl shadow-2xl shadow-indigo-100 max-w-7xl mx-auto my-6 sm:my-8 border border-gray-100">
-    
-    {# --- HEADER --- #}
-    <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-2 flex items-center">
-        <i class="fas fa-chart-bar mr-3 text-indigo-600"></i> HR L&D Performance Dashboard
-    </h2>
-    <p class="text-gray-600 text-lg mb-8 border-b pb-4">Track, filter, and analyze employee learning completion data for performance appraisal reviews.</p>
+<div class="-mx-6 -mt-6 md:-mx-8 md:-mt-8 bg-gray-100 min-h-screen pb-16">
 
-    {# ========================================================================= #}
-    {# 1. KPI Summary Cards #}
-    {# ========================================================================= #}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        
-        {# Card 1: Total Enrollments #}
-        <div class="bg-indigo-600 p-5 rounded-xl shadow-lg border-b-4 border-indigo-800 text-white transform hover:scale-[1.02] transition duration-300">
-            <p class="text-sm opacity-80 uppercase tracking-wider">Total Enrollments</p>
-            <h3 class="text-3xl font-bold mt-2 flex items-center">
-                <i class="fas fa-users mr-3 opacity-70"></i> {{ stats.total }}
-            </h3>
-        </div>
+    {# --- HERO BANNER & BREADCRUMBS --- #}
+    <div class="bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-800 text-white py-8 px-6 sm:px-10 border-b border-indigo-950 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            
+            <div class="space-y-2">
+                {# Breadcrumb Navigation Path #}
+                <nav class="flex items-center gap-2 text-xs text-indigo-200 font-medium">
+                    <a href="{% url 'dashboard' %}" class="hover:text-white transition">Dashboard</a>
+                    <i class="fas fa-chevron-right text-[10px] text-indigo-400"></i>
+                    <span class="text-white font-semibold">HR Appraisal Review</span>
+                </nav>
 
-        {# Card 2: Completed Enrollments #}
-        <div class="bg-green-600 p-5 rounded-xl shadow-lg border-b-4 border-green-800 text-white transform hover:scale-[1.02] transition duration-300">
-            <p class="text-sm opacity-80 uppercase tracking-wider">Completed Courses</p>
-            <h3 class="text-3xl font-bold mt-2 flex items-center">
-                <i class="fas fa-check-double mr-3 opacity-70"></i> {{ stats.completed }}
-            </h3>
-        </div>
-
-        {# Card 3: In Progress #}
-        <div class="bg-yellow-500 p-5 rounded-xl shadow-lg border-b-4 border-yellow-700 text-white transform hover:scale-[1.02] transition duration-300">
-            <p class="text-sm opacity-80 uppercase tracking-wider">In Progress</p>
-            <h3 class="text-3xl font-bold mt-2 flex items-center">
-                <i class="fas fa-hourglass-half mr-3 opacity-70"></i> {{ stats.in_progress }}
-            </h3>
-        </div>
-
-        {# Card 4: Average Completion Rate #}
-        <div class="bg-blue-600 p-5 rounded-xl shadow-lg border-b-4 border-blue-800 text-white transform hover:scale-[1.02] transition duration-300">
-            <p class="text-sm opacity-80 uppercase tracking-wider">Avg. Completion Rate</p>
-            <h3 class="text-3xl font-bold mt-2 flex items-center">
-                <i class="fas fa-percentage mr-3 opacity-70"></i> {{ stats.average_completion }}%
-            </h3>
-        </div>
-    </div>
-    
-    {# ========================================================================= #}
-    {# 2. Chart Breakdown & Advanced Filter (Two-Column Layout) #}
-    {# ========================================================================= #}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
-        
-        {# Chart Column (2/3 width on large screens) #}
-        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-            <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                <i class="fas fa-chart-pie mr-2 text-indigo-500"></i> Completion Rate by Department
-            </h3>
-            <div class="w-full h-96 flex items-center justify-center">
-                <canvas id="dept-completion-chart"></canvas>
+                <div class="flex items-center gap-3 pt-1">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-800/80 border border-indigo-600/50 flex items-center justify-center text-indigo-300 text-2xl shadow-inner flex-shrink-0">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                            HR L&D Performance Dashboard
+                        </h1>
+                        <p class="text-xs sm:text-sm text-indigo-200 mt-0.5">
+                            Track employee training completion, analyze department metrics, and review appraisal logs.
+                        </p>
+                    </div>
+                </div>
             </div>
-            {{ chart_data|json_script:"hr_chart_data" }}
-        </div>
 
-        {# Advanced Filter Column (1/3 width on large screens) #}
-        <div class="lg:col-span-1">
-            <form method="GET" action="{% url 'hr_appraisal_dashboard' %}" class="bg-gray-100 p-6 rounded-xl shadow-inner space-y-5 border border-gray-200 sticky top-4">
-                <h3 class="text-lg font-bold text-gray-800 flex items-center"><i class="fas fa-funnel-dollar mr-2 text-indigo-600"></i> Data Filters</h3>
+            {# Export CSV Action Shortcut #}
+            <a href="?export=csv&{{ request.GET.urlencode }}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-md flex items-center gap-2 self-start sm:self-center">
+                <i class="fas fa-file-excel text-base"></i> Export Data (CSV)
+            </a>
 
-                {# Search Query #}
-                <div>
-                    <label for="id_q" class="block text-sm font-medium text-gray-700">Student/Course Search</label>
-                    <input type="search" name="q" id="id_q" value="{{ search_query }}"
-                           class="mt-1 block w-full p-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                           placeholder="Name, Email, or Course Title">
-                </div>
-
-                {# Status Filter #}
-                <div>
-                    <label for="id_status" class="block text-sm font-medium text-gray-700">Completion Status</label>
-                    <select name="status" id="id_status" class="mt-1 block w-full p-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="">All Statuses</option>
-                        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
-                        <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>In Progress</option>
-                    </select>
-                </div>
-
-                {# Department Filter #}
-                <div>
-                    <label for="id_department" class="block text-sm font-medium text-gray-700">Student's Department</label>
-                    <select name="department" id="id_department" class="mt-1 block w-full p-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="">All Departments</option>
-                        {% for dept in department_choices %}
-                            <option value="{{ dept }}" {% if department_filter == dept %}selected{% endif %}>{{ dept }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                {# Instructor Filter #}
-                <div>
-                    <label for="id_instructor" class="block text-sm font-medium text-gray-700">Course Instructor</label>
-                    <select name="instructor" id="id_instructor" class="mt-1 block w-full p-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="">All Instructors</option>
-                        {% for instructor in instructor_choices %}
-                            <option value="{{ instructor.pk }}" {% if instructor_filter|slugify == instructor.pk|slugify %}selected{% endif %}>{{ instructor.get_full_name|default:instructor.email }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="flex flex-col space-y-3 pt-3">
-                    <button type="submit" class="bg-indigo-600 text-white py-2.5 px-4 rounded-full hover:bg-indigo-700 transition duration-200 font-semibold shadow-md flex items-center justify-center">
-                        <i class="fas fa-filter mr-2"></i> Apply Filters
-                    </button>
-                    <a href="?export=csv&{{ request.GET.urlencode }}" class="bg-green-600 text-white py-2.5 px-4 rounded-full hover:bg-green-700 transition duration-200 font-semibold shadow-md flex items-center justify-center">
-                        <i class="fas fa-file-excel mr-2"></i> Export Data (CSV)
-                    </a>
-                    <a href="{% url 'hr_appraisal_dashboard' %}" class="bg-gray-300 text-gray-800 py-2.5 px-4 rounded-full hover:bg-gray-400 transition duration-200 font-medium flex items-center justify-center">
-                        <i class="fas fa-redo mr-2"></i> Clear Filters
-                    </a>
-                </div>
-            </form>
         </div>
     </div>
-    
-    {# ========================================================================= #}
-    {# 3. Results Table #}
-    {# ========================================================================= #}
-    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-        <i class="fas fa-table mr-2 text-indigo-500"></i> Detailed Enrollment Records
-    </h3>
-    
-    <div class="overflow-x-auto rounded-xl shadow-xl border border-gray-200">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Student Name</th>
-                    <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Course Title</th>
-                    <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Instructor</th>
-                    <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Dept.</th>
-                    <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Progress</th>
-                    <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
-                    <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Enrolled On</th>
-                    <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Completed On</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for enrollment in page_obj %}
-                <tr class="hover:bg-indigo-50 transition duration-150">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {{ enrollment.student.get_full_name|default:enrollment.student.email }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                        {{ enrollment.course.title }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {{ enrollment.course.instructor.get_full_name|default:enrollment.course.instructor.email }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {{ enrollment.student.department|default:"N/A" }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
-                        <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div class="h-2.5 rounded-full transition-all duration-300 
-                                {% if enrollment.completed %}bg-green-600{% else %}bg-indigo-600{% endif %}" 
-                                style="width: {{ enrollment.progress_perc }}%;">
-                            </div>
-                        </div>
-                        <span class="text-xs text-gray-500 mt-1 block font-semibold">{{ enrollment.progress_perc|floatformat:0 }}%</span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
-                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full 
-                            {% if enrollment.completed %}bg-green-100 text-green-800{% else %}bg-indigo-100 text-indigo-800{% endif %}">
-                            {% if enrollment.completed %}Completed{% else %}In Progress{% endif %}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center">
-                        {{ enrollment.enrolled_at|date:"M d, Y" }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center">
-                        {% if enrollment.completed_at %}
-                            {{ enrollment.completed_at|date:"M d, Y" }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8" class="px-6 py-12 text-center text-xl text-gray-500 bg-gray-50">
-                        <i class="fas fa-search-minus mb-2 block text-2xl"></i>
-                        No enrollment data found matching your current filters.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
 
-    {% if page_obj.has_other_pages %}
-        <div class="mt-8 flex justify-center">
-            {% include 'includes/pagination.html' with page_obj=page_obj page_param='page' %}
+    {# --- MAIN BODY CONTAINER --- #}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+
+        {# 1. KPI SUMMARY STAT CARDS #}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {# Card 1: Total Enrollments #}
+            <div class="bg-white p-6 rounded-2xl border-l-4 border-l-indigo-600 border border-gray-200 shadow-xs flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-gray-500">Total Enrollments</p>
+                    <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ stats.total }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>
+
+            {# Card 2: Completed Courses #}
+            <div class="bg-white p-6 rounded-2xl border-l-4 border-l-emerald-600 border border-gray-200 shadow-xs flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-gray-500">Completed Courses</p>
+                    <p class="text-3xl font-extrabold text-emerald-700 mt-1">{{ stats.completed }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                    <i class="fas fa-check-double"></i>
+                </div>
+            </div>
+
+            {# Card 3: In Progress #}
+            <div class="bg-white p-6 rounded-2xl border-l-4 border-l-amber-500 border border-gray-200 shadow-xs flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-gray-500">In Progress</p>
+                    <p class="text-3xl font-extrabold text-amber-700 mt-1">{{ stats.in_progress }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                    <i class="fas fa-hourglass-half"></i>
+                </div>
+            </div>
+
+            {# Card 4: Avg Completion Rate #}
+            <div class="bg-white p-6 rounded-2xl border-l-4 border-l-blue-600 border border-gray-200 shadow-xs flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-gray-500">Avg. Completion Rate</p>
+                    <p class="text-3xl font-extrabold text-blue-700 mt-1">{{ stats.average_completion }}%</p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                    <i class="fas fa-percentage"></i>
+                </div>
+            </div>
+
         </div>
-    {% endif %}
+
+        {# 2. CHART BREAKDOWN & ADVANCED FILTER (TWO-COLUMN GRID) #}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            {# Chart Column (8 Cols) #}
+            <div class="lg:col-span-8 bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
+                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <h3 class="font-bold text-gray-900 text-sm flex items-center gap-2">
+                        <i class="fas fa-chart-pie text-indigo-700"></i> Department Completion Rates
+                    </h3>
+                    <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2.5 py-0.5 rounded-full border border-indigo-100">Live Breakdown</span>
+                </div>
+
+                <div class="w-full h-80 flex items-center justify-center">
+                    <canvas id="dept-completion-chart"></canvas>
+                </div>
+                {{ chart_data|json_script:"hr_chart_data" }}
+            </div>
+
+            {# Advanced Filter Sidebar Column (4 Cols) #}
+            <div class="lg:col-span-4">
+                <form method="GET" action="{% url 'hr_appraisal_dashboard' %}" class="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4 sticky top-20">
+                    <div class="border-b border-gray-100 pb-3">
+                        <h3 class="text-sm font-bold text-gray-900 flex items-center gap-2">
+                            <i class="fas fa-filter text-indigo-700"></i> Advanced Data Filters
+                        </h3>
+                        <p class="text-[11px] text-gray-500 mt-0.5">Filter records by department, status, or instructor.</p>
+                    </div>
+
+                    {# Search Input #}
+                    <div class="space-y-1">
+                        <label for="id_q" class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">Search Query</label>
+                        <input type="search" name="q" id="id_q" value="{{ search_query }}"
+                               class="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                               placeholder="Student name, email, or course...">
+                    </div>
+
+                    {# Completion Status Filter #}
+                    <div class="space-y-1">
+                        <label for="id_status" class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">Completion Status</label>
+                        <select name="status" id="id_status" class="w-full p-2.5 border border-gray-300 rounded-xl text-xs text-gray-700 focus:ring-2 focus:ring-indigo-600 focus:outline-none">
+                            <option value="">All Completion Statuses</option>
+                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+                            <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>In Progress</option>
+                        </select>
+                    </div>
+
+                    {# Department Filter #}
+                    <div class="space-y-1">
+                        <label for="id_department" class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">Student Department</label>
+                        <select name="department" id="id_department" class="w-full p-2.5 border border-gray-300 rounded-xl text-xs text-gray-700 focus:ring-2 focus:ring-indigo-600 focus:outline-none">
+                            <option value="">All Departments</option>
+                            {% for dept in department_choices %}
+                                <option value="{{ dept }}" {% if department_filter == dept %}selected{% endif %}>{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    {# Instructor Filter #}
+                    <div class="space-y-1">
+                        <label for="id_instructor" class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">Course Instructor</label>
+                        <select name="instructor" id="id_instructor" class="w-full p-2.5 border border-gray-300 rounded-xl text-xs text-gray-700 focus:ring-2 focus:ring-indigo-600 focus:outline-none">
+                            <option value="">All Instructors</option>
+                            {% for instructor in instructor_choices %}
+                                <option value="{{ instructor.pk }}" {% if instructor_filter|slugify == instructor.pk|slugify %}selected{% endif %}>{{ instructor.get_full_name|default:instructor.email }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    {# Form Action Buttons #}
+                    <div class="space-y-2 pt-2">
+                        <button type="submit" class="w-full bg-indigo-800 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl transition text-xs flex items-center justify-center gap-1.5 shadow-xs">
+                            <i class="fas fa-filter"></i> Apply Filters
+                        </button>
+                        
+                        <a href="?export=csv&{{ request.GET.urlencode }}" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl transition text-xs flex items-center justify-center gap-1.5 shadow-xs">
+                            <i class="fas fa-file-excel"></i> Export CSV Data
+                        </a>
+
+                        <a href="{% url 'hr_appraisal_dashboard' %}" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-xl transition text-xs text-center border border-gray-300 block">
+                            Clear Filters
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+        
+        {# 3. RESULTS TABLE #}
+        <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-6">
+            
+            <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                <h3 class="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <i class="fas fa-table text-indigo-700"></i> Detailed Enrollment Records
+                </h3>
+                <span class="text-xs text-gray-500 font-medium">
+                    Showing {{ page_obj.object_list|length }} record{% if page_obj.object_list|length != 1 %}s{% endif %}
+                </span>
+            </div>
+            
+            <div class="rounded-xl border border-gray-200 overflow-hidden shadow-xs">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-left text-xs">
+                        <thead class="bg-slate-900 text-white font-bold uppercase tracking-wider text-[11px]">
+                            <tr>
+                                <th class="px-4 py-3.5">Student Name</th>
+                                <th class="px-4 py-3.5">Course Title</th>
+                                <th class="px-4 py-3.5">Instructor</th>
+                                <th class="px-4 py-3.5">Department</th>
+                                <th class="px-4 py-3.5">Progress</th>
+                                <th class="px-4 py-3.5">Status</th>
+                                <th class="px-4 py-3.5">Enrolled Date</th>
+                                <th class="px-4 py-3.5">Completed Date</th>
+                                <th class="px-4 py-3.5 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 bg-white text-gray-700">
+                            {% for enrollment in page_obj %}
+                                <tr class="hover:bg-indigo-50/40 transition">
+                                    <td class="px-4 py-3 font-bold text-gray-900">
+                                        {{ enrollment.student.get_full_name|default:enrollment.student.email }}
+                                    </td>
+                                    <td class="px-4 py-3 font-semibold text-gray-800">
+                                        {{ enrollment.course.title }}
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-600">
+                                        {{ enrollment.course.instructor.get_full_name|default:enrollment.course.instructor.email }}
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-600">
+                                        {{ enrollment.student.department|default:"N/A" }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-16 bg-gray-100 rounded-full h-2 overflow-hidden border border-gray-200">
+                                                <div class="h-2 rounded-full transition-all duration-300 {% if enrollment.completed %}bg-emerald-600{% else %}bg-indigo-600{% endif %}" style="width: {{ enrollment.progress_perc }}%;"></div>
+                                            </div>
+                                            <span class="font-semibold text-gray-600 text-[11px]">{{ enrollment.progress_perc|floatformat:0 }}%</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {% if enrollment.completed %}
+                                            <span class="bg-emerald-100 text-emerald-800 font-bold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full">Completed</span>
+                                        {% else %}
+                                            <span class="bg-indigo-100 text-indigo-800 font-bold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full">In Progress</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-500">{{ enrollment.enrolled_at|date:"M d, Y" }}</td>
+                                    <td class="px-4 py-3 text-gray-500">
+                                        {% if enrollment.completed_at %}
+                                            {{ enrollment.completed_at|date:"M d, Y" }}
+                                        {% else %}
+                                            <span class="text-gray-400">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-3 text-right">
+                                        <a href="{% url 'training_record_for_user' user_id=enrollment.student.id %}" class="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg transition border border-indigo-200 text-xs">
+                                            <i class="fas fa-id-card-clip text-indigo-600"></i> Record
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="9" class="px-4 py-8 text-center text-xs text-gray-500 italic bg-gray-50">
+                                        No enrollment records match your active search filters.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {# PAGINATION CONTROLS #}
+            {% if page_obj.has_other_pages %}
+                <div class="flex justify-center pt-2">
+                    {% include 'includes/pagination.html' with page_obj=page_obj page_param='page' %}
+                </div>
+            {% endif %}
+
+        </div>
+
+    </div>
 </div>
-
 {% endblock %}
 
 {% block extra_scripts %}
@@ -224,17 +292,15 @@
         const labels = data.labels;
         const percentages = data.percentages;
 
-        // Fix 2: Determine background colors dynamically based on percentage success threshold
-        // Using Tailwind color palette
         const colors = percentages.map(p => {
             if(p < 50) return 'rgba(239, 68, 68, 0.9)'; // Red-500
-            else if(p < 80) return 'rgba(251, 191, 36, 0.9)'; // Yellow-500
-            else return 'rgba(16, 185, 129, 0.9)'; // Green-500
+            else if(p < 80) return 'rgba(245, 158, 11, 0.9)'; // Amber-500
+            else return 'rgba(16, 185, 129, 0.9)'; // Emerald-500
         });
 
         const borderColors = percentages.map(p => {
             if(p < 50) return 'rgb(239, 68, 68)';
-            else if(p < 80) return 'rgb(251, 191, 36)';
+            else if(p < 80) return 'rgb(245, 158, 11)';
             else return 'rgb(16, 185, 129)';
         });
     
@@ -250,11 +316,11 @@
                     backgroundColor: colors, 
                     borderColor: borderColors,
                     borderWidth: 1,
-                    borderRadius: 4, // Added rounded bars for modern look
+                    borderRadius: 4,
                 }]
             },
             options: {
-                indexAxis: 'y', // Horizontal bars
+                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
@@ -262,18 +328,21 @@
                         beginAtZero: true,
                         max: 100,
                         grid: {
-                            drawOnChartArea: false // Cleaner look
+                            drawOnChartArea: false
                         },
                         title: {
                             display: true,
                             text: 'Completion Rate (%)',
-                            font: { weight: 'bold' }
+                            font: { weight: 'bold', size: 11 }
                         }
                     },
                     y: {
                         grid: {
-                            color: 'rgba(0, 0, 0, 0.05)' // Light horizontal lines
+                            color: 'rgba(0, 0, 0, 0.05)'
                         },
+                        ticks: {
+                            font: { size: 11 }
+                        }
                     }
                 },
                 plugins: {
@@ -281,9 +350,9 @@
                         display: false,
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                        titleFont: { weight: 'bold' },
-                        bodyFont: { weight: 'bold' },
+                        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                        titleFont: { weight: 'bold', size: 12 },
+                        bodyFont: { weight: 'bold', size: 12 },
                         callbacks: {
                             label: function(context) {
                                 return ` ${context.raw.toFixed(1)}% Completed`;
