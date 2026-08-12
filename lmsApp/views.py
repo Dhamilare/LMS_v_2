@@ -11,6 +11,7 @@ from django.db.models.functions import Coalesce
 from django.urls import reverse
 from .forms import *
 from .models import *
+import html
 from google import genai
 from google.genai import types
 from io import BytesIO
@@ -287,6 +288,15 @@ def send_completion_email_to_hr(request, enrollment):
                 email_context
             )
 
+
+def strip_html_tags(text):
+    if not text:
+        return ""
+    # Strip HTML tags
+    clean = re.sub(r'<[^>]+>', ' ', text)
+    clean = html.unescape(clean)
+    clean = re.sub(r'\s+', ' ', clean).strip()
+    return clean
 
 @login_required
 def preference_setup_view(request):
@@ -3335,31 +3345,47 @@ def ai_content_summary(request, content_id):
     is_owner = course.instructor_id == request.user.id
     is_enrolled = course.enrollments.filter(student=request.user).exists()
 
-    if not (is_owner or is_enrolled or request.user.is_superuser):
-        return JsonResponse({'success': False, 'error': 'Not authorized for this content.'}, status=403)
+    if not (is_owner or is_enrolled or request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'success': False, 'error': 'Not authorized to view this content.'}, status=403)
 
-    raw_text = (request.POST.get('text') or content.text_content or '').strip()
-    if len(raw_text) < 50:
-        return JsonResponse({'success': False, 'error': 'Content too short for AI summary.'}, status=400)
+    # Get raw input text and clean HTML tags
+    input_text = request.POST.get('text') or content.text_content or ''
+    cleaned_text = strip_html_tags(input_text)
 
-    raw_text = raw_text[:20000]
+    if len(cleaned_text) < 50:
+        return JsonResponse({'success': False, 'error': 'Content is too short for AI summary (minimum 50 characters required).'}, status=400)
+
+    # Truncate clean text to avoid token limits
+    cleaned_text = cleaned_text[:12000]
 
     try:
+        # Initialize Gemini Client
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         
+        # Use standard valid model name: gemini-2.5-flash or gemini-2.0-flash
+        model_name = getattr(settings, "GEMINI_MODEL_NAME", "gemini-2.5-flash")
+
         response = client.models.generate_content(
-            model=getattr(settings, "GEMINI_MODEL_NAME", "gemini-3.6-flash"),
+            model=model_name,
             contents=(
-                "Provide a concise summary of the following educational content. "
-                "Use bullet points. Max 300 words.\n\nContent:\n" + raw_text
+                "Provide a clear, concise educational summary of the following material. "
+                "Highlight key takeaways using bullet points. Keep it under 250 words.\n\n"
+                f"Material:\n{cleaned_text}"
             ),
             config=types.GenerateContentConfig(
-                temperature=0.1, 
-                max_output_tokens=500
+                temperature=0.2, 
+                max_output_tokens=600
             ),
         )
+
         summary_text = getattr(response, "text", None)
         
+        # Handle fallback if response.text is empty
+        if not summary_text and response.candidates and len(response.candidates) > 0:
+            candidate = response.candidates[0]
+            if candidate.content and candidate.content.parts:
+                summary_text = "".join([part.text for part in candidate.content.parts if hasattr(part, 'text')])
+
         if not summary_text:
             finish_reason = None
             if response.candidates and len(response.candidates) > 0:
@@ -3371,7 +3397,7 @@ def ai_content_summary(request, content_id):
             )
             return JsonResponse({
                 'success': False, 
-                'error': f'AI could not generate a summary (Reason: {finish_reason or "Blocked"}).'
+                'error': f'AI could not generate summary (Reason: {finish_reason or "Response blocked"}).'
             }, status=400)
 
         return JsonResponse({'success': True, 'summary': summary_text})
@@ -3380,9 +3406,8 @@ def ai_content_summary(request, content_id):
         logger.error(f"AI summary generation failed for content {content_id}: {e}")
         return JsonResponse({
             'success': False, 
-            'error': 'AI service is temporarily unavailable.'
+            'error': 'AI summary service is temporarily unavailable. Please try again.'
         }, status=502)
-
 
 
 @login_required
