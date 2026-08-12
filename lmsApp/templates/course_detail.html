@@ -336,12 +336,17 @@
                                                     </div>
                                                 </div>
                                             {% elif request.user.is_instructor and course.instructor == request.user %}
-                                                <div class="mt-4 p-3 rounded-xl border border-dashed border-gray-300 bg-gray-50/60 text-center">
+                                                <div class="mt-4 p-3.5 rounded-xl border border-dashed border-gray-300 bg-gray-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                                     <p class="text-xs text-gray-600">
-                                                        <i class="fas fa-lightbulb text-amber-500 mr-1"></i> No Knowledge Check created for this module yet.
-                                                        <a href="{% url 'quiz_create' %}" class="font-bold text-indigo-700 hover:underline">Create a Knowledge Check</a>
-                                                        and set its Quiz Type to <strong>"Module Knowledge Check"</strong> for this module.
+                                                        <i class="fas fa-lightbulb text-amber-500 mr-1.5"></i> No Knowledge Check created for this module yet. Set Quiz Type to <strong>"Module Knowledge Check"</strong> and select <strong>{{ module.title }}</strong>.
                                                     </p>
+                                                    
+                                                    {# --- TRIGGER QUIZ CREATE MODAL --- #}
+                                                    <button type="button" 
+                                                            onclick="loadModalForm('{% url 'quiz_create' %}', 'Create Knowledge Check')" 
+                                                            class="bg-indigo-800 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition shadow-xs whitespace-nowrap flex items-center gap-1.5 self-start sm:self-center">
+                                                        <i class="fas fa-plus-circle"></i> Create Knowledge Check
+                                                    </button>
                                                 </div>
                                             {% endif %}
 

@@ -3381,7 +3381,7 @@ def ai_content_summary(request, content_id):
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         
         # Use standard valid model name: gemini-2.5-flash or gemini-2.0-flash
-        model_name = getattr(settings, "GEMINI_MODEL_NAME", "gemini-2.5-flash")
+        model_name = getattr(settings, "GEMINI_MODEL_NAME", "gemini-flash-latest")
 
         response = client.models.generate_content(
             model=model_name,

@@ -231,7 +231,7 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # Files above 10MB stream to dis
 FILE_UPLOAD_TEMP_DIR = tempfile.gettempdir()
 
 GEMINI_API_KEY = config('GEMINI_API_KEY')
-GEMINI_MODEL_NAME = config('GEMINI_MODEL_NAME', default='gemini-2.5-flash')
+GEMINI_MODEL_NAME = config('GEMINI_MODEL_NAME', default='gemini-flash-latest')
 
 # Login URLs
 LOGIN_URL = 'login'
