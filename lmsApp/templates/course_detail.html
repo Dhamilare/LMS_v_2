@@ -313,21 +313,35 @@
                                                         </div>
                                                     </div>
 
-                                                    {% if request.user.is_student and is_enrolled %}
-                                                        {% if module.quiz_passed %}
-                                                            <span class="bg-emerald-100 text-emerald-800 font-bold text-xs px-3 py-1.5 rounded-full inline-flex items-center gap-1">
-                                                                <i class="fas fa-check"></i> Passed
-                                                            </span>
-                                                        {% elif module.lessons_completed %}
-                                                            <a href="{% url 'module_quiz_take' module_id=module.id %}" class="bg-indigo-800 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition shadow-xs">
-                                                                Knowledge Check
+                                                    <div>
+                                                        {% if request.user.is_student and is_enrolled %}
+                                                            {% if module.quiz_passed %}
+                                                                <span class="bg-emerald-100 text-emerald-800 font-bold text-xs px-3 py-1.5 rounded-full inline-flex items-center gap-1">
+                                                                    <i class="fas fa-check"></i> Passed
+                                                                </span>
+                                                            {% elif module.lessons_completed %}
+                                                                <a href="{% url 'module_quiz_take' module_id=module.id %}" class="bg-indigo-800 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition shadow-xs">
+                                                                    Knowledge Check
+                                                                </a>
+                                                            {% else %}
+                                                                <span class="text-xs text-gray-400 font-medium flex items-center gap-1">
+                                                                    <i class="fas fa-lock"></i> Complete lessons to unlock
+                                                                </span>
+                                                            {% endif %}
+                                                        {% elif request.user.is_instructor and course.instructor == request.user %}
+                                                            <a href="{% url 'quiz_detail_manage' quiz_id=module.quiz.id %}" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-indigo-200 transition inline-flex items-center gap-1">
+                                                                <i class="fas fa-cog"></i> Manage Questions
                                                             </a>
-                                                        {% else %}
-                                                            <span class="text-xs text-gray-400 font-medium flex items-center gap-1">
-                                                                <i class="fas fa-lock"></i> Complete lessons to unlock
-                                                            </span>
                                                         {% endif %}
-                                                    {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% elif request.user.is_instructor and course.instructor == request.user %}
+                                                <div class="mt-4 p-3 rounded-xl border border-dashed border-gray-300 bg-gray-50/60 text-center">
+                                                    <p class="text-xs text-gray-600">
+                                                        <i class="fas fa-lightbulb text-amber-500 mr-1"></i> No Knowledge Check created for this module yet.
+                                                        <a href="{% url 'quiz_create' %}" class="font-bold text-indigo-700 hover:underline">Create a Knowledge Check</a>
+                                                        and set its Quiz Type to <strong>"Module Knowledge Check"</strong> for this module.
+                                                    </p>
                                                 </div>
                                             {% endif %}
 
