@@ -3,53 +3,73 @@
 <form method="post" action="{% if question %}{% url 'question_update' quiz_id=quiz.id question_id=question.id %}{% else %}{% url 'question_create' quiz_id=quiz.id %}{% endif %}" class="space-y-4">
     {% csrf_token %}
     
-    {# Render the main QuestionForm fields (e.g., text, order) #}
+    {# Question Text & Order Fields #}
     {{ form|crispy }}
 
-    <h4 class="text-lg font-semibold text-gray-700 mt-6 mb-3">
-        Options
-        {% if quiz.allow_multiple_correct %}
-            <span class="text-gray-500 font-normal text-sm block md:inline-block mt-1 md:mt-0">(Select one or more correct answers)</span>
-        {% else %}
-            <span class="text-red-500 font-normal text-sm block md:inline-block mt-1 md:mt-0">(Only one correct answer is allowed)</span>
-        {% endif %}
-    </h4>
+    {# Options Section Header #}
+    <div class="pt-2 border-t border-gray-100">
+        <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fas fa-list-check text-indigo-700"></i> Answer Options
+            </h4>
+            
+            {% if quiz.allow_multiple_correct %}
+                <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2.5 py-0.5 rounded-full border border-indigo-100">
+                    Multiple correct answers allowed
+                </span>
+            {% else %}
+                <span class="text-[10px] bg-amber-50 text-amber-800 font-bold px-2.5 py-0.5 rounded-full border border-amber-200">
+                    Single correct answer only
+                </span>
+            {% endif %}
+        </div>
+    </div>
     
+    {# Option Formset Container #}
     <div class="space-y-3">
-        {# Management form for the OptionFormSet is crucial for Django to process the inline forms #}
+        {# Management Form required for Django Formsets #}
         {{ form.option_formset.management_form }} 
         
-        {# Loop through each option form in the formset #}
         {% for option_form in form.option_formset %}
-            <div class="flex items-center space-x-3 bg-gray-100 p-3 rounded-md border border-gray-200">
-                {# Checkbox for 'is_correct' option #}
-                <label class="flex items-center cursor-pointer">
+            <div class="flex items-center gap-3 bg-gray-50/80 p-3 rounded-xl border border-gray-200 hover:border-indigo-200 transition">
+                {# Checkbox for 'is_correct' #}
+                <label class="flex items-center gap-1.5 cursor-pointer select-none whitespace-nowrap bg-white px-2.5 py-1.5 rounded-lg border border-gray-200 shadow-2xs">
                     {{ option_form.is_correct }}
-                    <span class="ml-2 text-gray-700 text-sm">Correct Answer</span>
+                    <span class="text-xs font-bold text-gray-700">Correct</span>
                 </label>
                 
-                {# Input field for 'option text' with Crispy Forms rendering errors and labels #}
+                {# Option Text Input #}
                 <div class="flex-grow">
                     {{ option_form.text|as_crispy_field }}
                 </div>
                 
-                {# This will render the hidden ID field for an existing option #}
+                {# Hidden ID & Delete Fields #}
                 {{ option_form.id }}
+                {% if option_form.DELETE %}
+                    <div class="hidden">
+                        {{ option_form.DELETE }}
+                    </div>
+                {% endif %}
             </div>
         {% endfor %}
         
-        {# Display any non-field errors for the entire option formset #}
+        {# Formset Non-Field Errors #}
         {% if form.option_formset.non_form_errors %}
-            <div class="text-red-600 text-sm mt-1">
+            <div class="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-medium">
                 {% for error in form.option_formset.non_form_errors %}
-                    <p>{{ error }}</p>
+                    <p class="flex items-center gap-1"><i class="fas fa-exclamation-circle"></i> {{ error }}</p>
                 {% endfor %}
             </div>
         {% endif %}
     </div>
 
-    {# Submit button for the form #}
-    <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center justify-center text-lg shadow-md hover:shadow-lg">
-        <i class="fas fa-save mr-2"></i> {% if question %}Update Question{% else %}Add Question{% endif %}
-    </button>
+    {# Action Footer Buttons #}
+    <div class="pt-3 flex items-center justify-end gap-2 border-t border-gray-100">
+        <button type="button" onclick="window.closeModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition">
+            Cancel
+        </button>
+        <button type="submit" class="bg-indigo-800 hover:bg-indigo-700 text-white font-bold px-5 py-2 rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-1.5">
+            <i class="fas fa-save"></i> {% if question %}Update Question{% else %}Add Question{% endif %}
+        </button>
+    </div>
 </form>

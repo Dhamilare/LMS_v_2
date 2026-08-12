@@ -1,10 +1,40 @@
 {% load crispy_forms_tags %}
 
-<form method="post" action="{% url 'quiz_create' %}" class="space-y-4">
+<form method="post" action="{% url 'quiz_create' %}" enctype="multipart/form-data" class="space-y-4">
     {% csrf_token %}
     {{ form.media }}
     {{ form|crispy }}
-    <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg">
-        <i class="fas fa-save mr-2"></i> Save Quiz
-    </button>
+
+    <div class="pt-3 flex items-center justify-end gap-2 border-t border-gray-100">
+        <button type="button" onclick="window.closeModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition">
+            Cancel
+        </button>
+        <button type="submit" class="bg-indigo-800 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl transition shadow-xs flex items-center justify-center text-xs">
+            <i class="fas fa-save mr-2"></i> Save Quiz
+        </button>
+    </div>
 </form>
+
+<script>
+    (function() {
+        const quizTypeSelect = document.getElementById('id_quiz_type');
+        const courseDiv = document.getElementById('div_id_course');
+        const moduleDiv = document.getElementById('div_id_module');
+
+        function toggleDropdowns() {
+            const val = quizTypeSelect ? quizTypeSelect.value : '';
+            if (val === 'module_check' || val === 'module') {
+                if (courseDiv) courseDiv.style.display = 'none';
+                if (moduleDiv) moduleDiv.style.display = 'block';
+            } else {
+                if (courseDiv) courseDiv.style.display = 'block';
+                if (moduleDiv) moduleDiv.style.display = 'none';
+            }
+        }
+
+        if (quizTypeSelect) {
+            quizTypeSelect.addEventListener('change', toggleDropdowns);
+            toggleDropdowns();
+        }
+    })();
+</script>

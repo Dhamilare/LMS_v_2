@@ -3,22 +3,55 @@
 <form method="post" action="{% url 'quiz_upload_csv' quiz_id=quiz.id %}" enctype="multipart/form-data" class="space-y-4">
     {% csrf_token %}
     
-    {# Render the CSV upload form field #}
+    {# Render the CSV file upload input #}
     {{ form|crispy }}
 
-    <p class="text-gray-600 text-sm mt-2">
-        <i class="fas fa-info-circle mr-1"></i>
-        Please ensure your CSV file follows this exact format for each row:
-        <br>
-        <code>question_text,option1,is_correct1,option2,is_correct2,option3,is_correct3,option4,is_correct4</code>.
-        <br>
-        'is_correct' values should be **'True'** or **'False'**. A question can have **one or more** correct options.
-        <a href="{% url 'quiz_download_csv_template' quiz_id=quiz.id %}" download="quiz_questions_template.csv" class="text-blue-600 hover:underline flex items-center mt-1">
-            <i class="fas fa-download mr-1"></i> Download Sample CSV Template
-        </a>
-    </p>
+    {# --- DYNAMIC ANSWER MODE NOTICE --- #}
+    {% if quiz.allow_multiple_correct %}
+        <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900 text-xs flex items-start gap-2">
+            <i class="fas fa-circle-info text-indigo-600 text-sm mt-0.5 flex-shrink-0"></i>
+            <div>
+                <strong class="font-bold">Multiple Correct Answers Allowed:</strong>
+                <span>This quiz configuration allows questions in your CSV to have <strong>one or more</strong> options set to <code>True</code>.</span>
+            </div>
+        </div>
+    {% else %}
+        <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-start gap-2">
+            <i class="fas fa-exclamation-triangle text-amber-600 text-sm mt-0.5 flex-shrink-0"></i>
+            <div>
+                <strong class="font-bold">Single Correct Answer Only:</strong>
+                <span>Each question in your CSV must have <strong>EXACTLY ONE</strong> option set to <code>True</code>. Setting multiple options to <code>True</code> will cause validation errors.</span>
+            </div>
+        </div>
+    {% endif %}
 
-    <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg">
-        <i class="fas fa-upload mr-2"></i> Upload CSV
-    </button>
+    {# --- CSV FORMAT INSTRUCTIONS & SAMPLE DOWNLOAD --- #}
+    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 text-xs text-gray-700 space-y-2">
+        <p class="font-bold text-gray-900 uppercase tracking-wider text-[10px]">
+            <i class="fas fa-file-csv text-indigo-700 mr-1"></i> Required CSV Format
+        </p>
+        <p class="text-gray-600">Ensure each row in your CSV follows this exact column order:</p>
+        <div class="bg-slate-900 text-slate-200 p-2.5 rounded-lg text-[11px] font-mono overflow-x-auto select-all">
+            question_text,option1,is_correct1,option2,is_correct2,option3,is_correct3,option4,is_correct4
+        </div>
+        <p class="text-gray-500 text-[11px]">
+            Set <code>is_correct</code> values strictly to <code>True</code> or <code>False</code>.
+        </p>
+
+        <div class="pt-1">
+            <a href="{% url 'quiz_download_csv_template' quiz_id=quiz.id %}" download="quiz_questions_template.csv" class="inline-flex items-center gap-1.5 font-bold text-indigo-700 hover:text-indigo-900 hover:underline">
+                <i class="fas fa-download"></i> Download Sample CSV Template
+            </a>
+        </div>
+    </div>
+
+    {# --- ACTION BUTTONS --- #}
+    <div class="pt-3 flex items-center justify-end gap-2 border-t border-gray-100">
+        <button type="button" onclick="window.closeModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition">
+            Cancel
+        </button>
+        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
+            <i class="fas fa-upload"></i> Upload CSV Questions
+        </button>
+    </div>
 </form>

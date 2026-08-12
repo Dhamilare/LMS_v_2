@@ -549,7 +549,7 @@ class Quiz(models.Model):
     course = models.OneToOneField(Course, on_delete=models.CASCADE, related_name='quiz', null=True, blank=True, help_text="Set only when quiz_type='final'. The course this quiz is the main assessment for.")
     title = models.CharField(max_length=255)
     allow_multiple_correct = models.BooleanField(default=False)
-    description = CKEditor5Field(config_name='default')
+    description = CKEditor5Field(config_name='default', blank=True)
     pass_percentage = models.PositiveIntegerField(default=70)
     max_attempts = models.PositiveIntegerField(default=3, help_text="Maximum number of attempts allowed for this quiz.")
     created_at = models.DateTimeField(auto_now_add=True)

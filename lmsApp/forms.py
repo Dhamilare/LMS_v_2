@@ -157,6 +157,7 @@ class ContentForm(forms.ModelForm):
             Submit('submit', 'Save Content', css_class='w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-4')
         )
 
+
 class QuizDetailsForm(forms.ModelForm):
     allow_multiple_correct = forms.BooleanField(
         label="Allow multiple correct answers per question?",
@@ -176,15 +177,62 @@ class QuizDetailsForm(forms.ModelForm):
 
     class Meta:
         model = Quiz
-        fields = ['title', 'description', 'quiz_type', 'module', 'pass_percentage', 'max_attempts', 'allow_multiple_correct']
+        fields = [
+            'title', 
+            'description', 
+            'quiz_type', 
+            'course',  
+            'module', 
+            'pass_percentage', 
+            'max_attempts', 
+            'allow_multiple_correct'
+        ]
 
     def __init__(self, *args, instructor_user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['course'].required = False
         self.fields['module'].required = False
+
         if instructor_user is not None:
-            self.fields['module'].queryset = Module.objects.filter(
-                course__instructor=instructor_user
-            ).exclude(quiz__isnull=False)
+            # Filter available courses owned by the instructor
+            courses_qs = Course.objects.filter(instructor=instructor_user)
+            if self.instance and self.instance.pk and self.instance.course_id:
+                courses_qs = courses_qs.filter(
+                    Q(quiz__isnull=True) | Q(id=self.instance.course_id)
+                )
+            else:
+                courses_qs = courses_qs.exclude(quiz__isnull=False)
+            self.fields['course'].queryset = courses_qs.order_by('title')
+
+            # Filter available modules owned by the instructor
+            modules_qs = Module.objects.filter(course__instructor=instructor_user)
+            if self.instance and self.instance.pk and self.instance.module_id:
+                modules_qs = modules_qs.filter(
+                    Q(quiz__isnull=True) | Q(id=self.instance.module_id)
+                )
+            else:
+                modules_qs = modules_qs.exclude(quiz__isnull=False)
+            self.fields['module'].queryset = modules_qs.select_related('course').order_by('course__title', 'order')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        quiz_type = cleaned_data.get('quiz_type')
+        course = cleaned_data.get('course')
+        module = cleaned_data.get('module')
+
+        # 1. Final Assessment requires a Course
+        if quiz_type in ['course_quiz', 'final_assessment', 'course']:
+            if not course:
+                self.add_error('course', 'Please select a course for the Course Final Assessment.')
+            cleaned_data['module'] = None 
+
+        # 2. Knowledge Check requires a Module
+        elif quiz_type in ['module_check', 'module']:
+            if not module:
+                self.add_error('module', 'Please select a module for the Module Knowledge Check.')
+            cleaned_data['course'] = None  
+
+        return cleaned_data
 
 
 
@@ -257,20 +305,101 @@ QuestionFormSet = inlineformset_factory(
 
 
 class QuizAssignmentForm(forms.Form):
+    ASSIGNMENT_TYPE_CHOICES = [
+        ('course', 'Main Course Final Assessment'),
+        ('module', 'Module Knowledge Check'),
+    ]
+
+    assignment_type = forms.ChoiceField(
+        choices=ASSIGNMENT_TYPE_CHOICES,
+        widget=forms.RadioSelect,
+        initial='course',
+        label="Assignment Type",
+        help_text="Choose whether this quiz is a Course Final Assessment or a Module Knowledge Check."
+    )
+
     course = forms.ModelChoiceField(
         queryset=Course.objects.none(),
         empty_label="Select a course",
-        label="Assign to Course",
-        help_text="Select a course to assign this quiz as its main assessment. Only courses without an existing quiz are shown."
+        label="Target Course",
+        required=False,
+        help_text="Select a course for the Final Assessment."
+    )
+
+    module = forms.ModelChoiceField(
+        queryset=Module.objects.none(),
+        empty_label="Select a module",
+        label="Target Module",
+        required=False,
+        help_text="Select the module to attach this Knowledge Check to."
     )
 
     def __init__(self, *args, **kwargs):
         instructor_user = kwargs.pop('instructor_user', None)
+        quiz = kwargs.pop('quiz', None)
+        self.quiz_obj = quiz
         super().__init__(*args, **kwargs)
+
         if instructor_user:
+            # Show all courses owned by this instructor
             self.fields['course'].queryset = Course.objects.filter(
                 instructor=instructor_user
-            ).exclude(quiz__isnull=False).order_by('title')
+            ).order_by('title')
+
+            # Show all modules across instructor's courses
+            self.fields['module'].queryset = Module.objects.filter(
+                course__instructor=instructor_user
+            ).select_related('course').order_by('course__title', 'order')
+
+        # Pre-select initial state if quiz is already assigned
+        if quiz:
+            if getattr(quiz, 'module', None):
+                self.fields['assignment_type'].initial = 'module'
+                self.fields['module'].initial = quiz.module.id
+                if getattr(quiz.module, 'course', None):
+                    self.fields['course'].initial = quiz.module.course.id
+            elif getattr(quiz, 'course', None):
+                self.fields['assignment_type'].initial = 'course'
+                self.fields['course'].initial = quiz.course.id
+
+    def clean(self):
+        cleaned_data = super().clean()
+        assignment_type = cleaned_data.get('assignment_type')
+        course = cleaned_data.get('course')
+        module = cleaned_data.get('module')
+
+        if assignment_type == 'course':
+            if not course:
+                self.add_error('course', 'Please select a course for the Final Assessment.')
+            else:
+                # Check if another quiz is already assigned as the main assessment for this course
+                existing_quiz = Quiz.objects.filter(
+                    course=course, 
+                    module__isnull=True
+                ).exclude(id=self.quiz_obj.id if self.quiz_obj else None).first()
+
+                if existing_quiz:
+                    self.add_error(
+                        'course', 
+                        f'Course "{course.title}" already has a Final Assessment assigned ("{existing_quiz.title}").'
+                    )
+
+        elif assignment_type == 'module':
+            if not module:
+                self.add_error('module', 'Please select a module for the Knowledge Check.')
+            else:
+                # Check if another quiz is already assigned as a knowledge check for this module
+                existing_module_quiz = Quiz.objects.filter(
+                    module=module
+                ).exclude(id=self.quiz_obj.id if self.quiz_obj else None).first()
+
+                if existing_module_quiz:
+                    self.add_error(
+                        'module', 
+                        f'Module "{module.title}" already has a Knowledge Check assigned ("{existing_module_quiz.title}").'
+                    )
+
+        return cleaned_data
 
 
 class AssignCourseForm(forms.ModelForm):

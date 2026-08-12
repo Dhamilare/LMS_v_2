@@ -1,357 +1,163 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load crispy_forms_tags %}
 
-{% block title %}Manage Quizzes{% endblock %}
+{% block title %}Manage Quizzes | Ha-Shem LMS{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 sm:p-8 rounded-lg shadow-lg max-w-7xl mx-auto my-8">
-    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
-        <i class="fas fa-clipboard-question mr-2 sm:mr-3 text-indigo-600"></i> Manage Your Quizzes
-    </h2>
+<div class="-mx-6 -mt-6 md:-mx-8 md:-mt-8 bg-gray-100 min-h-screen pb-16">
 
-    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-3 sm:space-y-0">
-        <p class="text-gray-600 text-base sm:text-lg">Here you can create, edit, and assign quizzes to your courses.</p>
-        <button onclick="loadModalForm('{% url 'quiz_create' %}', 'Create New Quiz')"
-                class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center shadow-md hover:shadow-lg">
-            <i class="fas fa-plus-circle mr-2"></i> Create New Quiz
-        </button>
-    </div>
+    {# --- HERO BANNER & BREADCRUMBS --- #}
+    <div class="bg-gradient-to-r from-indigo-950 via-indigo-900 to-indigo-800 text-white py-8 px-6 sm:px-10 border-b border-indigo-950 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            
+            <div class="space-y-2">
+                {# Breadcrumb Navigation Path #}
+                <nav class="flex items-center gap-2 text-xs text-indigo-200 font-medium">
+                    <a href="{% url 'dashboard' %}" class="hover:text-white transition">Dashboard</a>
+                    <i class="fas fa-chevron-right text-[10px] text-indigo-400"></i>
+                    <span class="text-white font-semibold">Quiz Management</span>
+                </nav>
 
-    {% if quizzes %}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {% for quiz in quizzes %}
-                <div class="bg-gray-50 rounded-lg shadow-md border border-gray-200 p-5 transform hover:scale-105 transition duration-300 ease-in-out">
-                    <h3 class="text-xl font-semibold text-gray-800 mb-2">{{ quiz.title }}</h3>
-                    <p class="text-gray-600 text-sm mb-3 line-clamp-2">{{ quiz.description|safe|default:"No description provided." }}</p>
-                    <div class="text-gray-500 text-xs mb-3">
-                        <p><i class="fas fa-percent mr-1"></i> Pass Percentage: {{ quiz.pass_percentage }}%</p>
-                        <p><i class="fas fa-redo-alt mr-1"></i> Max Attempts: {{ quiz.max_attempts }}</p>
+                <div class="flex items-center gap-3 pt-1">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-800/80 border border-indigo-600/50 flex items-center justify-center text-indigo-300 text-2xl shadow-inner flex-shrink-0">
+                        <i class="fas fa-clipboard-question"></i>
                     </div>
-
-                    {% if quiz.course %}
-                        <p class="text-sm text-green-700 flex items-center mb-3">
-                            <i class="fas fa-link mr-2"></i> Assigned to Course: {{ quiz.course.title }}
+                    <div>
+                        <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                            Manage Your Quizzes
+                        </h1>
+                        <p class="text-xs sm:text-sm text-indigo-200 mt-0.5">
+                            Create, configure, and assign course final assessments and module knowledge checks.
                         </p>
-                    {% else %}
-                        <p class="text-sm text-yellow-700 flex items-center mb-3">
-                            <i class="fas fa-unlink mr-2"></i> Not yet assigned to a course.
-                        </p>
-                    {% endif %}
-
-                    <div class="flex flex-wrap gap-2 mt-4">
-                        <a href="{% url 'quiz_detail_manage' quiz_id=quiz.id %}"
-                           class="bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 transition duration-300 flex items-center text-sm shadow-sm">
-                            <i class="fas fa-cogs mr-2"></i> Manage Questions
-                        </a>
-                        <button onclick="loadModalForm('{% url 'quiz_assign_to_course' quiz_id=quiz.id %}', 'Assign Quiz: {{ quiz.title }}')"
-                                class="bg-purple-600 text-white py-2 px-3 rounded-md hover:bg-purple-700 transition duration-300 flex items-center text-sm shadow-sm">
-                            <i class="fas fa-link mr-2"></i> Assign To Course
-                        </button>
-                        <button onclick="loadModalForm('{% url 'quiz_edit' quiz_id=quiz.id %}', 'Edit Quiz: {{ quiz.title }}')"
-                                class="bg-gray-600 text-white py-2 px-3 rounded-md hover:bg-gray-700 transition duration-300 flex items-center text-sm shadow-sm">
-                            <i class="fas fa-edit mr-2"></i> Edit Quiz Details
-                        </button>
-                        <button onclick="confirmDelete('{% url 'quiz_delete' quiz_id=quiz.id %}', '{{ quiz.title }}')"
-                                class="bg-red-600 text-white py-2 px-3 rounded-md hover:bg-red-700 transition duration-300 flex items-center text-sm shadow-sm">
-                            <i class="fas fa-trash-alt mr-2"></i> Delete
-                        </button>
                     </div>
                 </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="text-center py-8 sm:py-10 bg-gray-50 rounded-lg shadow-sm border border-gray-200 mt-8">
-            <p class="text-gray-600 text-base sm:text-lg mb-4 flex items-center justify-center">
-                <i class="fas fa-info-circle mr-2"></i> You haven't created any quizzes yet.
-            </p>
+            </div>
+
+            {# Create Quiz Action Button #}
             <button onclick="loadModalForm('{% url 'quiz_create' %}', 'Create New Quiz')"
-                    class="bg-indigo-600 text-white py-2 px-5 sm:px-6 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center mx-auto w-fit shadow-md hover:shadow-lg text-sm sm:text-base">
-                <i class="fas fa-plus-circle mr-2"></i> Create Your First Quiz
+                    class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-2 self-start sm:self-center">
+                <i class="fas fa-plus-circle"></i> Create New Quiz
             </button>
-        </div>
-    {% endif %}
 
-    <div class="mt-8 text-center">
-        <a href="{% url 'dashboard' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-            <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
-        </a>
-    </div>
-</div>
-
-{% include 'partials/modal_base.html' %}
-{% include 'partials/confirmation_modal.html' %}
-
-<!-- Custom Delete Confirmation Modal -->
-<div id="delete-modal" class="hidden fixed inset-0 z-50 overflow-auto bg-gray-900 bg-opacity-50 flex items-center justify-center">
-    <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-2xl font-bold text-gray-800">Confirm Deletion</h3>
-            <button onclick="hideModal('delete-modal')" class="text-gray-400 hover:text-gray-600">
-                <i class="fas fa-times fa-lg"></i>
-            </button>
-        </div>
-        <div class="mb-6">
-            <p class="text-gray-700" id="delete-message"></p>
-        </div>
-        <div class="flex justify-end space-x-4">
-            <button onclick="hideModal('delete-modal')" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400 transition duration-300">
-                Cancel
-            </button>
-            <button id="confirm-delete-button" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition duration-300">
-                Delete
-            </button>
         </div>
     </div>
+
+    {# --- MAIN BODY CONTAINER --- #}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-6">
+
+        {% if quizzes %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for quiz in quizzes %}
+                    <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs hover:shadow-md transition flex flex-col justify-between group p-6 space-y-4">
+                        
+                        <div class="space-y-3">
+                            {# Header & Title #}
+                            <div class="flex items-start justify-between gap-2">
+                                <h3 class="font-bold text-gray-900 text-base group-hover:text-indigo-700 transition leading-snug">
+                                    {{ quiz.title }}
+                                </h3>
+
+                                {% if quiz.module %}
+                                    <span class="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-purple-50 text-purple-800 border border-purple-200 whitespace-nowrap">
+                                        Knowledge Check
+                                    </span>
+                                {% elif quiz.course %}
+                                    <span class="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200 whitespace-nowrap">
+                                        Course Assessment
+                                    </span>
+                                {% else %}
+                                    <span class="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                                        Unassigned
+                                    </span>
+                                {% endif %}
+                            </div>
+
+                            {# Description #}
+                            <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                                {{ quiz.description|striptags|default:"No description provided." }}
+                            </p>
+
+                            {# Metrics Row #}
+                            <div class="flex flex-wrap items-center gap-3 text-xs text-gray-600 pt-1">
+                                <span class="bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                    <i class="fas fa-percent text-indigo-600"></i> Pass: <strong>{{ quiz.pass_percentage }}%</strong>
+                                </span>
+                                <span class="bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                    <i class="fas fa-redo-alt text-indigo-600"></i> Max Attempts: <strong>{{ quiz.max_attempts }}</strong>
+                                </span>
+                            </div>
+
+                            {# Assignment Status Banner #}
+                            <div class="pt-2">
+                                {% if quiz.module %}
+                                    <div class="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2">
+                                        <i class="fas fa-link text-emerald-600 flex-shrink-0"></i>
+                                        <span class="truncate">Module: <strong>{{ quiz.module.title }}</strong></span>
+                                    </div>
+                                {% elif quiz.course %}
+                                    <div class="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2">
+                                        <i class="fas fa-link text-emerald-600 flex-shrink-0"></i>
+                                        <span class="truncate">Course: <strong>{{ quiz.course.title }}</strong></span>
+                                    </div>
+                                {% else %}
+                                    <div class="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                                        <i class="fas fa-unlink text-amber-600 flex-shrink-0"></i>
+                                        <span>Not yet assigned to a course or module.</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {# Action Buttons Toolbar #}
+                        <div class="pt-3 border-t border-gray-100 flex flex-wrap gap-2">
+                            <a href="{% url 'quiz_detail_manage' quiz_id=quiz.id %}"
+                               class="bg-indigo-800 hover:bg-indigo-700 text-white font-bold py-2 px-3 rounded-lg transition shadow-xs text-xs flex items-center gap-1.5 flex-grow justify-center">
+                                <i class="fas fa-cogs"></i> Questions
+                            </a>
+
+                            <button onclick="loadModalForm('{% url 'quiz_assign_to_course' quiz_id=quiz.id %}', 'Assign Quiz: {{ quiz.title|escapejs }}')"
+                                    class="bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-3 rounded-lg transition shadow-xs text-xs flex items-center gap-1.5">
+                                <i class="fas fa-link"></i> Assign
+                            </button>
+
+                            <button onclick="loadModalForm('{% url 'quiz_edit' quiz_id=quiz.id %}', 'Edit Quiz Details')"
+                                    class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-2.5 rounded-lg transition border border-gray-300 text-xs" title="Edit Quiz Details">
+                                <i class="fas fa-edit"></i>
+                            </button>
+
+                            <button onclick="showConfirmationModal('{% url 'quiz_delete' quiz_id=quiz.id %}', 'Delete Quiz', 'Are you sure you want to delete the quiz &quot;{{ quiz.title|escapejs }}&quot;?')"
+                                    class="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold py-2 px-2.5 rounded-lg transition border border-rose-200 text-xs" title="Delete Quiz">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            {# EMPTY STATE #}
+            <div class="max-w-md mx-auto text-center py-12 bg-white rounded-2xl border border-gray-200 shadow-xs space-y-3">
+                <i class="fas fa-clipboard-question text-4xl text-gray-300"></i>
+                <h3 class="font-bold text-gray-800 text-base">No Quizzes Created Yet</h3>
+                <p class="text-xs text-gray-500">
+                    Create course final assessments or module knowledge checks to evaluate your learners.
+                </p>
+                <div class="pt-2">
+                    <button onclick="loadModalForm('{% url 'quiz_create' %}', 'Create New Quiz')"
+                            class="inline-flex items-center gap-1.5 text-xs font-bold bg-indigo-800 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition shadow-xs">
+                        <i class="fas fa-plus"></i> Create Your First Quiz
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+
+        {# BACK TO DASHBOARD #}
+        <div class="flex justify-center pt-2">
+            <a href="{% url 'dashboard' %}" class="inline-flex items-center gap-2 text-xs font-bold bg-white hover:bg-gray-100 text-gray-800 px-6 py-2.5 rounded-xl transition border border-gray-300 shadow-xs">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+
+    </div>
 </div>
-
-<!-- Custom Toast Notification Container -->
-<div id="toast-container" class="fixed bottom-4 right-4 z-[60] flex flex-col items-end space-y-2"></div>
-{% endblock %}
-
-
-{% block extra_scripts %}
-{{ block.super }}
-{% csrf_token %}
-<script>
-    // Wait for the entire document to be ready before running the script
-    document.addEventListener('DOMContentLoaded', function() {
-        // ================================
-        // Toast Notification System
-        // ================================
-        function showToast(message, type = 'success') {
-            const toastContainer = document.getElementById('toast-container');
-            if (!toastContainer) return;
-
-            const toast = document.createElement('div');
-            let bgColor, icon;
-
-            switch (type) {
-                case 'success':
-                    bgColor = 'bg-green-500';
-                    icon = '<i class="fas fa-check-circle mr-2"></i>';
-                    break;
-                case 'error':
-                    bgColor = 'bg-red-500';
-                    icon = '<i class="fas fa-exclamation-circle mr-2"></i>';
-                    break;
-                default:
-                    bgColor = 'bg-gray-700';
-                    icon = '<i class="fas fa-info-circle mr-2"></i>';
-            }
-
-            toast.className = `flex items-center px-4 py-3 rounded-lg text-white shadow-md transform transition-transform duration-300 ease-out translate-x-full ${bgColor}`;
-            toast.innerHTML = `${icon}<span>${message}</span>`;
-            toastContainer.appendChild(toast);
-
-            setTimeout(() => {
-                toast.style.transform = 'translateX(0)';
-            }, 100);
-
-            setTimeout(() => {
-                toast.style.transform = 'translateX(120%)';
-                toast.addEventListener('transitionend', () => {
-                    toast.remove();
-                });
-            }, 5000);
-        }
-
-        // ================================
-        // Modal Elements
-        // ================================
-        const mainModal = document.getElementById('quiz-modal');
-        const modalTitle = document.getElementById('modal-title');
-        const modalBody = document.getElementById('modal-body');
-
-        const deleteModal = document.getElementById('delete-modal');
-        const deleteMessage = document.getElementById('delete-message');
-        const confirmDeleteBtn = document.getElementById('confirm-delete-button');
-
-        function hideModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-        }
-
-        // ================================
-        // Utility Functions
-        // ================================
-        function showModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            }
-        }
-
-        function hideModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-        }
-
-        window.hideModal = hideModal;
-        window.showModal = showModal;
-
-        // ================================
-        // Main Quiz Modal Functions
-        // ================================
-        function closeMainModal() {
-            if (mainModal) {
-                hideModal('quiz-modal');
-                modalBody.innerHTML = '';
-            }
-        }
-
-        function loadModalForm(url, title) {
-            if (modalTitle) modalTitle.textContent = title;
-            if (modalBody) modalBody.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin text-indigo-600 fa-2x"></i></div>';
-
-            fetch(url, {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.text().then(text => { throw new Error(text) });
-                }
-                return response.text();
-            })
-            .then(html => {
-                if (modalBody) modalBody.innerHTML = html;
-                showModal('quiz-modal');
-                attachFormSubmissionHandler();
-            })
-            .catch(error => {
-                console.error('Error fetching form:', error);
-                if (modalBody) modalBody.innerHTML = '<p class="text-red-500">Failed to load the form. Please try again.</p>';
-            });
-        }
-
-        function attachFormSubmissionHandler() {
-            const form = document.querySelector('#quiz-modal form');
-            if (form) {
-                form.addEventListener('submit', function(event) {
-                    event.preventDefault();
-
-                    const formData = new FormData(form);
-                    const submitButton = form.querySelector('button[type="submit"]');
-
-                    if (submitButton) {
-                        submitButton.disabled = true;
-                        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
-                    }
-
-                    fetch(form.action, {
-                        method: 'POST',
-                        body: formData,
-                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            return response.text().then(text => { throw new Error(text) });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            showToast(data.message, 'success');
-                            window.location.reload();
-                        } else {
-                            if (modalBody) modalBody.innerHTML = data.form_html;
-                            attachFormSubmissionHandler();
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error during form submission:', error);
-                        showToast('An error occurred. Please try again.', 'error');
-                        if (submitButton) {
-                            submitButton.disabled = false;
-                            submitButton.innerHTML = '<i class="fas fa-save mr-2"></i> Save Quiz';
-                        }
-                    });
-                });
-            }
-        }
-
-        if (mainModal) {
-            mainModal.addEventListener('click', function(e) {
-                if (e.target.id === 'quiz-modal') {
-                    closeMainModal();
-                }
-            });
-        }
-
-        // ================================
-        // Delete Confirmation Modal
-        // ================================
-        window.confirmDelete = (url, quizTitle) => {
-            console.log("Confirming delete for:", quizTitle);
-            if (deleteMessage) {
-                deleteMessage.textContent = `Are you sure you want to delete the quiz "${quizTitle}"? This action cannot be undone.`;
-            }
-            showModal('delete-modal');
-
-            confirmDeleteBtn.onclick = (e) => {
-                e.stopPropagation();
-                console.log("Attempting to delete quiz. URL:", url);
-
-                const csrftokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
-                if (!csrftokenElement) {
-                    console.error("CRITICAL: CSRF token element not found! Cannot proceed with deletion.");
-                    showToast("CSRF token not found. Cannot delete.", 'error');
-                    hideModal('delete-modal');
-                    return;
-                }
-                const csrftoken = csrftokenElement.value;
-                console.log("CSRF token found:", csrftoken);
-
-                fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrftoken,
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then(response => {
-                    console.log("Fetch response received. Status:", response.status);
-                    if (!response.ok) {
-                        if (response.status === 403) {
-                            console.error("Permission or CSRF error (403). Possible issues: incorrect CSRF token, or user is not the quiz owner.");
-                            throw new Error("You don't have permission to delete this quiz, or the CSRF token is invalid.");
-                        }
-                        return response.text().then(text => { throw new Error(text) });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        showToast(data.message, 'success');
-                        window.location.reload();
-                    } else {
-                        console.error("Deletion failed:", data.message);
-                        showToast(data.message, 'error');
-                        hideModal('delete-modal');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error during deletion:', error);
-                    showToast(`An error occurred: ${error.message}`, 'error');
-                    hideModal('delete-modal');
-                });
-            };
-        };
-
-        if (deleteModal) {
-            deleteModal.addEventListener('click', function(e) {
-                if (e.target.id === 'delete-modal') {
-                    hideModal('delete-modal');
-                }
-            });
-        }
-    }); // End of DOMContentLoaded
-</script>
 {% endblock %}

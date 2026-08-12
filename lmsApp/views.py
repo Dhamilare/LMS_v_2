@@ -2218,9 +2218,14 @@ def quiz_detail_manage(request, quiz_id):
         page_obj = paginator.page(1)
     except EmptyPage:
         page_obj = paginator.page(paginator.num_pages)
+        
+    is_assigned = bool(quiz.course or quiz.module)
+    assigned_course = quiz.course or (quiz.module.course if quiz.module else None)
 
     context = {
         'quiz': quiz,
+        'is_assigned': is_assigned,
+        'assigned_course': assigned_course,
         'page_obj': page_obj,
         'questions': page_obj.object_list,
         'search_query': search_query,
@@ -2316,27 +2321,53 @@ def question_delete(request, quiz_id, question_id):
 @user_passes_test(is_instructor)
 def quiz_assign_to_course(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id, created_by=request.user)
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+
     if request.method == 'POST':
-        form = QuizAssignmentForm(request.POST, instructor_user=request.user)
+        form = QuizAssignmentForm(request.POST, instructor_user=request.user, quiz=quiz)
+        
         if form.is_valid():
-            course = form.cleaned_data['course']
+            assignment_type = form.cleaned_data['assignment_type']
 
-            if hasattr(course, 'quiz') and course.quiz:
-                return JsonResponse({'success': False, 'error': f'Course "{course.title}" already has a quiz assigned.'}, status=400)
+            if assignment_type == 'course':
+                course = form.cleaned_data['course']
+                quiz.course = course
+                quiz.module = None
+                if hasattr(quiz, 'quiz_type'):
+                    quiz.quiz_type = 'course_quiz'
+                quiz.save()
+                message = f'Quiz "{quiz.title}" assigned as Final Assessment to course "{course.title}"!'
 
-            quiz.course = course
-            quiz.save()
-            return JsonResponse({'success': True, 'message': f'Quiz "{quiz.title}" assigned to course "{course.title}" successfully!'})
+            elif assignment_type == 'module':
+                module = form.cleaned_data['module']
+                quiz.module = module
+                quiz.course = None
+                if hasattr(quiz, 'quiz_type'):
+                    quiz.quiz_type = 'module_check'
+                quiz.save()
+                message = f'Quiz "{quiz.title}" assigned as Knowledge Check to module "{module.title}"!'
+
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'message': message,
+                    'redirect_url': request.META.get('HTTP_REFERER') or redirect('dashboard').url
+                })
+
+            messages.success(request, message)
+            return redirect('dashboard')
         else:
-            html_form = render_to_string('instructor/quiz_assign_form.html', {'form': form, 'quiz': quiz}, request=request)
-            return JsonResponse({'success': False, 'error': 'Validation failed.', 'form_html': html_form}, status=400)
+            if is_ajax:
+                html_form = render_to_string('instructor/quiz_assign_form.html', {'form': form, 'quiz': quiz}, request=request)
+                return JsonResponse({'success': False, 'error': 'Validation failed.', 'form_html': html_form}, status=400)
     else:
-        initial_data = {}
-        if quiz.course:
-            initial_data['course'] = quiz.course.id
-        form = QuizAssignmentForm(initial=initial_data, instructor_user=request.user)
+        form = QuizAssignmentForm(instructor_user=request.user, quiz=quiz)
 
     context = {'form': form, 'quiz': quiz}
+    
+    if is_ajax:
+        return render(request, 'instructor/quiz_assign_form.html', context)
+
     return render(request, 'instructor/quiz_assign_form.html', context)
 
 

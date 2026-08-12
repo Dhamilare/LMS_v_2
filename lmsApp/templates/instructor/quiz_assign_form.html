@@ -1,9 +1,43 @@
 {% load crispy_forms_tags %}
 
-<form method="post" action="{% url 'quiz_assign_to_course' quiz_id=quiz.id %}" class="space-y-4"> {# Updated URL #}
+<form method="post" action="{% url 'quiz_assign_to_course' quiz_id=quiz.id %}" class="space-y-4">
     {% csrf_token %}
+    
+    <div class="p-3 bg-indigo-50/80 rounded-xl border border-indigo-100 text-xs text-indigo-900">
+        <i class="fas fa-info-circle mr-1 text-indigo-600"></i>
+        Assign <strong>"{{ quiz.title }}"</strong> as a <strong>Course Final Assessment</strong> or attach it to a specific <strong>Module Knowledge Check</strong>.
+    </div>
+
     {{ form|crispy }}
-    <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg">
-        <i class="fas fa-link mr-2"></i> Assign Quiz to Course
-    </button>
+
+    <div class="pt-3 flex items-center justify-end gap-2 border-t border-gray-100">
+        <button type="button" onclick="window.closeModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition">
+            Cancel
+        </button>
+        <button type="submit" class="bg-indigo-800 hover:bg-indigo-700 text-white font-bold px-5 py-2 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
+            <i class="fas fa-link"></i> Assign Quiz
+        </button>
+    </div>
 </form>
+
+<script>
+    (function() {
+        const radios = document.querySelectorAll('input[name="assignment_type"]');
+        const courseDiv = document.getElementById('div_id_course');
+        const moduleDiv = document.getElementById('div_id_module');
+
+        function toggleFields() {
+            const selected = document.querySelector('input[name="assignment_type"]:checked')?.value;
+            if (selected === 'module') {
+                if (courseDiv) courseDiv.style.display = 'none';
+                if (moduleDiv) moduleDiv.style.display = 'block';
+            } else {
+                if (courseDiv) courseDiv.style.display = 'block';
+                if (moduleDiv) moduleDiv.style.display = 'none';
+            }
+        }
+
+        radios.forEach(r => r.addEventListener('change', toggleFields));
+        toggleFields();
+    })();
+</script>
