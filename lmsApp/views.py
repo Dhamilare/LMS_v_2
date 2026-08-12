@@ -2162,19 +2162,37 @@ def quiz_create(request):
             quiz = form.save(commit=False)
             quiz.created_by = request.user
             quiz.save()
-            return JsonResponse({
-                'success': True,
-                'message': f'Quiz "{quiz.title}" created successfully!',
-                'quiz_id': quiz.id
-            })
+
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Quiz "{quiz.title}" created successfully!',
+                    'quiz_id': quiz.id,
+                    'redirect_url': request.META.get('HTTP_REFERER') or redirect('dashboard').url
+                })
+            
+            messages.success(request, f'Quiz "{quiz.title}" created successfully!')
+            return redirect('quiz_detail_manage', quiz_id=quiz.id)
         else:
             if is_ajax:
-                html_form = render_to_string('instructor/quiz_create.html', {'form': form}, request=request)
-                return JsonResponse({'success': False, 'error': 'Validation failed.', 'form_html': html_form}, status=400)
+                html_form = render_to_string(
+                    'instructor/quiz_create_partial.html', 
+                    {'form': form, 'request': request}, 
+                    request=request
+                )
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'Please correct the errors in the form.', 
+                    'form_html': html_form
+                }, status=400)
     else:
         form = QuizDetailsForm(instructor_user=request.user)
 
     context = {'form': form}
+
+    if is_ajax:
+        return render(request, 'instructor/quiz_create.html', context)
+
     return render(request, 'instructor/quiz_create.html', context)
 
 
