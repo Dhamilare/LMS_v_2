@@ -2176,7 +2176,7 @@ def quiz_create(request):
         else:
             if is_ajax:
                 html_form = render_to_string(
-                    'instructor/quiz_create_partial.html', 
+                    'instructor/partials/quiz_create_partial.html', 
                     {'form': form, 'request': request}, 
                     request=request
                 )
